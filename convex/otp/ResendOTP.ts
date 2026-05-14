@@ -1,7 +1,5 @@
 import { Email } from "@convex-dev/auth/providers/Email";
 import { alphabet, generateRandomString } from "oslo/crypto";
-import { Resend as ResendAPI } from "resend";
-import { VerificationCodeEmail } from "./VerificationCodeEmail";
 
 export const ResendOTP = Email({
   id: "resend-otp",
@@ -16,18 +14,45 @@ export const ResendOTP = Email({
     token,
     expires,
   }) {
-    const resend = new ResendAPI(provider.apiKey);
-    const { error } = await resend.emails.send({
-      // TODO: Update with your app name and email address
-      from: process.env.AUTH_EMAIL ?? "My App <onboarding@resend.dev>",
-      to: [email],
-      // TODO: Update with your app name
-      subject: `Sign in to My App`,
-      react: VerificationCodeEmail({ code: token, expires }),
+    // Simple HTML email template
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <title>Verification Code</title>
+        </head>
+        <body style="font-family: Arial, sans-serif; padding: 20px;">
+          <div style="max-width: 600px; margin: 0 auto;">
+            <h2>Your verification code</h2>
+            <p>Use this code to sign in:</p>
+            <div style="background: #f4f4f4; padding: 20px; font-size: 32px; font-weight: bold; text-align: center; letter-spacing: 8px;">
+              ${token}
+            </div>
+            <p style="color: #666; margin-top: 20px;">This code expires at ${expires.toLocaleString()}</p>
+            <p style="color: #999; font-size: 12px; margin-top: 40px;">If you didn't request this code, you can safely ignore this email.</p>
+          </div>
+        </body>
+      </html>
+    `;
+
+    const response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${provider.apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: process.env.AUTH_EMAIL ?? "My App <onboarding@resend.dev>",
+        to: [email],
+        subject: `Sign in to My App`,
+        html,
+      }),
     });
 
-    if (error) {
-      throw new Error(JSON.stringify(error));
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`Failed to send email: ${error}`);
     }
   },
 });

@@ -1,4 +1,4 @@
-import { useAuthActions } from "@convex-dev/auth/dist/react";
+import { useAuthActions } from "@convex-dev/auth/react";
 import { useToastController } from "@tamagui/toast";
 import { useState } from "react";
 import { Button, Form, Input } from "tamagui";
@@ -22,7 +22,7 @@ export function SignInWithEmailCode({
       .then(() => {
         handleCodeSent(email);
       })
-      .catch((error) => {
+      .catch((error: any) => {
         console.error(error);
         toast.show("Could not send code. Please try again.");
         setSubmitting(false);

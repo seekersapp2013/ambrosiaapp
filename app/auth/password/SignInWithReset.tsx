@@ -1,4 +1,4 @@
-import { useAuthActions } from "@convex-dev/auth/dist/react";
+import { useAuthActions } from "@convex-dev/auth/react";
 import { useToastController } from "@tamagui/toast";
 import { useState } from "react";
 import { SignInWithEmailCode } from "../otp/email/SignInWithEmailCode";
@@ -52,7 +52,7 @@ function ResetPasswordWithEmailCode({
       flow: "reset-verification",
       newPassword: newPassword,
       code: code,
-    }).catch((error) => {
+    }).catch((error: any) => {
       console.error(error);
       toast.show(
         "Code could not be verified or new password is too short, try again"

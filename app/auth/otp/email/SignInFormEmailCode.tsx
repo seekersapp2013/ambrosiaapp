@@ -1,4 +1,4 @@
-import { useAuthActions } from "@convex-dev/auth/dist/react";
+import { useAuthActions } from "@convex-dev/auth/react";
 import { useState } from "react";
 import { Button, Form, H2, Input, Text, View } from "tamagui";
 import { SignInWithEmailCode } from "./SignInWithEmailCode";
@@ -18,7 +18,7 @@ export function SignInFormEmailCode() {
       setSubmitting(false);
       return;
     }
-    signIn("resend-otp", { email: step.email, code }).catch((error) => {
+    signIn("resend-otp", { email: step.email, code }).catch((error: any) => {
       console.error(error);
       toast.show("Code could not be verified. Please try again.");
       setSubmitting(false);

@@ -1,7 +1,8 @@
-import { useAuthActions } from "@convex-dev/auth/dist/react";
-import { useState } from "react";
-import { Button, Form, H2, Input, Text, View } from "tamagui";
+import { useAuthActions } from "@convex-dev/auth/react";
+import { useState, useEffect } from "react";
+import { Button, Form, H2, Input, Text, View, XStack, Spinner } from "tamagui";
 import { useToastController } from "@tamagui/toast";
+import { useCountryDetection } from "@/hooks/useCountryDetection";
 
 export function SignInFormPhoneCode() {
   const { signIn } = useAuthActions();
@@ -17,7 +18,7 @@ export function SignInFormPhoneCode() {
       setSubmitting(false);
       return;
     }
-    signIn("twilio", { phone: step.phone, code }).catch((error) => {
+    signIn("twilio", { phone: step.phone, code }).catch((error: any) => {
       console.error(error);
       toast.show("Code could not be verified. Please try again.");
       setSubmitting(false);
@@ -66,38 +67,59 @@ function SignInWithPhoneCode({
   handleCodeSent: (phone: string) => void;
 }) {
   const { signIn } = useAuthActions();
+  const { phonePrefix, isLoading: isDetectingCountry } = useCountryDetection();
   const [phone, setPhone] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const toast = useToastController();
+
+  // Auto-populate phone prefix when country is detected
+  useEffect(() => {
+    if (!isDetectingCountry && !phone && phonePrefix) {
+      setPhone(phonePrefix + " ");
+    }
+  }, [isDetectingCountry, phonePrefix]);
+
   const handleSubmit = () => {
     setSubmitting(true);
-    signIn("twilio-otp", { phone })
+
+    // Ensure phone has the prefix
+    const finalPhone = phone.trim().startsWith('+') ? phone.trim() : phonePrefix + phone.trim();
+
+    signIn("twilio-otp", { phone: finalPhone })
       .then(() => {
-        handleCodeSent(phone);
+        handleCodeSent(finalPhone);
       })
-      .catch((error) => {
+      .catch((error: any) => {
         console.error(error);
         toast.show("Could not send code. Please try again.");
         setSubmitting(false);
       });
   };
+
   return (
     <Form gap="$2" onSubmit={handleSubmit}>
+      {isDetectingCountry ? (
+        <XStack gap="$2" ai="center" jc="center" p="$3">
+          <Spinner size="small" />
+          <Text size="$3" col="$gray10">Detecting your country...</Text>
+        </XStack>
+      ) : null}
       <Input
         size="$5"
-        placeholder="Phone number"
+        placeholder={`Phone number (e.g., ${phonePrefix} 8012345678)`}
         value={phone}
         autoCapitalize="none"
         autoComplete="tel"
         enterKeyHint="next"
         onChangeText={setPhone}
         blurOnSubmit={false}
+        keyboardType="phone-pad"
       />
       <Form.Trigger asChild>
         <Button
           size="$5"
           themeInverse
-          disabled={submitting}
+          disabled={submitting || isDetectingCountry}
           disabledStyle={{ opacity: 0.5 }}
         >
           {"Send code"}

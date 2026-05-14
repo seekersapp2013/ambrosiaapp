@@ -1,3 +1,5 @@
+import "react-native-get-random-values";
+import "@ethersproject/shims";
 import { Stack } from "expo-router";
 import { ConvexReactClient } from "convex/react";
 import * as SecureStore from "expo-secure-store";
@@ -5,6 +7,9 @@ import { ConvexAuthProvider } from "@convex-dev/auth/react";
 import { TamaguiProvider, createTamagui } from "tamagui";
 import { config } from "@tamagui/config/v3";
 import { Toasts } from "./Toasts";
+import { ErrorBoundary } from "./ErrorBoundary";
+import { useEffect } from "react";
+import { LogBox } from "react-native";
 
 const convex = new ConvexReactClient(process.env.EXPO_PUBLIC_CONVEX_URL!, {
   unsavedChangesWarning: false,
@@ -25,22 +30,32 @@ const secureStorage = {
 const tamaguiConfig = createTamagui(config);
 
 export default function RootLayout() {
+  useEffect(() => {
+    // Suppress keep awake errors in development
+    LogBox.ignoreLogs([
+      'Unable to activate keep awake',
+      'Error: Unable to activate keep awake',
+    ]);
+  }, []);
+
   return (
-    <TamaguiProvider config={tamaguiConfig}>
-      <Toasts>
-        <ConvexAuthProvider
-          client={convex}
-          storage={
-            window.localStorage === undefined
-              ? secureStorage
-              : window.localStorage
-          }
-        >
-          <Stack>
-            <Stack.Screen name="index" />
-          </Stack>
-        </ConvexAuthProvider>
-      </Toasts>
-    </TamaguiProvider>
+    <ErrorBoundary>
+      <TamaguiProvider config={tamaguiConfig}>
+        <Toasts>
+          <ConvexAuthProvider
+            client={convex}
+            storage={
+              typeof window !== "undefined" && window.localStorage
+                ? window.localStorage
+                : secureStorage
+            }
+          >
+            <Stack>
+              <Stack.Screen name="index" options={{ headerShown: false }} />
+            </Stack>
+          </ConvexAuthProvider>
+        </Toasts>
+      </TamaguiProvider>
+    </ErrorBoundary>
   );
 }
