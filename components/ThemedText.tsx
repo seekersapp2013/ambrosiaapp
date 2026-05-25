@@ -1,11 +1,10 @@
 import { Text, type TextProps, StyleSheet } from 'react-native';
-
 import { useThemeColor } from '@/hooks/useThemeColor';
 
 export type ThemedTextProps = TextProps & {
   lightColor?: string;
   darkColor?: string;
-  type?: 'default' | 'title' | 'defaultSemiBold' | 'subtitle' | 'link';
+  type?: 'default' | 'title' | 'defaultSemiBold' | 'subtitle' | 'link' | 'muted' | 'caption';
 };
 
 export function ThemedText({
@@ -26,6 +25,8 @@ export function ThemedText({
         type === 'defaultSemiBold' ? styles.defaultSemiBold : undefined,
         type === 'subtitle' ? styles.subtitle : undefined,
         type === 'link' ? styles.link : undefined,
+        type === 'muted' ? styles.muted : undefined,
+        type === 'caption' ? styles.caption : undefined,
         style,
       ]}
       {...rest}
@@ -37,24 +38,38 @@ const styles = StyleSheet.create({
   default: {
     fontSize: 16,
     lineHeight: 24,
+    color: '#ffffff',
   },
   defaultSemiBold: {
     fontSize: 16,
     lineHeight: 24,
     fontWeight: '600',
+    color: '#ffffff',
   },
   title: {
     fontSize: 32,
     fontWeight: 'bold',
-    lineHeight: 32,
+    lineHeight: 38,
+    color: '#ffffff',
   },
   subtitle: {
     fontSize: 20,
     fontWeight: 'bold',
+    color: '#ffffff',
   },
   link: {
     lineHeight: 30,
     fontSize: 16,
-    color: '#0a7ea4',
+    color: '#C62229',
+  },
+  muted: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: '#9ca3af',
+  },
+  caption: {
+    fontSize: 12,
+    lineHeight: 16,
+    color: '#6b7280',
   },
 });

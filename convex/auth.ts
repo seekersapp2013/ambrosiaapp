@@ -1,120 +1,138 @@
 import { convexAuth } from "@convex-dev/auth/server";
 import { Password } from "@convex-dev/auth/providers/Password";
 import { DataModel } from "./_generated/dataModel";
+import { internal } from "./_generated/api";
+
+const password = Password<DataModel>({
+  profile(params) {
+    return {
+      email: params.email as string,
+      name: params.name as string,
+    };
+  },
+});
 
 export const { auth, signIn, signOut, store } = convexAuth({
-  providers: [
-    Password({
-      profile(params) {
-        console.log("Profile params received:", Object.keys(params));
-        
-        const profile: any = {
-          email: params.email as string,
-          isVerified: false,
-          isCelebrity: false,
-          createdAt: Date.now(),
-        };
-        
-        if (params.username) {
-          profile.username = params.username as string;
-          console.log("Added username to profile");
-        }
-        if (params.phone) {
-          profile.phone = params.phone as string;
-          console.log("Added phone to profile");
-        }
-        if (params.displayName) {
-          profile.displayName = params.displayName as string;
-        }
-        if (params.interests) {
-          profile.interests = params.interests as string[];
-          console.log("Added interests to profile:", params.interests);
-        }
-        if (params.walletAddress) {
-          profile.walletAddress = params.walletAddress as string;
-          console.log("Added walletAddress to profile");
-        }
-        if (params.walletPrivateKey) {
-          profile.walletPrivateKey = params.walletPrivateKey as string;
-          console.log("Added walletPrivateKey to profile (encrypted)");
-        }
-        if (params.walletMnemonic) {
-          profile.walletMnemonic = params.walletMnemonic as string;
-          console.log("Added walletMnemonic to profile (encrypted)");
-        }
-        if (params.transactionPin) {
-          profile.transactionPin = params.transactionPin as string;
-          console.log("Added transactionPin to profile (hashed)");
-        }
-        
-        console.log("Final profile fields:", Object.keys(profile));
-        return profile;
-      },
-    }),
-  ],
+  providers: [password],
   callbacks: {
-    async redirect({ redirectTo }) {
-      // Allow redirects to the mobile Expo URL or to the web URL.
-      // Without this, only redirects to `SITE_URL` are allowed.
-      if (
-        redirectTo !== process.env.EXPO_URL! &&
-        redirectTo !== process.env.SITE_URL!
-      ) {
-        throw new Error(`Invalid redirectTo URI ${redirectTo}`);
-      }
-      return redirectTo;
-    },
     async afterUserCreatedOrUpdated(ctx, { userId, existingUserId }) {
-      // Only run for new users, not updates
-      if (existingUserId) {
-        return;
-      }
-
-      const user = await ctx.db.get(userId);
-      if (user) {
-        console.log("New user created:", userId);
-        console.log("User has wallet data:", {
-          hasAddress: !!user.walletAddress,
-          hasPrivateKey: !!user.walletPrivateKey,
-          hasMnemonic: !!user.walletMnemonic,
-          hasPin: !!user.transactionPin,
-        });
+      // Only create profile for new users
+      if (!existingUserId) {
+        console.log('Creating profile for new user:', userId);
         
-        // Initialize wallet for new user
-        try {
-          const wallets = await ctx.db
-            .query("wallets")
-            .collect();
-          
-          const existingWallet = wallets.find((w: any) => w.userId === userId);
+        const user = await ctx.db.get(userId);
+        if (!user) {
+          console.error('User not found after creation:', userId);
+          return;
+        }
 
-          if (!existingWallet) {
-            await ctx.db.insert("wallets", {
-              userId,
-              balance: 0,
-              updatedAt: Date.now(),
-            });
-            console.log("Wallet balance initialized");
+        // Check if profile already exists
+        const existingProfile = await ctx.db
+          .query("profiles")
+          .filter((q) => q.eq(q.field("userId"), userId))
+          .first();
+
+        if (existingProfile) {
+          console.log('Profile already exists for user:', userId);
+          return;
+        }
+
+        // Use username from signup params, or derive from name/email
+        const rawUsername = (user as any).username as string | undefined;
+        const userName = user.name || (user.email as string | undefined)?.split("@")[0] || "user";
+        let baseUsername = rawUsername
+          ? rawUsername.toLowerCase().replace(/[^a-z0-9_]/g, "")
+          : userName.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+        if (!baseUsername) baseUsername = "user";
+
+        // Ensure username is unique
+        let counter = 1;
+        let finalUsername = baseUsername;
+        while (true) {
+          const taken = await ctx.db
+            .query("profiles")
+            .filter((q) => q.eq(q.field("username"), finalUsername))
+            .first();
+          if (!taken) break;
+          finalUsername = `${baseUsername}${counter}`;
+          counter++;
+        }
+
+        try {
+          const profileData: Record<string, unknown> = {
+            userId,
+            username: finalUsername,
+            name: userName,
+            createdAt: Date.now(),
+          };
+
+          // Look up wizard data stored in signupPending before signIn was called
+          const email = (user.email as string | undefined)?.toLowerCase();
+          const pending = email
+            ? await ctx.db
+                .query("signupPending")
+                .filter((q) => q.eq(q.field("email"), email))
+                .first()
+            : null;
+
+          if (pending) {
+            // Use the username from the wizard if provided
+            const wizardUsername = pending.username.toLowerCase().replace(/[^a-z0-9_]/g, "");
+            if (wizardUsername) {
+              // Re-check uniqueness for wizard username
+              const taken = await ctx.db
+                .query("profiles")
+                .filter((q) => q.eq(q.field("username"), wizardUsername))
+                .first();
+              if (!taken) profileData.username = wizardUsername;
+            }
+            profileData.phoneNumber = pending.phoneNumber;
+            profileData.phoneCountryCode = pending.phoneCountryCode;
+            profileData.detectedCountry = pending.detectedCountry;
+            profileData.interests = pending.interests;
+            profileData.pinHash = pending.transactionPin;
+            // Clean up
+            await ctx.db.delete(pending._id);
+          }
+
+          // Write all wizard fields if present on user record (legacy path)
+          const u = user as any;
+          if (!pending && u.phone) profileData.phoneNumber = u.phone;
+
+          const profileId = await ctx.db.insert("profiles", profileData as any);
+
+          // Create multi-currency wallet, using detected primary currency if provided
+          const primaryCurrency = pending?.primaryCurrency || "USD";
+          const walletId = await ctx.db.insert("wallets", {
+            userId,
+            primaryCurrency,
+            phoneCountryDetected: !!(pending?.phoneCountryCode),
+            balances: {
+              USD: 0, NGN: 0, GBP: 0, EUR: 0,
+              CAD: 0, GHS: 0, KES: 0, GMD: 0, ZAR: 0,
+            },
+            createdAt: Date.now(),
+          });
+
+          console.log('Profile and wallet created for new user:', {
+            userId, profileId, walletId, username: finalUsername,
+          });
+
+          // Auto-initialize AI recommendations
+          await ctx.scheduler.runAfter(5000, internal.autoInitializeAI.runAutoInitialization, {
+            userId,
+          });
+
+          // Initialize moderation system for the very first user
+          const allUsers = await ctx.db.query("users").collect();
+          if (allUsers.length === 1) {
+            console.log('First user — initializing moderation system...');
+            const { ensurePrimaryAdminExists } = await import("./moderationHelpers");
+            await ensurePrimaryAdminExists(ctx);
           }
         } catch (error) {
-          console.error("Error initializing wallet:", error);
-        }
-
-        // Send welcome notification
-        try {
-          await ctx.db.insert("notifications", {
-            userId: userId,
-            type: "welcome",
-            title: "Welcome to VideoClub!",
-            message:
-              "Your account has been created successfully. Start exploring Nollywood movies and Nigerian music.",
-            data: {},
-            isRead: false,
-            timestamp: Date.now(),
-          });
-          console.log("Welcome notification sent");
-        } catch (error) {
-          console.error("Error creating notification:", error);
+          console.error('Error creating profile and wallet for new user:', error);
         }
       }
     },

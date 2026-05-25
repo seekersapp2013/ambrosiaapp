@@ -1,48 +1,73 @@
-import React from 'react';
-import { View, Text, StyleSheet, Image } from 'react-native';
+import React, { useEffect, useRef } from "react";
+import { View, Text, StyleSheet, Animated } from "react-native";
+import { AppLogo } from "@/components/AppLogo";
+import { AppBackgroundWithGlow } from "@/components/AppBackground";
+import { Colors } from "@/tokens/colors";
+import { radius } from "@/tokens/radius";
+import { typeScale } from "@/tokens/typography";
+import { duration } from "@/tokens/motion";
+import { elevation, coloredShadow } from "@/tokens/shadows";
 
 export default function SplashScreen() {
+  const opacity = useRef(new Animated.Value(0)).current;
+  const scale = useRef(new Animated.Value(0.85)).current;
+
+  useEffect(() => {
+    // Phase 8: fade in + scale 0.85 → 1.0 over 600ms easeDecelerate
+    Animated.parallel([
+      Animated.timing(opacity, {
+        toValue: 1,
+        duration: duration.xSlow,
+        useNativeDriver: true,
+      }),
+      Animated.spring(scale, {
+        toValue: 1,
+        useNativeDriver: true,
+        damping: 22,
+        stiffness: 120,
+      }),
+    ]).start();
+  }, [opacity, scale]);
+
   return (
-    <View style={styles.container}>
-      <View style={styles.logoContainer}>
-        <Image
-          source={require("@/assets/images/logo.png")}
-          style={styles.logoImage}
-          resizeMode="contain"
-        />
-        <Text style={styles.logoText}>VideoClub</Text>
-      </View>
-      <Text style={styles.tagline}>Professional video management</Text>
-    </View>
+    <AppBackgroundWithGlow style={styles.container}>
+      <Animated.View style={[{ opacity, transform: [{ scale }] }]}>
+        <View style={[styles.logoContainer, elevation.elevation3, coloredShadow.shadowPrimaryStrong]}>
+          <AppLogo size={80} />
+        </View>
+      </Animated.View>
+      <Animated.View style={{ opacity }}>
+        <Text style={styles.appName} allowFontScaling={false}>Ambrosia</Text>
+        <Text style={styles.motto} allowFontScaling={true}>A Safe Haven For Health Information</Text>
+      </Animated.View>
+    </AppBackgroundWithGlow>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    backgroundColor: '#0A0A0A',
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 16,
   },
   logoContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-    marginBottom: 12,
+    width: 120,
+    height: 120,
+    borderRadius: radius.radius2XL,
+    backgroundColor: Colors.bgSurface,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 8,
   },
-  logoImage: {
-    width: 80,
-    height: 80,
+  appName: {
+    ...typeScale.displayMedium,
+    color: Colors.textPrimary,
+    textAlign: "center",
   },
-  logoText: {
-    fontSize: 40,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    letterSpacing: -0.5,
-  },
-  tagline: {
-    fontSize: 16,
-    color: '#737373',
-    fontWeight: '500',
+  motto: {
+    ...typeScale.bodyMD,
+    color: Colors.textMuted,
+    textAlign: "center",
+    paddingHorizontal: 32,
   },
 });

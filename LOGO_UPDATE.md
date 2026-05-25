@@ -1,7 +1,7 @@
-# Logo Update - VideoClub
+# Logo Update -  param($m) if ($m.Value -ceq 'AMBROSIA') { 'AMBROSIA' } elseif ($m.Value -ceq 'Ambrosia') { 'Ambrosia' } else { 'ambrosia' } 
 
 **Date:** November 26, 2025  
-**Change:** Replaced all Ionicons videocam icons with the official VideoClub film camera logo
+**Change:** Replaced all Ionicons videocam icons with the official  param($m) if ($m.Value -ceq 'AMBROSIA') { 'AMBROSIA' } elseif ($m.Value -ceq 'Ambrosia') { 'Ambrosia' } else { 'ambrosia' }  film camera logo
 
 ---
 
@@ -79,7 +79,7 @@
 - Inconsistent with brand identity
 
 ### After
-- Official VideoClub film camera logo
+- Official  param($m) if ($m.Value -ceq 'AMBROSIA') { 'AMBROSIA' } elseif ($m.Value -ceq 'Ambrosia') { 'Ambrosia' } else { 'ambrosia' }  film camera logo
 - Consistent branding across all screens
 - Professional appearance
 - Recognizable brand identity

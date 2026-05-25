@@ -1,4 +1,4 @@
-# VideoClub Logo Consistency Verification
+#  param($m) if ($m.Value -ceq 'AMBROSIA') { 'AMBROSIA' } elseif ($m.Value -ceq 'Ambrosia') { 'Ambrosia' } else { 'ambrosia' }  Logo Consistency Verification
 
 **Date:** November 26, 2025  
 **Logo File:** `assets/images/logo.png`  
@@ -19,7 +19,7 @@
 />
 ```
 - **Size:** 80x80px
-- **Position:** Center, next to "VideoClub" text
+- **Position:** Center, next to " param($m) if ($m.Value -ceq 'AMBROSIA') { 'AMBROSIA' } elseif ($m.Value -ceq 'Ambrosia') { 'Ambrosia' } else { 'ambrosia' } " text
 - **Status:** ✅ Correct
 
 #### 2. Login/Signup Screen (`app/auth/password/Password.tsx`)
@@ -45,7 +45,7 @@
 />
 ```
 - **Size:** 48x48px
-- **Position:** Top left header, next to "VideoClub" title
+- **Position:** Top left header, next to " param($m) if ($m.Value -ceq 'AMBROSIA') { 'AMBROSIA' } elseif ($m.Value -ceq 'Ambrosia') { 'Ambrosia' } else { 'ambrosia' } " title
 - **Status:** ✅ Correct
 
 ---
@@ -97,7 +97,7 @@ These are intentionally kept as Ionicons for UI functionality:
 
 ## Brand Consistency Summary
 
-✅ **100% Consistent** - All branding touchpoints use the official VideoClub logo
+✅ **100% Consistent** - All branding touchpoints use the official  param($m) if ($m.Value -ceq 'AMBROSIA') { 'AMBROSIA' } elseif ($m.Value -ceq 'Ambrosia') { 'Ambrosia' } else { 'ambrosia' }  logo
 
 ### Screens with Logo
 1. Splash Screen (app launch)

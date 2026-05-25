@@ -1,4 +1,4 @@
-# Implementation Plan - VideoClub App
+# Implementation Plan -  param($m) if ($m.Value -ceq 'AMBROSIA') { 'AMBROSIA' } elseif ($m.Value -ceq 'Ambrosia') { 'Ambrosia' } else { 'ambrosia' }  App
 
 ## Task Status Legend
 - **Not Started**: Task has not been initiated
@@ -152,7 +152,7 @@
   - _Requirements: 15.1, 15.2, 15.3, 15.4, 15.5_
   - _Status: Not Started_
 
-- [ ] 17. Implement VideoClub Classics collection
+- [ ] 17. Implement  param($m) if ($m.Value -ceq 'AMBROSIA') { 'AMBROSIA' } elseif ($m.Value -ceq 'Ambrosia') { 'Ambrosia' } else { 'ambrosia' }  Classics collection
   - Create Classics section in UI
   - Tag classic content with era metadata
   - Organize classics by decade and genre
@@ -485,7 +485,7 @@
   - _Status: Not Started_
 
 - [ ] 54. Implement gift revenue distribution
-  - Calculate 70/30 split (celebrity/VideoClub)
+  - Calculate 70/30 split (celebrity/ param($m) if ($m.Value -ceq 'AMBROSIA') { 'AMBROSIA' } elseif ($m.Value -ceq 'Ambrosia') { 'Ambrosia' } else { 'ambrosia' } )
   - Update celebrity earnings in real-time
   - Record gift transactions
   - Update celebrity wallet balance

@@ -1,13 +1,9 @@
-import { View, ScrollView, YStack } from "tamagui";
+import { View, ScrollView } from "tamagui";
 import { Password } from "./auth/password/Password";
 
 export function SignIn() {
   return (
-    <View 
-      flex={1} 
-      width="100%" 
-      backgroundColor="#0A0A0A"
-    >
+    <View flex={1} width="100%" backgroundColor="#0a0a15">
       <ScrollView
         flex={1}
         width="100%"

@@ -1,0 +1,520 @@
+/**
+ * Ambrosia Design System — Input Components
+ * Phase 5: All input variants with full state matrix (Phase 20)
+ * Accessibility: Phase 21
+ */
+
+import React, { useState, useRef, forwardRef } from 'react';
+import {
+  View,
+  TextInput,
+  Text,
+  Pressable,
+  StyleSheet,
+  Animated,
+  type TextInputProps,
+  type StyleProp,
+  type ViewStyle,
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { Colors } from '@/tokens/colors';
+import { radius } from '@/tokens/radius';
+import { typeScale } from '@/tokens/typography';
+import { spacing } from '@/tokens/spacing';
+import { duration } from '@/tokens/motion';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Types
+// ─────────────────────────────────────────────────────────────────────────────
+type InputState = 'default' | 'focused' | 'filled' | 'error' | 'disabled' | 'readonly';
+
+interface BaseInputProps extends Omit<TextInputProps, 'style'> {
+  label?: string;
+  error?: string;
+  hint?: string;
+  state?: InputState;
+  containerStyle?: StyleProp<ViewStyle>;
+  trailingIcon?: React.ReactNode;
+  leadingIcon?: React.ReactNode;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Helpers — derive border/bg from state
+// ─────────────────────────────────────────────────────────────────────────────
+function getBorderColor(state: InputState): string {
+  switch (state) {
+    case 'focused':  return Colors.borderFocus;
+    case 'filled':   return Colors.borderFilled;
+    case 'error':    return Colors.borderError;
+    case 'disabled':
+    case 'readonly': return Colors.borderSubtle;
+    default:         return Colors.borderDefault;
+  }
+}
+
+function getBgColor(state: InputState): string {
+  switch (state) {
+    case 'focused':  return Colors.bgPrimarySubtle;
+    case 'error':    return Colors.bgErrorSubtle;
+    case 'disabled':
+    case 'readonly': return Colors.bgElevated;
+    default:         return Colors.bgSurface;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AppInput — Standard text input with label, error, and all states
+// Phase 5: 56px height, 12px radius, 1.5px border
+// ─────────────────────────────────────────────────────────────────────────────
+export const AppInput = forwardRef<TextInput, BaseInputProps>(function AppInput(
+  {
+    label,
+    error,
+    hint,
+    state: stateProp,
+    containerStyle,
+    trailingIcon,
+    leadingIcon,
+    editable = true,
+    value,
+    onFocus,
+    onBlur,
+    accessibilityLabel,
+    accessibilityHint,
+    ...rest
+  },
+  ref,
+) {
+  const [focused, setFocused] = useState(false);
+
+  // Derive state: explicit prop wins, otherwise infer
+  const state: InputState =
+    stateProp ??
+    (!editable ? 'disabled' :
+     error ? 'error' :
+     focused ? 'focused' :
+     value ? 'filled' :
+     'default');
+
+  const borderColor = getBorderColor(state);
+  const bgColor = getBgColor(state);
+
+  const handleFocus = (e: any) => {
+    setFocused(true);
+    onFocus?.(e);
+  };
+  const handleBlur = (e: any) => {
+    setFocused(false);
+    onBlur?.(e);
+  };
+
+  return (
+    <View style={[styles.inputContainer, containerStyle]}>
+      {label ? (
+        <Text style={styles.inputLabel} allowFontScaling={true}>
+          {label}
+        </Text>
+      ) : null}
+
+      <View
+        style={[
+          styles.inputRow,
+          { borderColor, backgroundColor: bgColor },
+        ]}
+      >
+        {leadingIcon ? (
+          <View style={styles.leadingIconWrap}>{leadingIcon}</View>
+        ) : null}
+
+        <TextInput
+          ref={ref}
+          style={[
+            styles.inputField,
+            leadingIcon ? styles.inputFieldWithLeading : null,
+            trailingIcon ? styles.inputFieldWithTrailing : null,
+          ]}
+          value={value}
+          editable={editable && state !== 'readonly'}
+          onFocus={handleFocus}
+          onBlur={handleBlur}
+          placeholderTextColor={Colors.textDisabled}
+          selectionColor={Colors.actionPrimary}
+          accessibilityLabel={accessibilityLabel ?? label}
+          accessibilityHint={accessibilityHint}
+          accessibilityState={{ disabled: state === 'disabled' }}
+          {...rest}
+        />
+
+        {/* Auto trailing icon based on state */}
+        {state === 'filled' && !trailingIcon ? (
+          <View style={styles.trailingIconWrap}>
+            <Ionicons name="checkmark-circle" size={20} color={Colors.statusSuccess} />
+          </View>
+        ) : state === 'error' && !trailingIcon ? (
+          <View style={styles.trailingIconWrap}>
+            <Ionicons name="close-circle" size={20} color={Colors.statusDanger} />
+          </View>
+        ) : state === 'readonly' && !trailingIcon ? (
+          <View style={styles.trailingIconWrap}>
+            <Ionicons name="lock-closed" size={16} color={Colors.iconSecondary} />
+          </View>
+        ) : trailingIcon ? (
+          <View style={styles.trailingIconWrap}>{trailingIcon}</View>
+        ) : null}
+      </View>
+
+      {error ? (
+        <Text style={styles.errorText} allowFontScaling={true}>
+          {error}
+        </Text>
+      ) : hint ? (
+        <Text style={styles.hintText} allowFontScaling={true}>
+          {hint}
+        </Text>
+      ) : null}
+    </View>
+  );
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PasswordInput — Standard input with eye toggle
+// ─────────────────────────────────────────────────────────────────────────────
+export const PasswordInput = forwardRef<TextInput, BaseInputProps>(function PasswordInput(
+  props,
+  ref,
+) {
+  const [visible, setVisible] = useState(false);
+
+  return (
+    <AppInput
+      ref={ref}
+      secureTextEntry={!visible}
+      trailingIcon={
+        <Pressable
+          onPress={() => setVisible((v) => !v)}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          accessibilityRole="button"
+          accessibilityLabel={visible ? 'Hide password' : 'Show password'}
+        >
+          <Ionicons
+            name={visible ? 'eye-off-outline' : 'eye-outline'}
+            size={20}
+            color={Colors.iconSecondary}
+          />
+        </Pressable>
+      }
+      {...props}
+    />
+  );
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SearchInput — Pill-shaped search bar
+// Phase 5: 48px height, radiusFull, no border, surfaceElevated bg
+// ─────────────────────────────────────────────────────────────────────────────
+interface SearchInputProps extends Omit<TextInputProps, 'style'> {
+  containerStyle?: StyleProp<ViewStyle>;
+}
+
+export function SearchInput({ containerStyle, ...rest }: SearchInputProps) {
+  return (
+    <View style={[styles.searchContainer, containerStyle]}>
+      <Ionicons name="search-outline" size={18} color={Colors.iconSecondary} />
+      <TextInput
+        style={styles.searchField}
+        placeholderTextColor={Colors.textDisabled}
+        selectionColor={Colors.actionPrimary}
+        accessibilityRole="search"
+        {...rest}
+      />
+    </View>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TextareaInput — Multi-line input
+// Phase 5: minHeight 120px, 12px radius, character count
+// ─────────────────────────────────────────────────────────────────────────────
+interface TextareaProps extends Omit<TextInputProps, 'style' | 'multiline'> {
+  label?: string;
+  error?: string;
+  maxLength?: number;
+  containerStyle?: StyleProp<ViewStyle>;
+}
+
+export function TextareaInput({
+  label,
+  error,
+  maxLength,
+  containerStyle,
+  value,
+  accessibilityLabel,
+  accessibilityHint,
+  ...rest
+}: TextareaProps) {
+  const [focused, setFocused] = useState(false);
+  const charCount = value?.length ?? 0;
+
+  return (
+    <View style={[styles.inputContainer, containerStyle]}>
+      {label ? (
+        <Text style={styles.inputLabel} allowFontScaling={true}>
+          {label}
+        </Text>
+      ) : null}
+
+      <View
+        style={[
+          styles.textareaRow,
+          { borderColor: focused ? Colors.borderFocus : error ? Colors.borderError : Colors.borderDefault },
+        ]}
+      >
+        <TextInput
+          style={styles.textareaField}
+          multiline
+          textAlignVertical="top"
+          value={value}
+          maxLength={maxLength}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+          placeholderTextColor={Colors.textDisabled}
+          selectionColor={Colors.actionPrimary}
+          accessibilityLabel={accessibilityLabel ?? label}
+          accessibilityHint={accessibilityHint}
+          {...rest}
+        />
+        {maxLength ? (
+          <Text style={styles.charCount} allowFontScaling={false}>
+            {charCount}/{maxLength}
+          </Text>
+        ) : null}
+      </View>
+
+      {error ? (
+        <Text style={styles.errorText} allowFontScaling={true}>
+          {error}
+        </Text>
+      ) : null}
+    </View>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// OTPInput — 6 individual boxes
+// Phase 5: 48×56px each, 12px radius, spring animation on fill
+// ─────────────────────────────────────────────────────────────────────────────
+interface OTPInputProps {
+  value: string;
+  onChange: (val: string) => void;
+  length?: number;
+  error?: boolean;
+  containerStyle?: StyleProp<ViewStyle>;
+}
+
+export function OTPInput({
+  value,
+  onChange,
+  length = 6,
+  error = false,
+  containerStyle,
+}: OTPInputProps) {
+  const inputRef = useRef<TextInput>(null);
+  const scales = useRef(
+    Array.from({ length }, () => new Animated.Value(1)),
+  ).current;
+
+  const handleChange = (text: string) => {
+    const digits = text.replace(/\D/g, '').slice(0, length);
+    const prevLen = value.length;
+    const newLen = digits.length;
+
+    // Animate the newly filled box
+    if (newLen > prevLen && newLen <= length) {
+      const idx = newLen - 1;
+      Animated.sequence([
+        Animated.spring(scales[idx], {
+          toValue: 1.08,
+          useNativeDriver: true,
+          damping: 18,
+          stiffness: 180,
+        }),
+        Animated.spring(scales[idx], {
+          toValue: 1,
+          useNativeDriver: true,
+          damping: 18,
+          stiffness: 180,
+        }),
+      ]).start();
+    }
+
+    onChange(digits);
+  };
+
+  const getBoxState = (idx: number): InputState => {
+    if (error) return 'error';
+    if (idx < value.length) return 'filled';
+    if (idx === value.length) return 'focused';
+    return 'default';
+  };
+
+  return (
+    <View style={[styles.otpContainer, containerStyle]}>
+      {/* Hidden real input */}
+      <TextInput
+        ref={inputRef}
+        style={styles.otpHiddenInput}
+        value={value}
+        onChangeText={handleChange}
+        keyboardType="number-pad"
+        maxLength={length}
+        caretHidden
+        accessibilityLabel="OTP verification code input"
+        accessibilityHint={`Enter ${length} digit verification code`}
+      />
+
+      {/* Visual boxes */}
+      {Array.from({ length }).map((_, idx) => {
+        const boxState = getBoxState(idx);
+        return (
+          <Animated.View
+            key={idx}
+            style={[{ transform: [{ scale: scales[idx] }] }]}
+          >
+            <Pressable
+              onPress={() => inputRef.current?.focus()}
+              style={[
+                styles.otpBox,
+                {
+                  borderColor: getBorderColor(boxState),
+                  backgroundColor: getBgColor(boxState),
+                },
+              ]}
+              accessibilityElementsHidden
+            >
+              <Text style={[styles.otpDigit, error && { color: Colors.statusDanger }]}>
+                {value[idx] ?? ''}
+              </Text>
+            </Pressable>
+          </Animated.View>
+        );
+      })}
+    </View>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Styles
+// ─────────────────────────────────────────────────────────────────────────────
+const styles = StyleSheet.create({
+  // Standard input
+  inputContainer: {
+    marginBottom: spacing.space6,
+  },
+  inputLabel: {
+    ...typeScale.bodySM,
+    fontWeight: '600',
+    color: Colors.textSecondary,
+    marginBottom: spacing.space2,
+  },
+  inputRow: {
+    height: 56,
+    borderRadius: radius.radiusMD,
+    borderWidth: 1.5,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.space4,
+    overflow: 'hidden',
+  },
+  inputField: {
+    flex: 1,
+    ...typeScale.bodyMD,
+    color: Colors.textPrimary,
+    height: '100%',
+  },
+  inputFieldWithLeading: {
+    paddingLeft: spacing.space2,
+  },
+  inputFieldWithTrailing: {
+    paddingRight: spacing.space2,
+  },
+  leadingIconWrap: {
+    marginRight: spacing.space2,
+  },
+  trailingIconWrap: {
+    marginLeft: spacing.space2,
+  },
+  errorText: {
+    ...typeScale.caption,
+    color: Colors.statusDanger,
+    marginTop: 4,
+  },
+  hintText: {
+    ...typeScale.caption,
+    color: Colors.textMuted,
+    marginTop: 4,
+  },
+
+  // Search
+  searchContainer: {
+    height: 48,
+    borderRadius: radius.radiusFull,
+    backgroundColor: Colors.bgElevated,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.space4,
+    gap: spacing.space2,
+  },
+  searchField: {
+    flex: 1,
+    ...typeScale.bodyMD,
+    color: Colors.textPrimary,
+  },
+
+  // Textarea
+  textareaRow: {
+    borderRadius: radius.radiusMD,
+    borderWidth: 1.5,
+    backgroundColor: Colors.bgSurface,
+    paddingHorizontal: spacing.space4,
+    paddingVertical: 14,
+    minHeight: 120,
+  },
+  textareaField: {
+    ...typeScale.bodyMD,
+    color: Colors.textPrimary,
+    minHeight: 80,
+  },
+  charCount: {
+    ...typeScale.caption,
+    color: Colors.textDisabled,
+    textAlign: 'right',
+    marginTop: 4,
+  },
+
+  // OTP
+  otpContainer: {
+    flexDirection: 'row',
+    gap: spacing.space2,
+    justifyContent: 'center',
+  },
+  otpHiddenInput: {
+    position: 'absolute',
+    width: 1,
+    height: 1,
+    opacity: 0,
+  },
+  otpBox: {
+    width: 48,
+    height: 56,
+    borderRadius: radius.radiusMD,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  otpDigit: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: Colors.textPrimary,
+    textAlign: 'center',
+  },
+});

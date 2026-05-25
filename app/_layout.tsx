@@ -1,11 +1,10 @@
 import "react-native-get-random-values";
-import "@ethersproject/shims";
 import { Stack } from "expo-router";
 import { ConvexReactClient } from "convex/react";
 import * as SecureStore from "expo-secure-store";
 import { ConvexAuthProvider } from "@convex-dev/auth/react";
-import { TamaguiProvider, createTamagui } from "tamagui";
-import { config } from "@tamagui/config/v3";
+import { TamaguiProvider } from "tamagui";
+import { tamaguiConfig } from "@/utils/tamaguiConfig";
 import { Toasts } from "./Toasts";
 import { ErrorBoundary } from "./ErrorBoundary";
 import { useEffect } from "react";
@@ -17,24 +16,33 @@ const convex = new ConvexReactClient(process.env.EXPO_PUBLIC_CONVEX_URL!, {
 
 const secureStorage = {
   getItem: async (key: string) => {
-    return SecureStore.getItemAsync(key);
+    try {
+      return await SecureStore.getItemAsync(key);
+    } catch {
+      return null;
+    }
   },
   setItem: async (key: string, value: any) => {
-    await SecureStore.setItemAsync(key, value);
+    try {
+      await SecureStore.setItemAsync(key, value);
+    } catch (e) {
+      console.error("SecureStore setItem error:", e);
+    }
   },
   removeItem: async (key: string) => {
-    await SecureStore.deleteItemAsync(key);
+    try {
+      await SecureStore.deleteItemAsync(key);
+    } catch (e) {
+      console.error("SecureStore removeItem error:", e);
+    }
   },
 };
 
-const tamaguiConfig = createTamagui(config);
-
 export default function RootLayout() {
   useEffect(() => {
-    // Suppress keep awake errors in development
     LogBox.ignoreLogs([
-      'Unable to activate keep awake',
-      'Error: Unable to activate keep awake',
+      "Unable to activate keep awake",
+      "Error: Unable to activate keep awake",
     ]);
   }, []);
 
@@ -49,9 +57,11 @@ export default function RootLayout() {
                 ? window.localStorage
                 : secureStorage
             }
+            storageNamespace="ambrosia_auth"
           >
             <Stack>
               <Stack.Screen name="index" options={{ headerShown: false }} />
+              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
             </Stack>
           </ConvexAuthProvider>
         </Toasts>

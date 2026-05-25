@@ -1,14 +1,14 @@
-# VideoClub App - Project Status Report
+#  param($m) if ($m.Value -ceq 'AMBROSIA') { 'AMBROSIA' } elseif ($m.Value -ceq 'Ambrosia') { 'Ambrosia' } else { 'ambrosia' }  App - Project Status Report
 
 **Generated:** November 26, 2025  
-**Project:** VideoClub - Nollywood & Nigerian Music Platform  
+**Project:**  param($m) if ($m.Value -ceq 'AMBROSIA') { 'AMBROSIA' } elseif ($m.Value -ceq 'Ambrosia') { 'Ambrosia' } else { 'ambrosia' }  - Nollywood & Nigerian Music Platform  
 **Tech Stack:** React Native Expo, Convex Backend, LiveKit, Paystack
 
 ---
 
 ## Executive Summary
 
-VideoClub is a mobile application recreating the nostalgic video club experience for the digital age, focusing on Nollywood content and Nigerian music. The project is currently in **Phase 2** of a 16-phase implementation plan, with foundational infrastructure complete and basic authentication implemented.
+ param($m) if ($m.Value -ceq 'AMBROSIA') { 'AMBROSIA' } elseif ($m.Value -ceq 'Ambrosia') { 'Ambrosia' } else { 'ambrosia' }  is a mobile application recreating the nostalgic video club experience for the digital age, focusing on Nollywood content and Nigerian music. The project is currently in **Phase 2** of a 16-phase implementation plan, with foundational infrastructure complete and basic authentication implemented.
 
 **Overall Progress:** ~8% complete (6 of 80 tasks done)
 
@@ -104,7 +104,7 @@ VideoClub is a mobile application recreating the nostalgic video club experience
 
 #### UI/UX Components ✅
 - Modern dark theme design (#0A0A0A background, #A855F7 purple accent)
-- Splash screen with VideoClub branding
+- Splash screen with  param($m) if ($m.Value -ceq 'AMBROSIA') { 'AMBROSIA' } elseif ($m.Value -ceq 'Ambrosia') { 'Ambrosia' } else { 'ambrosia' }  branding
 - Error boundary for crash handling
 - Toast notifications for user feedback
 - Responsive form layouts
@@ -184,7 +184,7 @@ VideoClub is a mobile application recreating the nostalgic video club experience
 - Filter options (genre, price, release date)
 - Result ranking
 
-#### Task 17: Implement VideoClub Classics Collection ❌
+#### Task 17: Implement  param($m) if ($m.Value -ceq 'AMBROSIA') { 'AMBROSIA' } elseif ($m.Value -ceq 'Ambrosia') { 'Ambrosia' } else { 'ambrosia' }  Classics Collection ❌
 **Requirements:**
 - Classics section UI
 - Classic content tagging
@@ -383,7 +383,7 @@ Display: Welcome message, user info, sign out button
 
 3. **Fix TODO Items**
    - Update app name in email templates
-   - Replace "My App" with "VideoClub"
+   - Replace "My App" with " param($m) if ($m.Value -ceq 'AMBROSIA') { 'AMBROSIA' } elseif ($m.Value -ceq 'Ambrosia') { 'Ambrosia' } else { 'ambrosia' } "
 
 ### Short-Term Goals (Phase 3-4)
 

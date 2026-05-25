@@ -1,8 +1,8 @@
-# VideoClub App - Design Document
+#  param($m) if ($m.Value -ceq 'AMBROSIA') { 'AMBROSIA' } elseif ($m.Value -ceq 'Ambrosia') { 'Ambrosia' } else { 'ambrosia' }  App - Design Document
 
 ## Overview
 
-VideoClub is a React Native Expo mobile application that recreates the nostalgic video rental experience for the digital age, focusing on Nollywood content and Nigerian music. The application provides a comprehensive platform for content consumption (movies and music), live streaming with celebrity interactions, and community engagement through reviews and recommendations.
+ param($m) if ($m.Value -ceq 'AMBROSIA') { 'AMBROSIA' } elseif ($m.Value -ceq 'Ambrosia') { 'Ambrosia' } else { 'ambrosia' }  is a React Native Expo mobile application that recreates the nostalgic video rental experience for the digital age, focusing on Nollywood content and Nigerian music. The application provides a comprehensive platform for content consumption (movies and music), live streaming with celebrity interactions, and community engagement through reviews and recommendations.
 
 The system is built on a modern serverless architecture leveraging:
 - **Convex** for backend services (database, authentication, file storage, real-time synchronization)

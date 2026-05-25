@@ -5,6 +5,7 @@ import { Form, Label, Input, Button, View } from "tamagui";
 import { SignUpWizard } from "./SignUpWizard";
 import { Eye, EyeOff } from "@tamagui/lucide-icons";
 import { TouchableOpacity } from "react-native";
+import { Colors } from "@/constants/Colors";
 
 export function SignInWithPassword({
   provider,
@@ -34,12 +35,8 @@ export function SignInWithPassword({
 
   const handleSubmit = () => {
     setSubmitting(true);
-    const authData = { email, password, flow: "signIn" };
-
-    signIn(provider ?? "password", authData)
-      .then(() => {
-        handleSent?.(email);
-      })
+    signIn(provider ?? "password", { email, password, flow: "signIn" })
+      .then(() => handleSent?.(email))
       .catch((error) => {
         console.error(error);
         toast.show("Could not sign in, did you mean to sign up?");
@@ -60,12 +57,7 @@ export function SignInWithPassword({
   return (
     <Form onSubmit={handleSubmit}>
       <View marginBottom="$4">
-        <Label
-          color="#E5E5E5"
-          marginBottom="$2"
-          fontSize={14}
-          fontWeight="600"
-        >
+        <Label color={Colors.textSecondary} marginBottom="$2" fontSize={14} fontWeight="600">
           Email
         </Label>
         <Input
@@ -73,30 +65,22 @@ export function SignInWithPassword({
           autoCapitalize="none"
           value={email}
           onChangeText={setEmail}
-          backgroundColor="#0A0A0A"
-          borderColor="#262626"
+          backgroundColor={Colors.background}
+          borderColor={Colors.borderSubtle}
           borderWidth={1}
-          color="#FFFFFF"
-          placeholderTextColor="#525252"
+          color={Colors.textPrimary}
+          placeholderTextColor={Colors.textFaint}
           placeholder="you@example.com"
           height={52}
           borderRadius={12}
           fontSize={15}
           paddingHorizontal="$4"
-          focusStyle={{
-            borderColor: "#A855F7",
-            backgroundColor: "#0F0F0F"
-          }}
+          focusStyle={{ borderColor: Colors.primary, backgroundColor: Colors.surface }}
         />
       </View>
 
       <View marginBottom="$5">
-        <Label
-          color="#E5E5E5"
-          marginBottom="$2"
-          fontSize={14}
-          fontWeight="600"
-        >
+        <Label color={Colors.textSecondary} marginBottom="$2" fontSize={14} fontWeight="600">
           Password
         </Label>
         <View position="relative">
@@ -106,28 +90,25 @@ export function SignInWithPassword({
             value={password}
             onChangeText={setPassword}
             secureTextEntry={!showPassword}
-            backgroundColor="#0A0A0A"
-            borderColor="#262626"
+            backgroundColor={Colors.background}
+            borderColor={Colors.borderSubtle}
             borderWidth={1}
-            color="#FFFFFF"
-            placeholderTextColor="#525252"
+            color={Colors.textPrimary}
+            placeholderTextColor={Colors.textFaint}
             placeholder="Enter your password"
             height={52}
             borderRadius={12}
             fontSize={15}
             paddingHorizontal="$4"
             paddingRight={48}
-            focusStyle={{
-              borderColor: "#A855F7",
-              backgroundColor: "#0F0F0F"
-            }}
+            focusStyle={{ borderColor: Colors.primary, backgroundColor: Colors.surface }}
           />
           <View position="absolute" right={12} top={0} bottom={0} justifyContent="center">
             <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
               {showPassword ? (
-                <EyeOff size={20} color="#737373" />
+                <EyeOff size={20} color={Colors.textDim} />
               ) : (
-                <Eye size={20} color="#737373" />
+                <Eye size={20} color={Colors.textDim} />
               )}
             </TouchableOpacity>
           </View>
@@ -136,10 +117,10 @@ export function SignInWithPassword({
 
       <Form.Trigger asChild>
         <Button
-          backgroundColor="#A855F7"
-          color="#FFFFFF"
-          hoverStyle={{ backgroundColor: "#9333EA" }}
-          pressStyle={{ backgroundColor: "#7E22CE", scale: 0.98 }}
+          backgroundColor={Colors.primary}
+          color={Colors.textPrimary}
+          hoverStyle={{ backgroundColor: Colors.primaryDeep }}
+          pressStyle={{ backgroundColor: Colors.primaryCrimson, scale: 0.98 }}
           disabled={submitting}
           opacity={submitting ? 0.6 : 1}
           height={52}
@@ -154,16 +135,16 @@ export function SignInWithPassword({
       </Form.Trigger>
 
       <Button
-        backgroundColor="#262626"
-        color="#E5E5E5"
+        backgroundColor={Colors.blueSurface}
+        color={Colors.textSecondary}
         borderWidth={1}
-        borderColor="#404040"
+        borderColor={Colors.blueBorder}
         height={52}
         borderRadius={12}
         fontSize={15}
         fontWeight="600"
-        hoverStyle={{ backgroundColor: "#2A2A2A" }}
-        pressStyle={{ backgroundColor: "#1F1F1F", scale: 0.98 }}
+        hoverStyle={{ backgroundColor: Colors.blueSurfaceMid }}
+        pressStyle={{ backgroundColor: Colors.blueSurface, scale: 0.98 }}
         onPress={() => setFlow("signUp")}
       >
         Create new account
@@ -172,7 +153,7 @@ export function SignInWithPassword({
       {handlePasswordReset ? (
         <Button
           backgroundColor="transparent"
-          color="#A855F7"
+          color={Colors.primary}
           borderWidth={0}
           marginTop="$3"
           height={44}

@@ -1,7 +1,7 @@
 import CryptoJS from 'crypto-js';
 
 // Use a strong encryption key - in production, this should be from env variables
-const ENCRYPTION_KEY = process.env.EXPO_PUBLIC_ENCRYPTION_KEY || 'videoclub-wallet-encryption-key-2024';
+const ENCRYPTION_KEY = process.env.EXPO_PUBLIC_ENCRYPTION_KEY || 'ambrosia-wallet-encryption-key-2024';
 
 /**
  * Encrypt sensitive data

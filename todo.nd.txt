@@ -1,0 +1,73 @@
+Let me read convex2 thoroughly before saying anything.
+
+Now I have the full picture. Here's the properly updated summary:
+
+---
+
+## Step 1 — Folder rename
+
+- Rename `convex` → `convex_old`
+- Rename `convex2` → `convex`
+
+---
+
+## Step 2 — Push functions to existing deployment
+
+Run `npx convex dev` from the project root. The CLI reads `CONVEX_DEPLOYMENT=dev:polite-wolf-527`, finds the renamed `convex/` folder, regenerates `convex/_generated/`, and pushes everything to the same cloud. `EXPO_PUBLIC_CONVEX_URL` stays untouched.
+
+---
+
+## Step 3 — Rewrite the SignUpWizard
+
+The two backends have fundamentally different signup contracts.
+
+**Old flow:** Everything crammed into one `signIn()` call — email, username, phone, interests, wallet address, encrypted private key, mnemonic, hashed PIN. The `profile()` function on the backend unpacks all of it.
+
+**New flow (convex2):** `auth.ts` only accepts `email` and `name` in `profile()`. After the user is created, `afterUserCreatedOrUpdated` auto-creates a bare profile (username derived from name) and a wallet. Everything else is saved afterwards via mutations.
+
+The wizard becomes a **two-phase process**:
+
+**Phase 1 — Auth (steps 1–2):**
+- Step 1: Email + full name (not username — username is auto-generated from name on the backend)
+- Step 2: Password + confirm password
+- On submit: `signIn("password", { email, name, password, flow: "signUp" })`
+- This creates the user, auto-creates a profile with a derived username, and creates a multi-currency wallet (USD/NGN/GBP/EUR/CAD/GHS/KES/GMD/ZAR all at 0)
+
+**Phase 2 — Profile completion (steps 3–5), runs after auth succeeds:**
+- Step 3: Phone number with auto-detected country code → stored as `phoneNumber`, `phoneCountryCode`, `detectedCountry` on the profile
+- Step 4: Interests selection → stored as `interests` array on the profile (these feed into the AI recommendation system via `userInterests` table and `userInterestTracking`)
+- Step 5: 4-digit transaction PIN → hashed client-side, stored as `pinHash` on the profile
+
+All of steps 3–5 go to `api.profiles.createOrUpdateProfile` which also updates the wallet's `primaryCurrency` and `phoneCountryDetected` flag based on the detected country.
+
+**What gets removed entirely:**
+- Oathstone wallet generation (no crypto wallet in convex2)
+- `encrypt()` for private key / mnemonic
+- The wallet display step showing address/seed phrase
+- `api.signup.completeSignup` call
+- `api.users.viewer` query
+
+**What changes:**
+- Username availability check moves from `api.users.checkUsernameAvailability` to `api.profiles.checkUsernameAvailability`
+- The username field is removed from the signup form — users get an auto-generated one from their name and can update it later from their profile
+- `hashPin()` stays — `convex2/profiles.ts` accepts `pinHash`
+- Interest options should reflect the app's actual domain (health, wellness, etc.) rather than the old "Nollywood Movies / Afrobeats" list from the Ambrosia backend
+
+---
+
+## Step 4 — Fix sign-in
+
+`SignInWithPassword.tsx` barely changes. `signIn("password", { email, password, flow: "signIn" })` works identically. No changes needed there.
+
+---
+
+## Step 5 — Fix remaining imports in the app
+
+Any file referencing old-backend APIs needs updating:
+- `api.signup.completeSignup` → removed
+- `api.users.viewer` → `api.profiles.getMyProfile`
+- `api.users.checkUsernameAvailability` → `api.profiles.checkUsernameAvailability`
+
+---
+
+Ready to implement?
