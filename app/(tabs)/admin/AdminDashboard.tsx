@@ -19,6 +19,7 @@ import { api } from '@/convex/_generated/api';
 import { useIsModerator, useIsAdmin } from '@/app/hooks/usePermissions';
 import { AppBackground } from '@/components/AppBackground';
 import { AppLoader } from '@/components/AppLoader';
+import { MobileCard } from '@/components/MobileCard';
 import { Colors } from '@/tokens/colors';
 import { typeScale } from '@/tokens/typography';
 import { spacing } from '@/tokens/spacing';
@@ -74,7 +75,7 @@ export default function AdminDashboard() {
               You don't have permission to access the admin dashboard.
             </Text>
             <TouchableOpacity
-              style={styles.backBtn}
+              style={styles.deniedBackBtn}
               onPress={() => router.back()}
               accessibilityRole="button"
               accessibilityLabel="Go back"
@@ -101,64 +102,70 @@ export default function AdminDashboard() {
   return (
     <AppBackground style={styles.root}>
       <SafeAreaView style={styles.safeArea}>
-        {/* ── Header ── */}
-        <View style={styles.header}>
-          <View style={styles.headerLeft}>
-            <Text style={styles.headerTitle}>Admin Dashboard</Text>
-            {roleNames ? (
-              <Text style={styles.headerRole}>{roleNames}</Text>
-            ) : null}
+        <MobileCard style={styles.cardOverride} containerStyle={styles.cardContainer}>
+          {/* ── Header ── */}
+          <View style={styles.header}>
+            <TouchableOpacity
+              onPress={() => router.push('/(tabs)/profile')}
+              accessibilityRole="button"
+              accessibilityLabel="Back to profile"
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              style={styles.backBtn}
+            >
+              <Ionicons name="chevron-back" size={20} color={Colors.iconPrimary} />
+              <Text style={styles.backBtnLabel}>Profile</Text>
+            </TouchableOpacity>
+            <View style={styles.headerCenter}>
+              <Text style={styles.headerTitle}>Admin Dashboard</Text>
+              {roleNames ? (
+                <Text style={styles.headerRole}>{roleNames}</Text>
+              ) : null}
+            </View>
+            <View style={styles.headerRight} />
           </View>
-          <TouchableOpacity
-            onPress={() => router.back()}
-            accessibilityRole="button"
-            accessibilityLabel="Close admin dashboard"
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+
+          {/* ── Tab Bar ── */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.tabBar}
+            contentContainerStyle={styles.tabBarContent}
+            alwaysBounceHorizontal={false}
           >
-            <Ionicons name="close" size={24} color={Colors.iconPrimary} />
-          </TouchableOpacity>
-        </View>
+            {visibleTabs.map(tab => {
+              const active = resolvedTab === tab.id;
+              return (
+                <TouchableOpacity
+                  key={tab.id}
+                  onPress={() => setActiveTab(tab.id)}
+                  style={[styles.tabBtn, active && styles.tabBtnActive]}
+                  accessibilityRole="tab"
+                  accessibilityLabel={tab.label}
+                  accessibilityState={{ selected: active }}
+                >
+                  <Ionicons
+                    name={tab.icon}
+                    size={14}
+                    color={active ? Colors.textPrimary : Colors.textMuted}
+                  />
+                  <Text style={[styles.tabLabel, active && styles.tabLabelActive]}>
+                    {tab.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
 
-        {/* ── Tab Bar ── */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.tabBar}
-          contentContainerStyle={styles.tabBarContent}
-        >
-          {visibleTabs.map(tab => {
-            const active = resolvedTab === tab.id;
-            return (
-              <TouchableOpacity
-                key={tab.id}
-                onPress={() => setActiveTab(tab.id)}
-                style={[styles.tabBtn, active && styles.tabBtnActive]}
-                accessibilityRole="tab"
-                accessibilityLabel={tab.label}
-                accessibilityState={{ selected: active }}
-              >
-                <Ionicons
-                  name={tab.icon}
-                  size={14}
-                  color={active ? Colors.textPrimary : Colors.textMuted}
-                />
-                <Text style={[styles.tabLabel, active && styles.tabLabelActive]}>
-                  {tab.label}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-
-        {/* ── Content ── */}
-        <View style={styles.content}>
-          {resolvedTab === 'queue'    && <ModerationQueue />}
-          {resolvedTab === 'history'  && <ModerationHistory />}
-          {resolvedTab === 'settings' && isAdmin && <ModerationSettingsPanel />}
-          {resolvedTab === 'roles'    && isAdmin && <RoleManagement />}
-          {resolvedTab === 'users'    && isAdmin && <UserRoleAssignment />}
-          {resolvedTab === 'ads'      && isAdmin && <AdManagementPanel />}
-        </View>
+          {/* ── Content ── */}
+          <View style={styles.content}>
+            {resolvedTab === 'queue'    && <ModerationQueue />}
+            {resolvedTab === 'history'  && <ModerationHistory />}
+            {resolvedTab === 'settings' && isAdmin && <ModerationSettingsPanel />}
+            {resolvedTab === 'roles'    && isAdmin && <RoleManagement />}
+            {resolvedTab === 'users'    && isAdmin && <UserRoleAssignment />}
+            {resolvedTab === 'ads'      && isAdmin && <AdManagementPanel />}
+          </View>
+        </MobileCard>
       </SafeAreaView>
     </AppBackground>
   );
@@ -202,7 +209,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.space2,
     textAlign: 'center',
   },
-  backBtn: {
+  deniedBackBtn: {
     marginTop: spacing.space6,
     backgroundColor: Colors.actionPrimary,
     borderRadius: radius.radiusFull,
@@ -225,18 +232,41 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: Colors.borderSubtle,
   },
-  headerLeft: {
+  backBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    minWidth: 70,
+  },
+  backBtnLabel: {
+    ...typeScale.labelSM,
+    color: Colors.iconPrimary,
+  },
+  headerCenter: {
     flex: 1,
-    marginRight: spacing.space3,
+    alignItems: 'center',
   },
   headerTitle: {
     ...typeScale.headingLG,
     color: Colors.textPrimary,
+    textAlign: 'center',
   },
   headerRole: {
     ...typeScale.bodySM,
     color: Colors.textMuted,
     marginTop: 2,
+    textAlign: 'center',
+  },
+  headerRight: {
+    minWidth: 70,
+  },
+  cardContainer: {
+    flex: 1,
+    paddingVertical: 12,
+  },
+  cardOverride: {
+    flex: 1,
+    overflow: 'hidden',
   },
 
   // Tab bar
@@ -244,20 +274,24 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: Colors.borderSubtle,
     flexGrow: 0,
+    flexShrink: 0,
+    height: 48,
   },
   tabBarContent: {
     paddingHorizontal: spacing.space3,
     paddingVertical: spacing.space2,
     gap: spacing.space2,
+    alignItems: 'center',
   },
   tabBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
     paddingHorizontal: spacing.space3,
-    paddingVertical: spacing.space2,
+    paddingVertical: 6,
     borderRadius: radius.radiusMD,
     backgroundColor: Colors.bgElevated,
+    height: 32,
   },
   tabBtnActive: {
     backgroundColor: Colors.actionPrimary,
@@ -265,6 +299,7 @@ const styles = StyleSheet.create({
   tabLabel: {
     ...typeScale.labelSM,
     color: Colors.textMuted,
+    lineHeight: 16,
   },
   tabLabelActive: {
     color: Colors.textPrimary,

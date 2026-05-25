@@ -190,6 +190,7 @@ export function ModerationQueue() {
         horizontal
         showsHorizontalScrollIndicator={false}
         keyExtractor={f => f.id}
+        style={styles.filterBarList}
         contentContainerStyle={styles.filterBar}
         renderItem={({ item: f }) => {
           const active = selectedFilter === f.id;
@@ -295,18 +296,27 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
   },
+  filterBarList: {
+    flexGrow: 0,
+    flexShrink: 0,
+    height: 48,
+  },
   filterBar: {
     paddingHorizontal: spacing.screenPaddingH,
-    paddingVertical: spacing.space3,
+    paddingVertical: spacing.space2,
     gap: spacing.space2,
+    alignItems: 'center',
   },
   filterPill: {
     paddingHorizontal: spacing.space3,
-    paddingVertical: spacing.space2,
+    paddingVertical: 6,
     borderRadius: radius.radiusFull,
     backgroundColor: Colors.bgElevated,
     borderWidth: 1,
     borderColor: Colors.borderSubtle,
+    height: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   filterPillActive: {
     backgroundColor: Colors.actionPrimary,
@@ -315,6 +325,7 @@ const styles = StyleSheet.create({
   filterPillText: {
     ...typeScale.labelSM,
     color: Colors.textMuted,
+    lineHeight: 16,
   },
   filterPillTextActive: {
     color: Colors.textPrimary,
