@@ -31,8 +31,9 @@ import { ModerationSettingsPanel } from './ModerationSettingsPanel';
 import { RoleManagement } from './RoleManagement';
 import { UserRoleAssignment } from './UserRoleAssignment';
 import { AdManagementPanel } from './AdManagementPanel';
+import { NotificationAnalyticsDashboard } from './NotificationAnalyticsDashboard';
 
-type TabType = 'queue' | 'roles' | 'settings' | 'users' | 'history' | 'ads';
+type TabType = 'queue' | 'roles' | 'settings' | 'users' | 'history' | 'ads' | 'notifications';
 
 interface TabConfig {
   id: TabType;
@@ -42,12 +43,13 @@ interface TabConfig {
 }
 
 const TABS: TabConfig[] = [
-  { id: 'queue',    label: 'Queue',    icon: 'mail-outline',       adminOnly: false },
-  { id: 'roles',    label: 'Roles',    icon: 'shield-outline',     adminOnly: true  },
-  { id: 'settings', label: 'Settings', icon: 'settings-outline',   adminOnly: true  },
-  { id: 'users',    label: 'Users',    icon: 'people-outline',     adminOnly: true  },
-  { id: 'ads',      label: 'Ads',      icon: 'megaphone-outline',  adminOnly: true  },
-  { id: 'history',  label: 'History',  icon: 'time-outline',       adminOnly: false },
+  { id: 'queue',         label: 'Queue',    icon: 'mail-outline',            adminOnly: false },
+  { id: 'roles',         label: 'Roles',    icon: 'shield-outline',          adminOnly: true  },
+  { id: 'settings',      label: 'Settings', icon: 'settings-outline',        adminOnly: true  },
+  { id: 'users',         label: 'Users',    icon: 'people-outline',          adminOnly: true  },
+  { id: 'ads',           label: 'Ads',      icon: 'megaphone-outline',       adminOnly: true  },
+  { id: 'notifications', label: 'Notifs',   icon: 'notifications-outline',   adminOnly: true  },
+  { id: 'history',       label: 'History',  icon: 'time-outline',            adminOnly: false },
 ];
 
 export default function AdminDashboard() {
@@ -158,12 +160,15 @@ export default function AdminDashboard() {
 
           {/* ── Content ── */}
           <View style={styles.content}>
-            {resolvedTab === 'queue'    && <ModerationQueue />}
-            {resolvedTab === 'history'  && <ModerationHistory />}
-            {resolvedTab === 'settings' && isAdmin && <ModerationSettingsPanel />}
-            {resolvedTab === 'roles'    && isAdmin && <RoleManagement />}
-            {resolvedTab === 'users'    && isAdmin && <UserRoleAssignment />}
-            {resolvedTab === 'ads'      && isAdmin && <AdManagementPanel />}
+            {resolvedTab === 'queue'         && <ModerationQueue />}
+            {resolvedTab === 'history'       && <ModerationHistory />}
+            {resolvedTab === 'settings'      && isAdmin && <ModerationSettingsPanel />}
+            {resolvedTab === 'roles'         && isAdmin && <RoleManagement />}
+            {resolvedTab === 'users'         && isAdmin && <UserRoleAssignment />}
+            {resolvedTab === 'ads'           && isAdmin && <AdManagementPanel />}
+            {resolvedTab === 'notifications' && isAdmin && (
+              <NotificationAnalyticsDashboard onBack={() => setActiveTab('queue')} />
+            )}
           </View>
         </MobileCard>
       </SafeAreaView>

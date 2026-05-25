@@ -188,7 +188,8 @@ export default function TabsLayout() {
           <Tabs.Screen name="deposit"  options={{ href: null, headerShown: false }} />
           <Tabs.Screen name="transfer" options={{ href: null, headerShown: false }} />
           <Tabs.Screen name="withdraw" options={{ href: null, headerShown: false }} />
-          <Tabs.Screen name="admin"    options={{ href: null, headerShown: false }} />
+          <Tabs.Screen name="admin"        options={{ href: null, headerShown: false }} />
+          <Tabs.Screen name="notification" options={{ href: null, headerShown: false }} />
         </Tabs>
       </Authenticated>
     </>

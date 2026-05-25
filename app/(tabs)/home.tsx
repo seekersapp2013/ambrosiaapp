@@ -2,7 +2,7 @@ import { api } from "@/convex/_generated/api";
 import { useQuery } from "convex/react";
 import {
   ScrollView, TouchableOpacity,
-  Alert, Modal, TextInput, StyleSheet,
+  Alert, Modal, TextInput, StyleSheet, View as RNView,
 } from "react-native";
 import { View, Text, H1 } from "tamagui";
 import { Ionicons } from "@expo/vector-icons";
@@ -14,9 +14,14 @@ import { AppLogo } from "@/components/AppLogo";
 import { Colors } from "@/constants/Colors";
 import { AppBackground } from "@/components/AppBackground";
 import { MobileCard } from "@/components/MobileCard";
+import { useRouter } from "expo-router";
+import { NotificationBanner } from "./notification/NotificationBanner";
 
 export default function HomeScreen() {
+  const router = useRouter();
   const viewer = useQuery(api.users.viewer);
+  const recentUnread = useQuery(api.notifications.getRecentUnreadNotifications, { limit: 5 });
+  const unreadCount  = useQuery(api.notifications.getUnreadCount);
   const [showWalletDetails, setShowWalletDetails] = useState(false);
   const [decryptedPrivateKey, setDecryptedPrivateKey] = useState("");
   const [decryptedMnemonic, setDecryptedMnemonic] = useState("");
@@ -97,8 +102,36 @@ export default function HomeScreen() {
                 {viewer?.displayName || viewer?.email}
               </Text>
             </View>
+            {/* Notification bell */}
+            <TouchableOpacity
+              onPress={() => router.push("/(tabs)/notification")}
+              style={styles.bellBtn}
+              accessibilityRole="button"
+              accessibilityLabel="Notifications"
+            >
+              <Ionicons name="notifications-outline" size={22} color={Colors.textSecondary} />
+              {(unreadCount ?? 0) > 0 && (
+                <RNView style={styles.bellBadge}>
+                  <Text color="#fff" fontSize={9} fontWeight="700">
+                    {(unreadCount ?? 0) > 99 ? "99+" : unreadCount}
+                  </Text>
+                </RNView>
+              )}
+            </TouchableOpacity>
           </View>
         </View>
+
+        {/* ── Notification Banner ── */}
+        {recentUnread && recentUnread.length > 0 && (
+          <NotificationBanner
+            notifications={recentUnread}
+            onNotificationClick={(id) =>
+              router.push({ pathname: "/(tabs)/notification", params: { highlightId: id } })
+            }
+            onNotificationDismiss={() => {}}
+            onDismiss={() => router.push("/(tabs)/notification")}
+          />
+        )}
 
         {/* ── Content ── */}
         <View padding="$4">
@@ -451,4 +484,26 @@ const styles = StyleSheet.create({
   modalCancelText: { color: Colors.textSecondary, fontSize: 15, fontWeight: "600" },
   modalConfirmButton: { backgroundColor: Colors.primary },
   modalConfirmText: { color: Colors.textPrimary, fontSize: 15, fontWeight: "600" },
+
+  // Notification bell
+  bellBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
+  },
+  bellBadge: {
+    position: "absolute",
+    top: 4,
+    right: 4,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: Colors.primary,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 3,
+  },
 });

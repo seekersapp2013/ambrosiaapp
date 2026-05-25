@@ -911,6 +911,7 @@ export default function ProfileTab() {
               <View style={styles.menuGroup}>
                 <SettingsRow icon="create-outline"       label="Edit Profile"  iconColor={Colors.iconAccent}   onPress={() => setIsEditing(true)} />
                 <SettingsRow icon="settings-outline"     label="Settings"      iconColor={Colors.iconAccent}   onPress={() => router.push("/auth/password/ChangePassword")} />
+                <SettingsRow icon="notifications-outline" label="Notifications" iconColor={Colors.statusInfo}   onPress={() => (router.push as any)("/(tabs)/notification")} />
                 <SettingsRow icon="share-social-outline" label="Share Profile" iconColor={Colors.statusInfo}   onPress={handleShareProfile} isLast />
               </View>
 
