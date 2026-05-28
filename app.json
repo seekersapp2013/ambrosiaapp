@@ -44,7 +44,8 @@
         {
           "photosPermission": "The app accesses your photos to let you upload a profile picture."
         }
-      ]
+      ],
+      "expo-video"
     ],
     "experiments": {
       "typedRoutes": true

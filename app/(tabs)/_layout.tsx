@@ -20,9 +20,10 @@ function RedirectToSignIn() {
 
 // ── Visible tabs config ───────────────────────────────────────────────────────
 const TABS = [
-  { name: "home",    label: "Home",    icon: "home-outline"   as const },
-  { name: "wallet",  label: "Wallet",  icon: "wallet-outline" as const },
-  { name: "profile", label: "Profile", icon: "person-outline" as const },
+  { name: "home",    label: "Home",    icon: "home-outline"        as const },
+  { name: "pulse",   label: "Pulse",   icon: "play-circle-outline" as const },
+  { name: "wallet",  label: "Wallet",  icon: "wallet-outline"      as const },
+  { name: "profile", label: "Profile", icon: "person-outline"      as const },
 ] as const;
 
 // ── Custom tab bar that sits inside the card boundary ─────────────────────────
@@ -183,11 +184,15 @@ export default function TabsLayout() {
           }}
         >
           <Tabs.Screen name="home"    options={{ title: "Home" }} />
+          <Tabs.Screen name="pulse"   options={{ title: "Pulse" }} />
           <Tabs.Screen name="wallet"  options={{ title: "Wallet" }} />
           <Tabs.Screen name="profile" options={{ title: "Profile" }} />
-          <Tabs.Screen name="deposit"  options={{ href: null, headerShown: false }} />
-          <Tabs.Screen name="transfer" options={{ href: null, headerShown: false }} />
-          <Tabs.Screen name="withdraw" options={{ href: null, headerShown: false }} />
+          <Tabs.Screen name="deposit"      options={{ href: null, headerShown: false }} />
+          <Tabs.Screen name="transfer"     options={{ href: null, headerShown: false }} />
+          <Tabs.Screen name="withdraw"     options={{ href: null, headerShown: false }} />
+          <Tabs.Screen name="reel-viewer"  options={{ href: null, headerShown: false }} />
+          <Tabs.Screen name="reel-comments" options={{ href: null, headerShown: false }} />
+          <Tabs.Screen name="write-reel"   options={{ href: null, headerShown: false }} />
           <Tabs.Screen name="admin"        options={{ href: null, headerShown: false }} />
           <Tabs.Screen name="notification" options={{ href: null, headerShown: false }} />
         </Tabs>

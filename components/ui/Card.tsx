@@ -74,7 +74,6 @@ export function BaseCard({
       <View
         style={[
           styles.card,
-          elevated ? elevation.elevation3 : elevation.elevation2,
           style,
         ]}
       >
@@ -93,7 +92,6 @@ export function BaseCard({
         accessibilityLabel={accessibilityLabel}
         style={({ pressed }) => [
           styles.card,
-          elevated ? elevation.elevation3 : elevation.elevation2,
           pressed && styles.cardPressed,
           style,
         ]}
@@ -404,10 +402,15 @@ export function QuickActionCard({
 const styles = StyleSheet.create({
   // Base card
   card: {
-    backgroundColor: Colors.bgSurface,
-    borderRadius: radius.radiusLG,
+    backgroundColor: 'rgba(10, 10, 21, 0.97)',
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: Colors.borderSubtle,
+    borderColor: 'rgba(198, 34, 41, 0.3)',
+    shadowColor: '#C62229',
+    shadowOffset: { width: 0, height: 20 },
+    shadowOpacity: 0.15,
+    shadowRadius: 40,
+    elevation: 8,
     padding: spacing.space4,
     marginBottom: spacing.space3,
     flexDirection: 'row',
@@ -466,7 +469,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: spacing.space4,
     gap: spacing.space3,
-    backgroundColor: Colors.bgSurface,
+    backgroundColor: 'rgba(10, 10, 21, 0.97)',
   },
   settingsLabel: {
     ...typeScale.bodyMD,
@@ -567,8 +570,15 @@ const styles = StyleSheet.create({
 
   // Quick action
   quickAction: {
-    backgroundColor: Colors.bgElevated,
-    borderRadius: radius.radiusMD,
+    backgroundColor: 'rgba(10, 10, 21, 0.97)',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(198, 34, 41, 0.3)',
+    shadowColor: '#C62229',
+    shadowOffset: { width: 0, height: 20 },
+    shadowOpacity: 0.15,
+    shadowRadius: 40,
+    elevation: 8,
     paddingVertical: 16,
     paddingHorizontal: spacing.space2,
     alignItems: 'center',

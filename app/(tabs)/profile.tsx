@@ -786,13 +786,11 @@ export default function ProfileTab() {
               onPress={handleShareProfile}
               accessibilityLabel="Share profile"
             />
-            {profile.avatar
-              ? <IconButton
-                  icon={<Ionicons name="trash-outline" size={16} color={Colors.statusDanger} />}
-                  onPress={handleDeleteProfilePicture}
-                  accessibilityLabel="Remove profile picture"
-                />
-              : null}
+            <IconButton
+              icon={<Ionicons name="notifications-outline" size={18} color={Colors.statusInfo} />}
+              onPress={() => (router.push as any)("/(tabs)/notification")}
+              accessibilityLabel="Notifications"
+            />
           </View>
         </View>
 
