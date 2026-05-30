@@ -1183,6 +1183,29 @@ export default defineSchema({
     createdAt: v.number()
   }),
 
+  // ✅ Platform Settings - Key/value store for admin-configurable settings and caches
+  platform_settings: defineTable({
+    key: v.string(),
+    value: v.any(),
+    description: v.optional(v.string()),
+    updatedBy: v.id("users"),
+    updatedAt: v.number(),
+  }).index("by_key", ["key"]),
+
+  // ✅ Bank Accounts - User-linked bank accounts for NGN withdrawals
+  bank_accounts: defineTable({
+    userId: v.id("users"),
+    bankName: v.string(),
+    bankCode: v.string(),
+    bankSlug: v.optional(v.string()),
+    accountNumber: v.string(),
+    accountName: v.string(),
+    recipientCode: v.string(), // Paystack transfer recipient code
+    isDefault: v.optional(v.boolean()),
+    createdAt: v.number(),
+  }).index("by_user", ["userId"])
+    .index("by_user_account", ["userId", "accountNumber"]),
+
   // ✅ Signup Pending - Temporary store for wizard data until afterUserCreatedOrUpdated fires
   signupPending: defineTable({
     email: v.string(),

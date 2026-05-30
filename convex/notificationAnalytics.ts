@@ -97,7 +97,7 @@ export const trackDeliveryEvent = internalMutation({
       error: args.metadata?.error,
       userAgent: args.metadata?.userAgent,
       ipAddress: args.metadata?.ipAddress,
-      timestamp: args.metadata?.timestamp
+      // Note: timestamp is a top-level field on notificationEvents, not in metadata
     };
 
     await ctx.db.insert("notificationEvents", {

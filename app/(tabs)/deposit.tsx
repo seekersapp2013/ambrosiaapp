@@ -108,12 +108,6 @@ import {
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
-        {/* Header */}
-        <ScreenHeader
-          title="Deposit Funds"
-          onBack={() => router.replace("/(tabs)/wallet")}
-        />
-
         {/* Scrollable form */}
         <ScrollView
           style={styles.scroll}
@@ -122,6 +116,10 @@ import {
           keyboardShouldPersistTaps="handled"
         >
           <MobileCard>
+            <ScreenHeader
+              title="Deposit Funds"
+              onBack={() => router.replace("/(tabs)/wallet")}
+            />
           {/* Profile incomplete warning */}
           {!profileLoading && (!customerName || !customerEmail || !phoneNumber) && (
             <View style={styles.warningCard}>

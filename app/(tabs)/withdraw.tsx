@@ -1,10 +1,19 @@
 import React, { useState } from "react";
 import {
-  View, Text, StyleSheet,
-  ScrollView, KeyboardAvoidingView, Platform,
+  View,
+  Text,
+   TouchableOpacity,
+  StyleSheet,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform,
+  Modal,
+  ActivityIndicator,
+  Image,
+  Alert,
 } from "react-native";
 import { useRouter } from "expo-router";
-import { useMutation, useQuery } from "convex/react";
+import { useAction, useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "@/tokens/colors";
@@ -15,55 +24,156 @@ import { ScreenHeader } from "@/components/ui/ScreenHeader";
 import { PrimaryButton } from "@/components/ui/Button";
 import { AppInput } from "@/components/ui/Input";
 import { BaseCard } from "@/components/ui/Card";
-import { formatAmount } from "@/utils/currency";
 import { MobileCard } from "@/components/MobileCard";
+import { OTPInput } from "@/components/ui/Input";
+import { formatAmount } from "@/utils/currency";
+import { getBankLogoUrl } from "@/utils/paystackBanking";
+import { verifyPin, hashPin } from "@/utils/pinHash";
 
 export default function WithdrawScreen() {
   const router = useRouter();
 
   // ── Convex ────────────────────────────────────────────────────────────────
-  const walletBalance = useQuery(
+  const walletData = useQuery(
     (api as any)["wallets/getWalletBalance"].getWalletBalance,
     {},
   );
-  const withdrawFunds = useMutation(
-    (api as any)["wallets/withdrawFunds"].withdrawFunds,
+  const linkedAccounts = useQuery(
+    (api as any)["wallets/bankAccounts"].getWithdrawalBankAccounts,
   );
+  const profile = useQuery(api.profiles.getMyProfile);
+  const processWithdrawal = useAction(
+    (api as any)["wallets/withdrawFunds"].processWithdrawal,
+  );
+  const updateProfile = useMutation(api.profiles.createOrUpdateProfile);
 
-  // ── State ─────────────────────────────────────────────────────────────────
+  // ── Form state ────────────────────────────────────────────────────────────
   const [amount, setAmount] = useState("");
+  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
+
+  // ── PIN modal state ───────────────────────────────────────────────────────
+  const [pinModalVisible, setPinModalVisible] = useState(false);
+  const [pin, setPin] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
-  const [message, setMessage] = useState<{ text: string; isError: boolean } | null>(null);
+
+  // ── Set-PIN flow state (when user has no PIN yet) ─────────────────────────
+  const [newPin, setNewPin] = useState("");
+  const [confirmPin, setConfirmPin] = useState("");
+  const [setPinStep, setSetPinStep] = useState<"enter" | "confirm">("enter");
+  const [isSavingPin, setIsSavingPin] = useState(false);
 
   // ── Derived ───────────────────────────────────────────────────────────────
+  const ngnBalance =
+    (walletData?.balances as Record<string, number> | undefined)?.NGN ?? 0;
   const parsedAmount = parseFloat(amount);
-  const ngnBalance = (walletBalance?.balances as Record<string, number> | undefined)?.NGN ?? 0;
   const hasAmount = !!parsedAmount && parsedAmount > 0;
   const hasSufficientFunds = parsedAmount <= ngnBalance;
-  const isValid = hasAmount && hasSufficientFunds;
+  const selectedAccount =
+    Array.isArray(linkedAccounts)
+      ? linkedAccounts.find((a: any) => a._id === selectedAccountId)
+      : null;
+  const canProceed =
+    hasAmount && hasSufficientFunds && !!selectedAccount && !isProcessing;
 
-  // ── Handler ───────────────────────────────────────────────────────────────
-  const handleWithdraw = async () => {
-    if (!isValid) return;
+  // PIN validation — only active once all 4 digits are entered
+  const pinComplete = pin.length === 4;
+  const pinValid = pinComplete && !!profile?.pinHash && verifyPin(pin, profile.pinHash);
+  const pinInvalid = pinComplete && !pinValid;
 
-    setIsProcessing(true);
-    setMessage(null);
+  // Whether the user needs to set a PIN first
+  const needsPin = profile !== undefined && !profile?.pinHash;
+
+  // Set-PIN derived
+  const newPinComplete = newPin.length === 4;
+  const confirmPinComplete = confirmPin.length === 4;
+  const pinsMatch = newPinComplete && confirmPinComplete && newPin === confirmPin;
+  const pinsMismatch = newPinComplete && confirmPinComplete && newPin !== confirmPin;
+
+  // ── Handlers ──────────────────────────────────────────────────────────────
+
+  // Step 1: validate form, open PIN modal
+  const handlePressWithdraw = () => {
+    if (!hasAmount) {
+      Alert.alert("Invalid Amount", "Please enter a valid amount greater than zero.");
+      return;
+    }
+    if (!hasSufficientFunds) {
+      Alert.alert("Insufficient Balance", "You don't have enough NGN in your wallet.");
+      return;
+    }
+    if (!selectedAccount) {
+      Alert.alert(
+        "No Account Selected",
+        "Please select a bank account to withdraw to, or link one first.",
+      );
+      return;
+    }
+    setPin("");
+    setPinModalVisible(true);
+  };
+
+  // Save new PIN to profile
+  const handleSavePin = async () => {
+    if (!pinsMatch || !profile) return;
+    setIsSavingPin(true);
     try {
-      const result = await withdrawFunds({ amount: parsedAmount, currency: "NGN" });
-      setMessage({
-        text: `Successfully withdrew ${formatAmount(parsedAmount, "NGN")}. New balance: ${formatAmount(result.newBalance, result.currency)}`,
-        isError: false,
+      const username = (profile as any).username ?? (profile.user as any)?.username;
+      await updateProfile({
+        username,
+        pinHash: hashPin(newPin),
       });
+      // PIN saved — switch to confirm mode so they can proceed immediately
+      setSetPinStep("enter");
+      setNewPin("");
+      setConfirmPin("");
+      setPin("");
+      // profile will re-query with the new pinHash; modal stays open in confirm mode
+    } catch (err: any) {
+      Alert.alert("Error", err.message || "Could not save PIN. Please try again.");
+    } finally {
+      setIsSavingPin(false);
+    }
+  };
+
+  // Step 2: PIN already verified reactively — just call action
+  const handleConfirmPin = async () => {
+    if (!pinValid || !selectedAccount) return;
+
+    setPinModalVisible(false);
+    setIsProcessing(true);
+    try {
+      const result = await processWithdrawal({
+        amount: parsedAmount,
+        currency: "NGN",
+        bankAccountId: selectedAccount._id,
+        pin,
+      });
+
+      const statusNote =
+        result?.status === "success"
+          ? "The transfer has been completed."
+          : "The transfer is being processed and may take a few hours.";
+
+      Alert.alert(
+        "Withdrawal Submitted",
+        result?.message ?? `Your withdrawal of ${formatAmount(parsedAmount, "NGN")} has been submitted to ${selectedAccount.bankName}. ${statusNote}`,
+        [{ text: "OK", onPress: () => router.replace("/(tabs)/wallet") }],
+      );
       setAmount("");
-      setTimeout(() => router.replace("/(tabs)/wallet"), 2000);
-    } catch (error) {
-      setMessage({
-        text: `Error: ${error instanceof Error ? error.message : "Withdrawal failed"}`,
-        isError: true,
-      });
+      setSelectedAccountId(null);
+    } catch (err: any) {
+      Alert.alert("Withdrawal Failed", err.message || "Something went wrong. Please try again.");
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  const handleCancelPin = () => {
+    setPinModalVisible(false);
+    setPin("");
+    setNewPin("");
+    setConfirmPin("");
+    setSetPinStep("enter");
   };
 
   return (
@@ -72,12 +182,6 @@ export default function WithdrawScreen() {
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
-        {/* Header */}
-        <ScreenHeader
-          title="Withdraw Funds"
-          onBack={() => router.replace("/(tabs)/wallet")}
-        />
-
         <ScrollView
           style={styles.scroll}
           contentContainerStyle={styles.scrollContent}
@@ -85,133 +189,401 @@ export default function WithdrawScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <MobileCard>
-          {/* Balance pill */}
-          {walletBalance !== undefined && (
-            <View style={styles.balancePill}>
-              <Ionicons name="wallet-outline" size={14} color={Colors.actionPrimary} />
-              <Text style={styles.balancePillText}>
-                Available:{" "}
-                <Text style={styles.balancePillAmount}>
-                  {formatAmount(ngnBalance, "NGN")}
-                </Text>
-              </Text>
-            </View>
-          )}
-
-          {/* Info card */}
-          <View style={styles.infoCard}>
-            <Ionicons name="information-circle-outline" size={16} color={Colors.statusWarning} />
-            <Text style={styles.infoText}>
-              Withdrawals are only available in Nigerian Naira (NGN).
-            </Text>
-          </View>
-
-          {/* Currency (locked) */}
-          <BaseCard style={styles.section}>
-            <Text style={styles.sectionTitle}>Currency</Text>
-            <View style={styles.currencyLocked}>
-              <Text style={styles.currencyLockedText}>🇳🇬  NGN — Nigerian Naira</Text>
-              <Ionicons name="lock-closed-outline" size={14} color={Colors.textDisabled} />
-            </View>
-          </BaseCard>
-
-          {/* Amount */}
-          <BaseCard style={styles.section}>
-            <Text style={styles.sectionTitle}>Amount (₦)</Text>
-            <AppInput
-              value={amount}
-              onChangeText={(v) => { setAmount(v); setMessage(null); }}
-              placeholder="0.00"
-              keyboardType="decimal-pad"
-              returnKeyType="done"
-              editable={!isProcessing}
-              autoFocus
-              error={hasAmount && !hasSufficientFunds ? "Insufficient NGN balance" : undefined}
-              hint={walletBalance !== undefined ? `Available: ${formatAmount(ngnBalance, "NGN")}` : undefined}
-              containerStyle={styles.noMargin}
+            <ScreenHeader
+              title="Withdraw Funds"
+              onBack={() => router.replace("/(tabs)/wallet")}
             />
-          </BaseCard>
-
-          {/* Summary */}
-          {hasAmount && hasSufficientFunds && (
-            <View style={styles.summaryCard}>
-              <Ionicons name="checkmark-circle-outline" size={16} color={Colors.statusSuccess} />
-              <Text style={styles.summaryText}>
-                You are withdrawing{" "}
-                <Text style={styles.summaryHighlight}>{formatAmount(parsedAmount, "NGN")}</Text>
-                . Remaining balance will be{" "}
-                <Text style={styles.summaryHighlight}>
-                  {formatAmount(ngnBalance - parsedAmount, "NGN")}
+            {/* ── Balance pill ─────────────────────────────────────────── */}
+            {walletData !== undefined && (
+              <View style={styles.balancePill}>
+                <Ionicons name="wallet-outline" size={14} color={Colors.actionPrimary} />
+                <Text style={styles.balancePillText}>
+                  NGN Balance:{" "}
+                  <Text style={styles.balancePillAmount}>
+                    {formatAmount(ngnBalance, "NGN")}
+                  </Text>
                 </Text>
-                .
-              </Text>
-            </View>
-          )}
+              </View>
+            )}
 
-          {/* Status message */}
-          {message && (
-            <View style={[
-              styles.messageCard,
-              message.isError ? styles.messageError : styles.messageSuccess,
-            ]}>
+            {/* ── Info banner ──────────────────────────────────────────── */}
+            <View style={styles.infoCard}>
               <Ionicons
-                name={message.isError ? "alert-circle-outline" : "checkmark-circle-outline"}
+                name="information-circle-outline"
                 size={16}
-                color={message.isError ? Colors.statusDanger : Colors.statusSuccess}
+                color={Colors.statusWarning}
               />
-              <Text style={[
-                styles.messageText,
-                message.isError ? styles.messageTextError : styles.messageTextSuccess,
-              ]}>
-                {message.text}
+              <Text style={styles.infoText}>
+                Withdrawals are processed in Nigerian Naira (NGN) only and typically
+                arrive within 1–3 business days.
               </Text>
             </View>
-          )}
 
-          {/* Submit button inside scroll — clears tab bar */}
-          <View style={styles.submitWrap}>
-            <PrimaryButton
-              label={
-                hasAmount && hasSufficientFunds
-                  ? `Withdraw ${formatAmount(parsedAmount, "NGN")}`
-                  : "Withdraw NGN"
-              }
-              onPress={handleWithdraw}
-              disabled={!isValid}
-              loading={isProcessing}
-              color={Colors.actionPrimary}
-              icon={<Ionicons name="cash-outline" size={20} color="#FFFFFF" />}
-            />
-          </View>
+            {/* ── Amount ───────────────────────────────────────────────── */}
+            <BaseCard style={styles.section}>
+              <Text style={styles.sectionTitle}>Amount (₦)</Text>
+              <AppInput
+                value={amount}
+                onChangeText={(v) => setAmount(v)}
+                placeholder="0.00"
+                keyboardType="decimal-pad"
+                returnKeyType="done"
+                editable={!isProcessing}
+                autoFocus
+                error={
+                  hasAmount && !hasSufficientFunds
+                    ? "Insufficient NGN balance"
+                    : undefined
+                }
+                hint={
+                  walletData !== undefined
+                    ? `Available: ${formatAmount(ngnBalance, "NGN")}`
+                    : undefined
+                }
+                containerStyle={styles.noMargin}
+              />
+            </BaseCard>
+
+            {/* ── Bank Account Selection ───────────────────────────────── */}
+            <BaseCard style={styles.section}>
+              <View style={styles.sectionRow}>
+                <Text style={styles.sectionTitle}>Withdraw To</Text>
+                <TouchableOpacity
+                  onPress={() => router.push("/auth/ManageBankAccountsScreen" as any)}
+                  style={styles.manageBtn}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Ionicons name="pencil-outline" size={14} color={Colors.actionPrimary} />
+                  <Text style={styles.manageBtnText}>Manage</Text>
+                </TouchableOpacity>
+              </View>
+
+              {linkedAccounts === undefined ? (
+                <View style={styles.loadingRow}>
+                  <ActivityIndicator size="small" color={Colors.textMuted} />
+                  <Text style={[typeScale.bodySM, { color: Colors.textMuted }]}>
+                    Loading accounts...
+                  </Text>
+                </View>
+              ) : linkedAccounts.length === 0 ? (
+                <TouchableOpacity
+                  onPress={() => router.push("/auth/ManageBankAccountsScreen" as any)}
+                  style={styles.emptyAccountBtn}
+                >
+                  <Ionicons name="add-circle-outline" size={24} color={Colors.actionPrimary} />
+                  <Text style={styles.emptyAccountTitle}>Link a Bank Account</Text>
+                  <Text style={styles.emptyAccountSub}>
+                    You need to link a bank account before withdrawing
+                  </Text>
+                </TouchableOpacity>
+              ) : (
+                <View style={styles.accountList}>
+                  {linkedAccounts.map((acc: any) => {
+                    const isSelected = selectedAccountId === acc._id;
+                    return (
+                      <TouchableOpacity
+                        key={acc._id}
+                        onPress={() => setSelectedAccountId(acc._id)}
+                        style={[
+                          styles.accountRow,
+                          isSelected && styles.accountRowSelected,
+                        ]}
+                        activeOpacity={0.8}
+                      >
+                        <BankLogo slug={acc.bankSlug} size={36} />
+                        <View style={{ flex: 1 }}>
+                          <Text
+                            style={[
+                              typeScale.labelMD,
+                              { color: isSelected ? Colors.textPrimary : Colors.textSecondary },
+                            ]}
+                          >
+                            {acc.bankName}
+                          </Text>
+                          <Text style={[typeScale.caption, { color: Colors.textMuted, marginTop: 2 }]}>
+                            {acc.accountNumber} · {acc.accountName}
+                          </Text>
+                        </View>
+                        {isSelected && (
+                          <Ionicons
+                            name="checkmark-circle"
+                            size={20}
+                            color={Colors.actionPrimary}
+                          />
+                        )}
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              )}
+            </BaseCard>
+
+            {/* ── Summary ──────────────────────────────────────────────── */}
+            {canProceed && (
+              <View style={styles.summaryCard}>
+                <Ionicons
+                  name="checkmark-circle-outline"
+                  size={16}
+                  color={Colors.statusSuccess}
+                />
+                <Text style={styles.summaryText}>
+                  Withdrawing{" "}
+                  <Text style={styles.summaryHighlight}>
+                    {formatAmount(parsedAmount, "NGN")}
+                  </Text>{" "}
+                  to{" "}
+                  <Text style={styles.summaryHighlight}>{selectedAccount.bankName}</Text>.
+                  Remaining balance:{" "}
+                  <Text style={styles.summaryHighlight}>
+                    {formatAmount(ngnBalance - parsedAmount, "NGN")}
+                  </Text>
+                  .
+                </Text>
+              </View>
+            )}
+
+            {/* ── Submit ───────────────────────────────────────────────── */}
+            <View style={styles.submitWrap}>
+              <PrimaryButton
+                label={
+                  isProcessing
+                    ? "Processing..."
+                    : hasAmount && canProceed
+                    ? `Withdraw ${formatAmount(parsedAmount, "NGN")}`
+                    : "Withdraw NGN"
+                }
+                onPress={handlePressWithdraw}
+                disabled={!canProceed}
+                loading={isProcessing}
+                color={Colors.actionPrimary}
+                icon={<Ionicons name="cash-outline" size={20} color="#FFFFFF" />}
+              />
+            </View>
           </MobileCard>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* ── PIN Modal (set PIN or confirm PIN) ────────────────────────────── */}
+      <Modal
+        visible={pinModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={handleCancelPin}
+      >
+        <View style={styles.modalOverlay}>
+          <MobileCard style={styles.pinSheet}>
+
+            {needsPin ? (
+              /* ── SET PIN FLOW ─────────────────────────────────────────── */
+              <>
+                <View style={styles.pinSheetHeader}>
+                  <View style={styles.pinIconWrap}>
+                    <Ionicons name="key-outline" size={24} color={Colors.actionPrimary} />
+                  </View>
+                  <Text style={styles.pinTitle}>Create Transaction PIN</Text>
+                  <Text style={styles.pinSubtitle}>
+                    {setPinStep === "enter"
+                      ? "Set a 4-digit PIN to secure your withdrawals"
+                      : "Re-enter your PIN to confirm it"}
+                  </Text>
+                </View>
+
+                {/* Step indicator */}
+                <View style={styles.setPinSteps}>
+                  <View style={[styles.setPinDot, setPinStep === "enter" && styles.setPinDotActive]} />
+                  <View style={[styles.setPinDot, setPinStep === "confirm" && styles.setPinDotActive]} />
+                </View>
+
+                {setPinStep === "enter" ? (
+                  <>
+                    <OTPInput
+                      value={newPin}
+                      onChange={setNewPin}
+                      length={4}
+                      containerStyle={styles.pinInput}
+                    />
+                    <View style={styles.pinActions}>
+                      <TouchableOpacity onPress={handleCancelPin} style={styles.pinCancelBtn}>
+                        <Text style={styles.pinCancelText}>Cancel</Text>
+                      </TouchableOpacity>
+                      <PrimaryButton
+                        label="Next"
+                        onPress={() => setSetPinStep("confirm")}
+                        disabled={!newPinComplete}
+                        style={styles.pinConfirmBtn}
+                        icon={<Ionicons name="arrow-forward" size={18} color="#FFFFFF" />}
+                      />
+                    </View>
+                  </>
+                ) : (
+                  <>
+                    <OTPInput
+                      value={confirmPin}
+                      onChange={setConfirmPin}
+                      length={4}
+                      error={pinsMismatch}
+                      success={pinsMatch}
+                      containerStyle={styles.pinInput}
+                    />
+                    {confirmPinComplete && (
+                      <View style={styles.pinStatusRow}>
+                        <Ionicons
+                          name={pinsMatch ? "checkmark-circle" : "close-circle"}
+                          size={16}
+                          color={pinsMatch ? Colors.statusSuccess : Colors.statusDanger}
+                        />
+                        <Text style={[styles.pinStatusText, { color: pinsMatch ? Colors.statusSuccess : Colors.statusDanger }]}>
+                          {pinsMatch ? "PINs match" : "PINs don't match — try again"}
+                        </Text>
+                      </View>
+                    )}
+                    <View style={styles.pinActions}>
+                      <TouchableOpacity
+                        onPress={() => { setSetPinStep("enter"); setConfirmPin(""); }}
+                        style={styles.pinCancelBtn}
+                      >
+                        <Text style={styles.pinCancelText}>Back</Text>
+                      </TouchableOpacity>
+                      <PrimaryButton
+                        label="Save PIN"
+                        onPress={handleSavePin}
+                        disabled={!pinsMatch}
+                        loading={isSavingPin}
+                        style={styles.pinConfirmBtn}
+                        icon={<Ionicons name="checkmark" size={18} color="#FFFFFF" />}
+                      />
+                    </View>
+                  </>
+                )}
+              </>
+            ) : (
+              /* ── CONFIRM PIN FLOW ─────────────────────────────────────── */
+              <>
+                <View style={styles.pinSheetHeader}>
+                  <View style={styles.pinIconWrap}>
+                    <Ionicons name="lock-closed" size={24} color={Colors.actionPrimary} />
+                  </View>
+                  <Text style={styles.pinTitle}>Confirm Withdrawal</Text>
+                  <Text style={styles.pinSubtitle}>
+                    Enter your 4-digit transaction PIN to authorise this withdrawal
+                  </Text>
+                </View>
+
+                <OTPInput
+                  value={pin}
+                  onChange={setPin}
+                  length={4}
+                  error={pinInvalid}
+                  success={pinValid}
+                  containerStyle={styles.pinInput}
+                />
+
+                {pinComplete && (
+                  <View style={styles.pinStatusRow}>
+                    <Ionicons
+                      name={pinValid ? "checkmark-circle" : "close-circle"}
+                      size={16}
+                      color={pinValid ? Colors.statusSuccess : Colors.statusDanger}
+                    />
+                    <Text style={[styles.pinStatusText, { color: pinValid ? Colors.statusSuccess : Colors.statusDanger }]}>
+                      {pinValid ? "PIN correct" : "Incorrect PIN — try again"}
+                    </Text>
+                  </View>
+                )}
+
+                <View style={styles.pinActions}>
+                  <TouchableOpacity onPress={handleCancelPin} style={styles.pinCancelBtn}>
+                    <Text style={styles.pinCancelText}>Cancel</Text>
+                  </TouchableOpacity>
+                  <PrimaryButton
+                    label="Confirm"
+                    onPress={handleConfirmPin}
+                    disabled={!pinValid}
+                    style={styles.pinConfirmBtn}
+                    icon={<Ionicons name="checkmark" size={18} color="#FFFFFF" />}
+                  />
+                </View>
+              </>
+            )}
+
+          </MobileCard>
+        </View>
+      </Modal>
     </AppBackground>
   );
 }
+
+// ── BankLogo sub-component ────────────────────────────────────────────────────
+
+function BankLogo({ slug, size = 36 }: { slug?: string; size?: number }) {
+  const [failed, setFailed] = useState(false);
+  if (!slug || failed) {
+    return (
+      <View
+        style={{
+          width: size,
+          height: size,
+          borderRadius: size / 4,
+          backgroundColor: Colors.bgElevated,
+          justifyContent: "center",
+          alignItems: "center",
+        }}
+      >
+        <Ionicons name="business-outline" size={size * 0.55} color={Colors.textMuted} />
+      </View>
+    );
+  }
+  return (
+    <Image
+      source={{ uri: getBankLogoUrl(slug) }}
+      style={{ width: size, height: size, borderRadius: size / 4 }}
+      onError={() => setFailed(true)}
+      resizeMode="contain"
+    />
+  );
+}
+
+// ── Styles ────────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   scroll: { flex: 1 },
   scrollContent: { padding: spacing.space4, gap: spacing.space4 },
 
+  // Balance pill
   balancePill: {
-    flexDirection: "row", alignItems: "center", gap: 6,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
     alignSelf: "flex-start",
     backgroundColor: Colors.bgPrimarySubtle,
-    borderWidth: 1, borderColor: Colors.palette.primary,
-    borderRadius: 20, paddingHorizontal: spacing.space3, paddingVertical: 7,
+    borderWidth: 1,
+    borderColor: Colors.palette.primary,
+    borderRadius: 20,
+    paddingHorizontal: spacing.space3,
+    paddingVertical: 7,
   },
   balancePillText: { ...typeScale.bodySM, color: Colors.textMuted },
   balancePillAmount: { color: Colors.textPrimary, fontWeight: "700" },
 
+  // Info banner
   infoCard: {
-    flexDirection: "row", alignItems: "flex-start", gap: spacing.space2,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: spacing.space2,
     backgroundColor: Colors.statusWarningBg,
-    borderWidth: 1, borderColor: Colors.palette.amber,
-    borderRadius: 12, padding: 14,
+    borderWidth: 1,
+    borderColor: Colors.palette.amber,
+    borderRadius: 12,
+    padding: 14,
   },
-  infoText: { flex: 1, ...typeScale.bodySM, color: Colors.statusWarning, lineHeight: 18 },
+  infoText: {
+    flex: 1,
+    ...typeScale.bodySM,
+    color: Colors.statusWarning,
+    lineHeight: 18,
+  },
 
+  // Sections
   section: {
     flexDirection: "column",
     alignItems: "stretch",
@@ -219,50 +591,222 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     ...typeScale.headingMD,
-    color: Colors.textPrimary, marginBottom: spacing.space3,
+    color: Colors.textPrimary,
+    marginBottom: spacing.space3,
   },
-
-  currencyLocked: {
-    flexDirection: "row", alignItems: "center",
+  sectionRow: {
+    flexDirection: "row",
+    alignItems: "center",
     justifyContent: "space-between",
-    borderWidth: 1.5, borderColor: Colors.borderSubtle,
-    borderRadius: 12, paddingHorizontal: spacing.space4, paddingVertical: 13,
-    backgroundColor: Colors.bgSurface,
+    marginBottom: spacing.space3,
   },
-  currencyLockedText: {
-    ...typeScale.labelMD,
-    color: Colors.textMuted,
-  },
-
   noMargin: { marginBottom: 0 },
 
-  summaryCard: {
-    flexDirection: "row", alignItems: "flex-start", gap: spacing.space2,
-    backgroundColor: Colors.statusSuccessBg,
-    borderWidth: 1, borderColor: Colors.palette.green,
-    borderRadius: 12, padding: 14,
+  // Manage button
+  manageBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
   },
-  summaryText: { flex: 1, ...typeScale.bodySM, color: Colors.textMuted, lineHeight: 18 },
+  manageBtnText: {
+    ...typeScale.labelSM,
+    color: Colors.actionPrimary,
+  },
+
+  // Loading row
+  loadingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingVertical: spacing.space3,
+  },
+
+  // Empty account prompt
+  emptyAccountBtn: {
+    alignItems: "center",
+    gap: 6,
+    padding: spacing.space4,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: Colors.actionPrimary,
+    borderStyle: "dashed",
+    backgroundColor: Colors.bgPrimarySubtle,
+  },
+  emptyAccountTitle: {
+    ...typeScale.labelMD,
+    color: Colors.actionPrimary,
+  },
+  emptyAccountSub: {
+    ...typeScale.caption,
+    color: Colors.textMuted,
+    textAlign: "center",
+  },
+
+  // Account list
+  accountList: { gap: spacing.space2 },
+  accountRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    padding: spacing.space3,
+    backgroundColor: Colors.bgSurface,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: Colors.borderDefault,
+  },
+  accountRowSelected: {
+    backgroundColor: Colors.bgPrimarySubtle,
+    borderColor: Colors.actionPrimary,
+  },
+
+  // Summary
+  summaryCard: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: spacing.space2,
+    backgroundColor: Colors.statusSuccessBg,
+    borderWidth: 1,
+    borderColor: Colors.palette.green,
+    borderRadius: 12,
+    padding: 14,
+  },
+  summaryText: {
+    flex: 1,
+    ...typeScale.bodySM,
+    color: Colors.textMuted,
+    lineHeight: 18,
+  },
   summaryHighlight: { color: Colors.textPrimary, fontWeight: "700" },
 
-  messageCard: {
-    flexDirection: "row", alignItems: "flex-start", gap: spacing.space2,
-    borderRadius: 12, padding: 14, borderWidth: 1,
-  },
-  messageError: {
-    backgroundColor: Colors.statusDangerBg,
-    borderColor: Colors.palette.error,
-  },
-  messageSuccess: {
-    backgroundColor: Colors.statusSuccessBg,
-    borderColor: Colors.palette.green,
-  },
-  messageText: { flex: 1, ...typeScale.bodySM, lineHeight: 18 },
-  messageTextError: { color: Colors.statusDanger },
-  messageTextSuccess: { color: Colors.statusSuccess },
-
+  // Submit
   submitWrap: {
     paddingTop: spacing.space3,
     paddingBottom: spacing.scrollBottomPadding,
+  },
+
+  // PIN modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.75)",
+    justifyContent: "flex-end",
+  },
+  pinSheet: {
+    backgroundColor: Colors.bgSurface,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    borderTopWidth: 1,
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
+    borderColor: Colors.palette.redT25,
+    paddingHorizontal: spacing.space6,
+    paddingTop: spacing.space6,
+    paddingBottom: spacing.space8,
+    gap: spacing.space4,
+  },
+  pinSheetHeader: {
+    alignItems: "center",
+    gap: spacing.space2,
+  },
+  pinIconWrap: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: Colors.bgPrimarySubtle,
+    borderWidth: 1,
+    borderColor: Colors.palette.redT25,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: spacing.space2,
+  },
+  pinTitle: {
+    ...typeScale.headingMD,
+    color: Colors.textPrimary,
+    textAlign: "center",
+  },
+  pinSubtitle: {
+    ...typeScale.bodySM,
+    color: Colors.textMuted,
+    textAlign: "center",
+    lineHeight: 18,
+  },
+
+  // PIN summary row
+  pinSummaryRow: {
+    flexDirection: "row",
+    backgroundColor: Colors.bgElevated,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.borderSubtle,
+    padding: spacing.space4,
+    gap: spacing.space3,
+  },
+  pinSummaryDivider: {
+    width: 1,
+    backgroundColor: Colors.borderSubtle,
+  },
+  pinSummaryLabel: {
+    ...typeScale.caption,
+    color: Colors.textMuted,
+    marginBottom: 4,
+  },
+  pinSummaryValue: {
+    ...typeScale.labelMD,
+    color: Colors.textPrimary,
+  },
+
+  // PIN input
+  pinInput: {
+    alignSelf: "center",
+  },
+  // Set-PIN step dots
+  setPinSteps: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 8,
+  },
+  setPinDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: Colors.borderDefault,
+  },
+  setPinDotActive: {
+    backgroundColor: Colors.actionPrimary,
+    width: 24,
+  },
+  // PIN status
+  pinStatusRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    marginTop: -spacing.space2,
+  },
+  pinStatusText: {
+    ...typeScale.bodySM,
+    fontWeight: "600",
+  },
+
+  // PIN actions
+  pinActions: {
+    flexDirection: "row",
+    gap: spacing.space3,
+    marginTop: spacing.space2,
+  },
+  pinCancelBtn: {
+    flex: 1,
+    height: 56,
+    borderRadius: 999,
+    borderWidth: 1.5,
+    borderColor: Colors.borderDefault,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  pinCancelText: {
+    ...typeScale.labelLG,
+    color: Colors.textSecondary,
+  },
+  pinConfirmBtn: {
+    flex: 2,
   },
 });

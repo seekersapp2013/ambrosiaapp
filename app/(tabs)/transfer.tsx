@@ -129,12 +129,6 @@ export default function TransferScreen() {
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
-        {/* Header */}
-        <ScreenHeader
-          title="Transfer Funds"
-          onBack={() => router.replace("/(tabs)/wallet")}
-        />
-
         <ScrollView
           style={styles.scroll}
           contentContainerStyle={styles.scrollContent}
@@ -142,6 +136,10 @@ export default function TransferScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <MobileCard>
+            <ScreenHeader
+              title="Transfer Funds"
+              onBack={() => router.replace("/(tabs)/wallet")}
+            />
           {/* Balance pill */}
           {walletBalance !== undefined && (
             <View style={styles.balancePill}>

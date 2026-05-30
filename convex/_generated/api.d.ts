@@ -65,6 +65,9 @@ import type * as moderationSettings from "../moderationSettings.js";
 import type * as notificationAnalytics from "../notificationAnalytics.js";
 import type * as notifications from "../notifications.js";
 import type * as payments from "../payments.js";
+import type * as paystack from "../paystack.js";
+import type * as paystackCache from "../paystackCache.js";
+import type * as paystackWebhook from "../paystackWebhook.js";
 import type * as profileQueries from "../profileQueries.js";
 import type * as profiles from "../profiles.js";
 import type * as recommendationMetrics from "../recommendationMetrics.js";
@@ -81,6 +84,7 @@ import type * as testMigration from "../testMigration.js";
 import type * as userInterestTracking from "../userInterestTracking.js";
 import type * as userInterests from "../userInterests.js";
 import type * as users from "../users.js";
+import type * as wallets_bankAccounts from "../wallets/bankAccounts.js";
 import type * as wallets_createWallet from "../wallets/createWallet.js";
 import type * as wallets_depositFunds from "../wallets/depositFunds.js";
 import type * as wallets_getMyWallet from "../wallets/getMyWallet.js";
@@ -89,6 +93,7 @@ import type * as wallets_getWalletBalance from "../wallets/getWalletBalance.js";
 import type * as wallets_transferFunds from "../wallets/transferFunds.js";
 import type * as wallets_updatePrimaryCurrency from "../wallets/updatePrimaryCurrency.js";
 import type * as wallets_withdrawFunds from "../wallets/withdrawFunds.js";
+import type * as wallets_withdrawalMutations from "../wallets/withdrawalMutations.js";
 
 import type {
   ApiFromModules,
@@ -154,6 +159,9 @@ declare const fullApi: ApiFromModules<{
   notificationAnalytics: typeof notificationAnalytics;
   notifications: typeof notifications;
   payments: typeof payments;
+  paystack: typeof paystack;
+  paystackCache: typeof paystackCache;
+  paystackWebhook: typeof paystackWebhook;
   profileQueries: typeof profileQueries;
   profiles: typeof profiles;
   recommendationMetrics: typeof recommendationMetrics;
@@ -170,6 +178,7 @@ declare const fullApi: ApiFromModules<{
   userInterestTracking: typeof userInterestTracking;
   userInterests: typeof userInterests;
   users: typeof users;
+  "wallets/bankAccounts": typeof wallets_bankAccounts;
   "wallets/createWallet": typeof wallets_createWallet;
   "wallets/depositFunds": typeof wallets_depositFunds;
   "wallets/getMyWallet": typeof wallets_getMyWallet;
@@ -178,6 +187,7 @@ declare const fullApi: ApiFromModules<{
   "wallets/transferFunds": typeof wallets_transferFunds;
   "wallets/updatePrimaryCurrency": typeof wallets_updatePrimaryCurrency;
   "wallets/withdrawFunds": typeof wallets_withdrawFunds;
+  "wallets/withdrawalMutations": typeof wallets_withdrawalMutations;
 }>;
 
 /**

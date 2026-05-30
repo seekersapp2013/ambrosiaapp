@@ -4,7 +4,7 @@
  * Accessibility: Phase 21
  */
 
-import React, { useState, useRef, forwardRef } from 'react';
+import React, { useState, useEffect, useRef, forwardRef } from 'react';
 import {
   View,
   TextInput,
@@ -308,6 +308,7 @@ interface OTPInputProps {
   onChange: (val: string) => void;
   length?: number;
   error?: boolean;
+  success?: boolean;
   containerStyle?: StyleProp<ViewStyle>;
 }
 
@@ -316,6 +317,7 @@ export function OTPInput({
   onChange,
   length = 6,
   error = false,
+  success = false,
   containerStyle,
 }: OTPInputProps) {
   const inputRef = useRef<TextInput>(null);
@@ -323,14 +325,19 @@ export function OTPInput({
     Array.from({ length }, () => new Animated.Value(1)),
   ).current;
 
+  // Track which indices have been masked after their brief reveal
+  const [maskedIndices, setMaskedIndices] = useState<Set<number>>(new Set());
+  const maskTimers = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
+
   const handleChange = (text: string) => {
     const digits = text.replace(/\D/g, '').slice(0, length);
     const prevLen = value.length;
     const newLen = digits.length;
 
-    // Animate the newly filled box
     if (newLen > prevLen && newLen <= length) {
       const idx = newLen - 1;
+
+      // Animate
       Animated.sequence([
         Animated.spring(scales[idx], {
           toValue: 1.08,
@@ -345,10 +352,48 @@ export function OTPInput({
           stiffness: 180,
         }),
       ]).start();
+
+      // Unmask briefly, then re-mask after 600ms
+      setMaskedIndices((prev) => {
+        const next = new Set(prev);
+        next.delete(idx);
+        return next;
+      });
+      clearTimeout(maskTimers.current[idx]);
+      maskTimers.current[idx] = setTimeout(() => {
+        setMaskedIndices((prev) => new Set(prev).add(idx));
+      }, 600);
+    }
+
+    // When a digit is deleted, remove its mask
+    if (newLen < prevLen) {
+      const idx = newLen; // the position that was just cleared
+      clearTimeout(maskTimers.current[idx]);
+      setMaskedIndices((prev) => {
+        const next = new Set(prev);
+        next.delete(idx);
+        return next;
+      });
     }
 
     onChange(digits);
   };
+
+  // Clean up timers on unmount
+  useEffect(() => {
+    return () => {
+      Object.values(maskTimers.current).forEach(clearTimeout);
+    };
+  }, []);
+
+  // Reset masks when value is cleared externally (e.g. modal reopen)
+  useEffect(() => {
+    if (value.length === 0) {
+      Object.values(maskTimers.current).forEach(clearTimeout);
+      maskTimers.current = {};
+      setMaskedIndices(new Set());
+    }
+  }, [value]);
 
   const getBoxState = (idx: number): InputState => {
     if (error) return 'error';
@@ -375,6 +420,13 @@ export function OTPInput({
       {/* Visual boxes */}
       {Array.from({ length }).map((_, idx) => {
         const boxState = getBoxState(idx);
+        const borderColor = success
+          ? Colors.statusSuccess
+          : getBorderColor(boxState);
+        const bgColor = success
+          ? Colors.statusSuccessBg
+          : getBgColor(boxState);
+        const isMasked = maskedIndices.has(idx) && idx < value.length;
         return (
           <Animated.View
             key={idx}
@@ -382,17 +434,16 @@ export function OTPInput({
           >
             <Pressable
               onPress={() => inputRef.current?.focus()}
-              style={[
-                styles.otpBox,
-                {
-                  borderColor: getBorderColor(boxState),
-                  backgroundColor: getBgColor(boxState),
-                },
-              ]}
+              style={[styles.otpBox, { borderColor, backgroundColor: bgColor }]}
               accessibilityElementsHidden
             >
-              <Text style={[styles.otpDigit, error && { color: Colors.statusDanger }]}>
-                {value[idx] ?? ''}
+              <Text style={[
+                styles.otpDigit,
+                error && { color: Colors.statusDanger },
+                success && { color: Colors.statusSuccess },
+                isMasked && styles.otpBullet,
+              ]}>
+                {isMasked ? '●' : (value[idx] ?? '')}
               </Text>
             </Pressable>
           </Animated.View>
@@ -504,17 +555,21 @@ const styles = StyleSheet.create({
     opacity: 0,
   },
   otpBox: {
-    width: 48,
-    height: 56,
+    width: 64,
+    height: 72,
     borderRadius: radius.radiusMD,
     borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'center',
   },
   otpDigit: {
-    fontSize: 20,
+    fontSize: 28,
     fontWeight: '700',
     color: Colors.textPrimary,
     textAlign: 'center',
+  },
+  otpBullet: {
+    fontSize: 22,
+    lineHeight: 28,
   },
 });
