@@ -19,7 +19,7 @@ import {
   ViewToken,
   Platform,
 } from "react-native";
-import { Redirect } from "expo-router";
+import { Redirect, useFocusEffect } from "expo-router";
 import { Authenticated, Unauthenticated, AuthLoading } from "convex/react";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
@@ -44,16 +44,34 @@ function ReelsFeed() {
   const insets = useSafeAreaInsets();
   const tabBarHeight = useTabBarHeight();
   const [activeIndex, setActiveIndex] = useState(0);
+  const [isTabFocused, setIsTabFocused] = useState(true);
   const flatListRef = useRef<FlatList<ReelItem>>(null);
 
   const reels = useQuery(api.reels.listReels, { limit: 20 });
 
+  // ── Pause video when leaving this tab, resume when returning ─────────────
+  useFocusEffect(
+    useCallback(() => {
+      setIsTabFocused(true);
+      return () => {
+        setIsTabFocused(false);
+      };
+    }, [])
+  );
+
   // ── Card geometry ─────────────────────────────────────────────────────────
   const cardPaddingH = MOBILE_CARD_ENABLED ? 16 : 0;
-  const cardPaddingV = MOBILE_CARD_ENABLED ? 16 : 0;
   const cardMaxWidth = 500;
   const cardWidth = Math.min(SCREEN_W - cardPaddingH * 2, cardMaxWidth);
-  const cellHeight = SCREEN_H - cardPaddingV * 2;
+
+  // cellHeight = full screen minus the tab bar (+ safe area on Android).
+  // Do NOT subtract card vertical padding — the card container is flex:1
+  // so the FlatList already fills the remaining height. Using SCREEN_H
+  // minus the padding was making each page taller than its container,
+  // which broke snap-paging.
+  const effectiveTabBarHeight =
+    tabBarHeight + (Platform.OS === "android" ? insets.bottom : 0);
+  const cellHeight = SCREEN_H - effectiveTabBarHeight - (MOBILE_CARD_ENABLED ? 32 : 0);
 
   // Right edge of card in screen coordinates
   const cardRight = (SCREEN_W - cardWidth) / 2;
@@ -107,12 +125,12 @@ function ReelsFeed() {
     ({ item, index }: { item: ReelItem; index: number }) => (
       <ReelFeedItem
         reel={item}
-        isActive={index === activeIndex}
-        tabBarHeight={tabBarHeight + (Platform.OS === "android" ? insets.bottom : 0)}
+        isActive={index === activeIndex && isTabFocused}
+        tabBarHeight={effectiveTabBarHeight}
         cellHeight={cellHeight}
       />
     ),
-    [activeIndex, tabBarHeight, insets.bottom, cellHeight]
+    [activeIndex, isTabFocused, effectiveTabBarHeight, cellHeight]
   );
 
   const keyExtractor = useCallback((item: ReelItem) => item._id, []);
@@ -159,8 +177,7 @@ function ReelsFeed() {
 
   // ── Feed ──────────────────────────────────────────────────────────────────
   // Engagement bar bottom — above tab bar
-  const engagementBottom =
-    tabBarHeight + (Platform.OS === "android" ? insets.bottom : 0) + 24;
+  const engagementBottom = effectiveTabBarHeight + 24;
 
   return (
     <AppBackground style={styles.root}>
@@ -200,7 +217,7 @@ function ReelsFeed() {
         <View
           style={[
             styles.dotsContainer,
-            { top: insets.top + 48, bottom: tabBarHeight + insets.bottom + 48 },
+            { top: insets.top + 48, bottom: effectiveTabBarHeight + 48 },
           ]}
           pointerEvents="none"
         >
@@ -294,7 +311,7 @@ function ReelsFeed() {
           styles.fab,
           {
             right: cardRight + spacing.space4,
-            bottom: tabBarHeight + insets.bottom + 16,
+            bottom: effectiveTabBarHeight + 16,
           },
         ]}
         onPress={() => router.push("/(tabs)/write-reel")}

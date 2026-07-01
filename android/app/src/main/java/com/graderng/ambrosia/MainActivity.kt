@@ -1,4 +1,5 @@
-package com.graderng.expoconvexauth
+package com.graderng.ambrosia
+
 import expo.modules.splashscreen.SplashScreenManager
 
 import android.os.Build

@@ -9,7 +9,7 @@ import { Colors } from "@/constants/Colors";
 function RedirectToTabs() {
   const router = useRouter();
   useEffect(() => {
-    router.replace("/(tabs)/home");
+    router.replace("/(tabs)/for-you");
   }, []);
   return null;
 }

@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import {
   View,
   Text,
-   TouchableOpacity,
+  TouchableOpacity,
   StyleSheet,
   ScrollView,
   KeyboardAvoidingView,
@@ -13,7 +13,7 @@ import {
   Alert,
 } from "react-native";
 import { useRouter } from "expo-router";
-import { useAction, useQuery, useMutation } from "convex/react";
+import { useAction, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "@/tokens/colors";
@@ -28,7 +28,7 @@ import { MobileCard } from "@/components/MobileCard";
 import { OTPInput } from "@/components/ui/Input";
 import { formatAmount } from "@/utils/currency";
 import { getBankLogoUrl } from "@/utils/paystackBanking";
-import { verifyPin, hashPin } from "@/utils/pinHash";
+import { verifyPin } from "@/utils/pinHash";
 
 export default function WithdrawScreen() {
   const router = useRouter();
@@ -45,7 +45,6 @@ export default function WithdrawScreen() {
   const processWithdrawal = useAction(
     (api as any)["wallets/withdrawFunds"].processWithdrawal,
   );
-  const updateProfile = useMutation(api.profiles.createOrUpdateProfile);
 
   // ── Form state ────────────────────────────────────────────────────────────
   const [amount, setAmount] = useState("");
@@ -55,12 +54,6 @@ export default function WithdrawScreen() {
   const [pinModalVisible, setPinModalVisible] = useState(false);
   const [pin, setPin] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
-
-  // ── Set-PIN flow state (when user has no PIN yet) ─────────────────────────
-  const [newPin, setNewPin] = useState("");
-  const [confirmPin, setConfirmPin] = useState("");
-  const [setPinStep, setSetPinStep] = useState<"enter" | "confirm">("enter");
-  const [isSavingPin, setIsSavingPin] = useState(false);
 
   // ── Derived ───────────────────────────────────────────────────────────────
   const ngnBalance =
@@ -79,15 +72,6 @@ export default function WithdrawScreen() {
   const pinComplete = pin.length === 4;
   const pinValid = pinComplete && !!profile?.pinHash && verifyPin(pin, profile.pinHash);
   const pinInvalid = pinComplete && !pinValid;
-
-  // Whether the user needs to set a PIN first
-  const needsPin = profile !== undefined && !profile?.pinHash;
-
-  // Set-PIN derived
-  const newPinComplete = newPin.length === 4;
-  const confirmPinComplete = confirmPin.length === 4;
-  const pinsMatch = newPinComplete && confirmPinComplete && newPin === confirmPin;
-  const pinsMismatch = newPinComplete && confirmPinComplete && newPin !== confirmPin;
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 
@@ -112,29 +96,6 @@ export default function WithdrawScreen() {
     setPinModalVisible(true);
   };
 
-  // Save new PIN to profile
-  const handleSavePin = async () => {
-    if (!pinsMatch || !profile) return;
-    setIsSavingPin(true);
-    try {
-      const username = (profile as any).username ?? (profile.user as any)?.username;
-      await updateProfile({
-        username,
-        pinHash: hashPin(newPin),
-      });
-      // PIN saved — switch to confirm mode so they can proceed immediately
-      setSetPinStep("enter");
-      setNewPin("");
-      setConfirmPin("");
-      setPin("");
-      // profile will re-query with the new pinHash; modal stays open in confirm mode
-    } catch (err: any) {
-      Alert.alert("Error", err.message || "Could not save PIN. Please try again.");
-    } finally {
-      setIsSavingPin(false);
-    }
-  };
-
   // Step 2: PIN already verified reactively — just call action
   const handleConfirmPin = async () => {
     if (!pinValid || !selectedAccount) return;
@@ -142,21 +103,15 @@ export default function WithdrawScreen() {
     setPinModalVisible(false);
     setIsProcessing(true);
     try {
-      const result = await processWithdrawal({
+      await processWithdrawal({
         amount: parsedAmount,
         currency: "NGN",
         bankAccountId: selectedAccount._id,
         pin,
       });
-
-      const statusNote =
-        result?.status === "success"
-          ? "The transfer has been completed."
-          : "The transfer is being processed and may take a few hours.";
-
       Alert.alert(
         "Withdrawal Submitted",
-        result?.message ?? `Your withdrawal of ${formatAmount(parsedAmount, "NGN")} has been submitted to ${selectedAccount.bankName}. ${statusNote}`,
+        `Your withdrawal of ${formatAmount(parsedAmount, "NGN")} has been submitted to ${selectedAccount.bankName}. Processing may take a few hours.`,
         [{ text: "OK", onPress: () => router.replace("/(tabs)/wallet") }],
       );
       setAmount("");
@@ -171,9 +126,6 @@ export default function WithdrawScreen() {
   const handleCancelPin = () => {
     setPinModalVisible(false);
     setPin("");
-    setNewPin("");
-    setConfirmPin("");
-    setSetPinStep("enter");
   };
 
   return (
@@ -191,7 +143,7 @@ export default function WithdrawScreen() {
           <MobileCard>
             <ScreenHeader
               title="Withdraw Funds"
-              onBack={() => router.replace("/(tabs)/wallet")}
+              onBack={() => router.back()}
             />
             {/* ── Balance pill ─────────────────────────────────────────── */}
             {walletData !== undefined && (
@@ -363,7 +315,7 @@ export default function WithdrawScreen() {
         </ScrollView>
       </KeyboardAvoidingView>
 
-      {/* ── PIN Modal (set PIN or confirm PIN) ────────────────────────────── */}
+      {/* ── PIN Confirmation Modal ─────────────────────────────────────────── */}
       <Modal
         visible={pinModalVisible}
         transparent
@@ -372,140 +324,62 @@ export default function WithdrawScreen() {
       >
         <View style={styles.modalOverlay}>
           <MobileCard style={styles.pinSheet}>
+            {/* Header */}
+            <View style={styles.pinSheetHeader}>
+              <View style={styles.pinIconWrap}>
+                <Ionicons name="lock-closed" size={24} color={Colors.actionPrimary} />
+              </View>
+              <Text style={styles.pinTitle}>Confirm Withdrawal</Text>
+              <Text style={styles.pinSubtitle}>
+                Enter your 4-digit transaction PIN to authorise this withdrawal
+              </Text>
+            </View>
 
-            {needsPin ? (
-              /* ── SET PIN FLOW ─────────────────────────────────────────── */
-              <>
-                <View style={styles.pinSheetHeader}>
-                  <View style={styles.pinIconWrap}>
-                    <Ionicons name="key-outline" size={24} color={Colors.actionPrimary} />
-                  </View>
-                  <Text style={styles.pinTitle}>Create Transaction PIN</Text>
-                  <Text style={styles.pinSubtitle}>
-                    {setPinStep === "enter"
-                      ? "Set a 4-digit PIN to secure your withdrawals"
-                      : "Re-enter your PIN to confirm it"}
-                  </Text>
-                </View>
+            {/* PIN input */}
+            <OTPInput
+              value={pin}
+              onChange={(v) => setPin(v)}
+              length={4}
+              error={pinInvalid}
+              success={pinValid}
+              containerStyle={styles.pinInput}
+            />
 
-                {/* Step indicator */}
-                <View style={styles.setPinSteps}>
-                  <View style={[styles.setPinDot, setPinStep === "enter" && styles.setPinDotActive]} />
-                  <View style={[styles.setPinDot, setPinStep === "confirm" && styles.setPinDotActive]} />
-                </View>
-
-                {setPinStep === "enter" ? (
-                  <>
-                    <OTPInput
-                      value={newPin}
-                      onChange={setNewPin}
-                      length={4}
-                      containerStyle={styles.pinInput}
-                    />
-                    <View style={styles.pinActions}>
-                      <TouchableOpacity onPress={handleCancelPin} style={styles.pinCancelBtn}>
-                        <Text style={styles.pinCancelText}>Cancel</Text>
-                      </TouchableOpacity>
-                      <PrimaryButton
-                        label="Next"
-                        onPress={() => setSetPinStep("confirm")}
-                        disabled={!newPinComplete}
-                        style={styles.pinConfirmBtn}
-                        icon={<Ionicons name="arrow-forward" size={18} color="#FFFFFF" />}
-                      />
-                    </View>
-                  </>
-                ) : (
-                  <>
-                    <OTPInput
-                      value={confirmPin}
-                      onChange={setConfirmPin}
-                      length={4}
-                      error={pinsMismatch}
-                      success={pinsMatch}
-                      containerStyle={styles.pinInput}
-                    />
-                    {confirmPinComplete && (
-                      <View style={styles.pinStatusRow}>
-                        <Ionicons
-                          name={pinsMatch ? "checkmark-circle" : "close-circle"}
-                          size={16}
-                          color={pinsMatch ? Colors.statusSuccess : Colors.statusDanger}
-                        />
-                        <Text style={[styles.pinStatusText, { color: pinsMatch ? Colors.statusSuccess : Colors.statusDanger }]}>
-                          {pinsMatch ? "PINs match" : "PINs don't match — try again"}
-                        </Text>
-                      </View>
-                    )}
-                    <View style={styles.pinActions}>
-                      <TouchableOpacity
-                        onPress={() => { setSetPinStep("enter"); setConfirmPin(""); }}
-                        style={styles.pinCancelBtn}
-                      >
-                        <Text style={styles.pinCancelText}>Back</Text>
-                      </TouchableOpacity>
-                      <PrimaryButton
-                        label="Save PIN"
-                        onPress={handleSavePin}
-                        disabled={!pinsMatch}
-                        loading={isSavingPin}
-                        style={styles.pinConfirmBtn}
-                        icon={<Ionicons name="checkmark" size={18} color="#FFFFFF" />}
-                      />
-                    </View>
-                  </>
-                )}
-              </>
-            ) : (
-              /* ── CONFIRM PIN FLOW ─────────────────────────────────────── */
-              <>
-                <View style={styles.pinSheetHeader}>
-                  <View style={styles.pinIconWrap}>
-                    <Ionicons name="lock-closed" size={24} color={Colors.actionPrimary} />
-                  </View>
-                  <Text style={styles.pinTitle}>Confirm Withdrawal</Text>
-                  <Text style={styles.pinSubtitle}>
-                    Enter your 4-digit transaction PIN to authorise this withdrawal
-                  </Text>
-                </View>
-
-                <OTPInput
-                  value={pin}
-                  onChange={setPin}
-                  length={4}
-                  error={pinInvalid}
-                  success={pinValid}
-                  containerStyle={styles.pinInput}
+            {/* Inline PIN status */}
+            {pinComplete && (
+              <View style={styles.pinStatusRow}>
+                <Ionicons
+                  name={pinValid ? "checkmark-circle" : "close-circle"}
+                  size={16}
+                  color={pinValid ? Colors.statusSuccess : Colors.statusDanger}
                 />
-
-                {pinComplete && (
-                  <View style={styles.pinStatusRow}>
-                    <Ionicons
-                      name={pinValid ? "checkmark-circle" : "close-circle"}
-                      size={16}
-                      color={pinValid ? Colors.statusSuccess : Colors.statusDanger}
-                    />
-                    <Text style={[styles.pinStatusText, { color: pinValid ? Colors.statusSuccess : Colors.statusDanger }]}>
-                      {pinValid ? "PIN correct" : "Incorrect PIN — try again"}
-                    </Text>
-                  </View>
-                )}
-
-                <View style={styles.pinActions}>
-                  <TouchableOpacity onPress={handleCancelPin} style={styles.pinCancelBtn}>
-                    <Text style={styles.pinCancelText}>Cancel</Text>
-                  </TouchableOpacity>
-                  <PrimaryButton
-                    label="Confirm"
-                    onPress={handleConfirmPin}
-                    disabled={!pinValid}
-                    style={styles.pinConfirmBtn}
-                    icon={<Ionicons name="checkmark" size={18} color="#FFFFFF" />}
-                  />
-                </View>
-              </>
+                <Text
+                  style={[
+                    styles.pinStatusText,
+                    { color: pinValid ? Colors.statusSuccess : Colors.statusDanger },
+                  ]}
+                >
+                  {pinValid ? "PIN correct" : "Incorrect PIN — try again"}
+                </Text>
+              </View>
             )}
 
+            {/* Actions */}
+            <View style={styles.pinActions}>
+              <TouchableOpacity
+                onPress={handleCancelPin}
+                style={styles.pinCancelBtn}
+              >
+                <Text style={styles.pinCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <PrimaryButton
+                label="Confirm"
+                onPress={handleConfirmPin}
+                disabled={!pinValid}
+                style={styles.pinConfirmBtn}
+                icon={<Ionicons name="checkmark" size={18} color="#FFFFFF" />}
+              />
+            </View>
           </MobileCard>
         </View>
       </Modal>
@@ -757,22 +631,6 @@ const styles = StyleSheet.create({
   // PIN input
   pinInput: {
     alignSelf: "center",
-  },
-  // Set-PIN step dots
-  setPinSteps: {
-    flexDirection: "row",
-    justifyContent: "center",
-    gap: 8,
-  },
-  setPinDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: Colors.borderDefault,
-  },
-  setPinDotActive: {
-    backgroundColor: Colors.actionPrimary,
-    width: 24,
   },
   // PIN status
   pinStatusRow: {

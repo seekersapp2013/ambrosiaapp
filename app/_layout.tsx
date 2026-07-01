@@ -8,7 +8,15 @@ import { tamaguiConfig } from "@/utils/tamaguiConfig";
 import { Toasts } from "./Toasts";
 import { ErrorBoundary } from "./ErrorBoundary";
 import { useEffect } from "react";
-import { LogBox } from "react-native";
+import { LogBox, Platform } from "react-native";
+
+// LiveKit's registerGlobals() patches the JS environment with WebRTC primitives.
+// It must only run on native — it calls requireNativeComponent which doesn't
+// exist on web and will crash the bundler/browser if invoked there.
+if (Platform.OS === "android" || Platform.OS === "ios") {
+  const { registerGlobals } = require("@livekit/react-native");
+  registerGlobals();
+}
 
 const convex = new ConvexReactClient(process.env.EXPO_PUBLIC_CONVEX_URL!, {
   unsavedChangesWarning: false,

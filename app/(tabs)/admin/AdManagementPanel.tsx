@@ -17,7 +17,7 @@ import {
 } from "react-native";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { AD_ZONES } from "@/convex/ads";
+import { AD_ZONES } from "@/constants/adZones";
 import { Colors } from "@/tokens/colors";
 import { spacing } from "@/tokens/spacing";
 import { radius } from "@/tokens/radius";

@@ -176,6 +176,9 @@ export const getPublicCircles = query({
     const limit = args.limit || 20;
     const offset = args.offset || 0;
 
+    // Get current user so we can mark which circles they've joined
+    const userId = await getAuthUserId(ctx);
+
     let query = ctx.db
       .query("circles")
       .withIndex("by_type", (q) => q.eq("type", "PUBLIC"))
@@ -212,7 +215,19 @@ export const getPublicCircles = query({
 
     const circles = allCircles.slice(offset, offset + limit);
 
-    // Get creator info for each circle
+    // Build a Set of circleIds the current user is an active member of,
+    // so we can mark isMember on each browse result without N+1 per circle.
+    const joinedCircleIds = new Set<string>();
+    if (userId) {
+      const memberships = await ctx.db
+        .query("circleMembers")
+        .withIndex("by_user", (q) => q.eq("userId", userId))
+        .filter((q) => q.eq(q.field("isActive"), true))
+        .collect();
+      memberships.forEach((m) => joinedCircleIds.add(m.circleId));
+    }
+
+    // Get creator info for each circle and attach isMember
     const circlesWithCreators = await Promise.all(
       circles.map(async (circle) => {
         const creatorProfile = await ctx.db
@@ -231,6 +246,7 @@ export const getPublicCircles = query({
           availableSpots: circle.maxMembers 
             ? circle.maxMembers - circle.currentMembers 
             : null,
+          isMember: joinedCircleIds.has(circle._id),
         };
       })
     );

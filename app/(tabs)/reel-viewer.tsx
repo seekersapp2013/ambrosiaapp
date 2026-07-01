@@ -1,10 +1,20 @@
 /**
- * Reel Viewer Screen
- * Full-screen single reel with purchase/unlock flow.
- * Route: /(tabs)/reel-viewer?reelId=<id>
+ * Reel / Pulse Viewer
+ * Full-screen single pulse with Instagram-style overlay layout.
  *
- * Layout mirrors the feed: AppBackground → MobileCard (video) +
- * engagement bar rendered OUTSIDE the card to avoid overflow:hidden clipping.
+ * Layout (all absolute, layered over the video):
+ *   ┌──────────────────────────────────────┐
+ *   │ TOP — brand pill + back + mute        │
+ *   │                                       │
+ *   │          [  VIDEO  ]                  │
+ *   │                                       │
+ *   │ BOTTOM-LEFT — author + caption + tags │
+ *   │ BOTTOM-RIGHT — engagement bar         │
+ *   └──────────────────────────────────────┘
+ *
+ * Web fix: engagement bar is inside the card (position:absolute relative
+ * to the card View), not positioned relative to Dimensions.get("window").
+ * This avoids the off-screen clipping that happens on web.
  */
 
 import React, { useEffect, useState, useCallback, useRef } from "react";
@@ -17,6 +27,7 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  Platform,
 } from "react-native";
 import { useLocalSearchParams, useRouter, Redirect } from "expo-router";
 import { useQuery, useMutation } from "convex/react";
@@ -28,6 +39,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppBackground } from "@/components/AppBackground";
 import { AppLoader } from "@/components/AppLoader";
+import { AppLogo } from "@/components/AppLogo";
 import { MobileCard, MOBILE_CARD_ENABLED } from "@/components/MobileCard";
 import { ReelEngagementBar } from "@/components/ReelEngagementBar";
 import { Colors } from "@/tokens/colors";
@@ -39,20 +51,20 @@ const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get("window");
 // ─── Viewer content ───────────────────────────────────────────────────────────
 function ViewerContent() {
   const { reelId } = useLocalSearchParams<{ reelId: string }>();
-  const router = useRouter();
-  const insets = useSafeAreaInsets();
+  const router     = useRouter();
+  const insets     = useSafeAreaInsets();
   const [showSensitive, setShowSensitive] = useState(false);
-  const [isMuted, setIsMuted] = useState(false);
-  const [purchasing, setPurchasing] = useState(false);
+  const [isMuted, setIsMuted]             = useState(false);
+  const [purchasing, setPurchasing]       = useState(false);
   const lastTapRef = useRef<number>(0);
 
-  // ── Card geometry (same as feed) ──────────────────────────────────────────
-  const cardPaddingH = MOBILE_CARD_ENABLED ? 16 : 0;
-  const cardPaddingV = MOBILE_CARD_ENABLED ? 16 : 0;
-  const cardMaxWidth = 500;
-  const cardWidth = Math.min(SCREEN_W - cardPaddingH * 2, cardMaxWidth);
-  const cardRight = (SCREEN_W - cardWidth) / 2;
-  const cardHeight = SCREEN_H - cardPaddingV * 2;
+  // ── Card geometry ─────────────────────────────────────────────────────────
+  const cardPaddingH  = MOBILE_CARD_ENABLED ? 16 : 0;
+  const cardMaxWidth  = 500;
+  const cardWidth     = Math.min(SCREEN_W - cardPaddingH * 2, cardMaxWidth);
+  // Height: full screen minus top/bottom card padding
+  const cardPaddingV  = MOBILE_CARD_ENABLED ? 16 : 0;
+  const cardHeight    = SCREEN_H - cardPaddingV * 2;
 
   // ── Data ──────────────────────────────────────────────────────────────────
   const reel = useQuery(
@@ -80,16 +92,13 @@ function ViewerContent() {
 
   const purchaseContent = useMutation(api.payments.purchaseContent);
 
-  const canPlay = !reel?.isGated || hasAccess;
+  const canPlay           = !reel?.isGated || hasAccess;
   const showSensitiveGate = reel?.isSensitive && !showSensitive;
 
   // ── Video player ──────────────────────────────────────────────────────────
   const player = useVideoPlayer(
     videoUrl && canPlay && !showSensitiveGate ? videoUrl : null,
-    (p) => {
-      p.loop = true;
-      p.muted = false;
-    }
+    (p) => { p.loop = true; p.muted = false; }
   );
 
   useEffect(() => {
@@ -102,7 +111,7 @@ function ViewerContent() {
     if (player) player.muted = isMuted;
   }, [isMuted, player]);
 
-  // ── Double-tap ────────────────────────────────────────────────────────────
+  // ── Double-tap to pause/play ───────────────────────────────────────────────
   const handleTap = useCallback(() => {
     const now = Date.now();
     if (now - lastTapRef.current < 300) {
@@ -125,7 +134,7 @@ function ViewerContent() {
         priceToken: reel.priceToken ?? "USD",
         priceAmount: reel.priceAmount ?? 0,
       });
-      Alert.alert("Unlocked!", "You now have access to this reel.");
+      Alert.alert("Unlocked!", "You now have access to this pulse.");
     } catch (e: any) {
       Alert.alert("Purchase failed", e.message ?? "Please try again.");
     } finally {
@@ -158,7 +167,7 @@ function ViewerContent() {
       <AppBackground style={styles.root}>
         <View style={styles.centered}>
           <Ionicons name="warning-outline" size={48} color={Colors.statusWarning} />
-          <Text style={styles.notFoundText}>Reel not found</Text>
+          <Text style={styles.notFoundText}>Pulse not found</Text>
           <TouchableOpacity onPress={() => router.back()} style={styles.backLink}>
             <Text style={styles.backLinkText}>Go back</Text>
           </TouchableOpacity>
@@ -168,21 +177,22 @@ function ViewerContent() {
   }
 
   const author = (reel as any).author ?? {};
-  const engagementBottom = insets.bottom + 24;
+  // Bottom clearance — give enough room above tab bar
+  const bottomClearance = insets.bottom + 80;
 
   return (
     <AppBackground style={styles.root}>
-      {/* ── Card: video fills it edge-to-edge ──────────────────────────── */}
       <MobileCard
         style={[styles.videoCard, { height: cardHeight }]}
         containerStyle={styles.videoCardContainer}
       >
         {showSensitiveGate ? (
+          /* ── Sensitive gate ──────────────────────────────────────────── */
           <View style={styles.sensitiveGate}>
             <Ionicons name="warning-outline" size={48} color={Colors.statusWarning} />
             <Text style={styles.sensitiveTitle}>Sensitive Content</Text>
             <Text style={styles.sensitiveBody}>
-              This reel contains content that some may find sensitive.
+              This pulse contains content that some may find sensitive.
             </Text>
             <TouchableOpacity
               style={styles.sensitiveBtn}
@@ -194,7 +204,7 @@ function ViewerContent() {
           </View>
         ) : (
           <>
-            {/* Video tap layer */}
+            {/* ── Video / poster ────────────────────────────────────────── */}
             <TouchableOpacity
               style={StyleSheet.absoluteFill}
               onPress={handleTap}
@@ -207,7 +217,7 @@ function ViewerContent() {
                   style={StyleSheet.absoluteFill}
                   contentFit="cover"
                   nativeControls={false}
-                  accessibilityLabel="Reel video"
+                  accessibilityLabel="Pulse video"
                 />
               ) : (
                 <View style={[StyleSheet.absoluteFill, styles.posterBg]}>
@@ -231,12 +241,12 @@ function ViewerContent() {
               )}
             </TouchableOpacity>
 
-            {/* Gated overlay */}
+            {/* ── Gated overlay ─────────────────────────────────────────── */}
             {reel.isGated && !hasAccess && (
               <View style={styles.gatedOverlay}>
                 <View style={styles.gatedCard}>
                   <Ionicons name="lock-closed" size={36} color={Colors.actionPrimary} />
-                  <Text style={styles.gatedTitle}>Premium Reel</Text>
+                  <Text style={styles.gatedTitle}>Premium Pulse</Text>
                   {reel.priceAmount != null && (
                     <Text style={styles.gatedPrice}>
                       {reel.priceToken} {reel.priceAmount}
@@ -264,15 +274,16 @@ function ViewerContent() {
               </View>
             )}
 
-            {/* Bottom scrim */}
+            {/* ── Bottom gradient scrim ─────────────────────────────────── */}
             <View style={styles.bottomScrim} pointerEvents="none" />
 
-            {/* Top header overlay */}
+            {/* ── TOP BAR — brand + back + mute ─────────────────────────── */}
             <View
-              style={[styles.topOverlay, { paddingTop: insets.top }]}
+              style={[styles.topOverlay, { paddingTop: insets.top + 8 }]}
               pointerEvents="box-none"
             >
               <View style={styles.topBar}>
+                {/* Back */}
                 <TouchableOpacity
                   style={styles.iconBtn}
                   onPress={() => router.back()}
@@ -283,28 +294,15 @@ function ViewerContent() {
                   <Ionicons name="chevron-back" size={24} color="#fff" />
                 </TouchableOpacity>
 
-                <View style={styles.authorRow}>
-                  <View style={styles.authorAvatarWrap}>
-                    {authorAvatarUrl ? (
-                      <Image
-                        source={{ uri: authorAvatarUrl }}
-                        style={styles.authorAvatar}
-                        accessible={false}
-                      />
-                    ) : (
-                      <Ionicons name="person" size={16} color={Colors.iconSecondary} />
-                    )}
-                  </View>
-                  <View>
-                    <Text style={styles.authorName} allowFontScaling={false}>
-                      @{author.username ?? author.name ?? "unknown"}
-                    </Text>
-                    <Text style={styles.authorTime} allowFontScaling={false}>
-                      {formatTime(reel.createdAt)}
-                    </Text>
-                  </View>
+                {/* Brand pill — "Ambrosia Pulse" */}
+                <View style={styles.brandPill}>
+                  <AppLogo size={18} />
+                  <Text style={styles.brandText} allowFontScaling={false}>
+                    Pulse
+                  </Text>
                 </View>
 
+                {/* Mute */}
                 <TouchableOpacity
                   style={styles.iconBtn}
                   onPress={() => setIsMuted((m) => !m)}
@@ -321,16 +319,53 @@ function ViewerContent() {
               </View>
             </View>
 
-            {/* Caption + tags */}
-            <View style={[styles.bottomInfo, { bottom: engagementBottom }]}>
+            {/* ── BOTTOM-LEFT — author + caption + tags ─────────────────── */}
+            <View
+              style={[styles.bottomLeft, { bottom: bottomClearance }]}
+              pointerEvents="box-none"
+            >
+              {/* Author identity row */}
+              <View style={styles.authorRow}>
+                <View style={styles.authorAvatarWrap}>
+                  {authorAvatarUrl ? (
+                    <Image
+                      source={{ uri: authorAvatarUrl }}
+                      style={styles.authorAvatar}
+                      accessible={false}
+                    />
+                  ) : (
+                    <Ionicons name="person" size={16} color={Colors.iconSecondary} />
+                  )}
+                </View>
+                <View style={styles.authorTextCol}>
+                  {/* Display name */}
+                  {(author.name || author.username) && (
+                    <Text style={styles.authorName} allowFontScaling={false}>
+                      {author.name ?? author.username}
+                    </Text>
+                  )}
+                  {/* @username */}
+                  <Text style={styles.authorHandle} allowFontScaling={false}>
+                    @{author.username ?? author.name ?? "unknown"}
+                  </Text>
+                </View>
+                {/* Time */}
+                <Text style={styles.authorTime} allowFontScaling={false}>
+                  {formatTime(reel.createdAt)}
+                </Text>
+              </View>
+
+              {/* Caption / title */}
               {reel.caption ? (
                 <Text style={styles.caption} numberOfLines={3} allowFontScaling={false}>
                   {reel.caption}
                 </Text>
               ) : null}
+
+              {/* Tags */}
               {(reel as any).tags?.length > 0 && (
                 <View style={styles.tagsRow}>
-                  {((reel as any).tags as string[]).slice(0, 3).map((tag: string, i: number) => (
+                  {((reel as any).tags as string[]).slice(0, 4).map((tag: string, i: number) => (
                     <Text key={i} style={styles.tag} allowFontScaling={false}>
                       #{tag}
                     </Text>
@@ -338,27 +373,22 @@ function ViewerContent() {
                 </View>
               )}
             </View>
+
+            {/* ── BOTTOM-RIGHT — engagement bar (inside card = no clip) ─── */}
+            <View
+              style={[styles.engagementColumn, { bottom: bottomClearance }]}
+              pointerEvents="box-none"
+            >
+              <ReelEngagementBar
+                reel={reel as any}
+                hasAccess={hasAccess}
+                disabled={false}
+                resolvedAvatarUrl={authorAvatarUrl}
+              />
+            </View>
           </>
         )}
       </MobileCard>
-
-      {/* ── Engagement bar — OUTSIDE card, never clipped ─────────────── */}
-      {!showSensitiveGate && (
-        <View
-          style={[
-            styles.engagementOverlay,
-            { right: cardRight + spacing.space3, bottom: engagementBottom },
-          ]}
-          pointerEvents="box-none"
-        >
-          <ReelEngagementBar
-            reel={reel as any}
-            hasAccess={hasAccess}
-            disabled={false}
-            resolvedAvatarUrl={authorAvatarUrl}
-          />
-        </View>
-      )}
     </AppBackground>
   );
 }
@@ -387,17 +417,21 @@ const styles = StyleSheet.create({
   backLink: { marginTop: spacing.space2 },
   backLinkText: { ...typeScale.bodyMD, color: Colors.actionPrimary },
 
-  // Video card
+  // ── Card ─────────────────────────────────────────────────────────────────
   videoCardContainer: {
     flex: 1,
     paddingVertical: 16,
+    paddingHorizontal: 16,
   },
   videoCard: {
     padding: 0,
     backgroundColor: "#000",
+    // overflow:hidden is set by MobileCard already — engagement bar is
+    // now inside the card so it won't be clipped
+    overflow: "hidden",
   },
 
-  // Sensitive gate
+  // ── Sensitive gate ────────────────────────────────────────────────────────
   sensitiveGate: {
     flex: 1,
     backgroundColor: "#111",
@@ -422,7 +456,7 @@ const styles = StyleSheet.create({
   posterBg: { backgroundColor: "#111" },
   posterPlaceholder: { flex: 1, alignItems: "center", justifyContent: "center" },
 
-  // Gated overlay
+  // ── Gated overlay ─────────────────────────────────────────────────────────
   gatedOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(0,0,0,0.75)",
@@ -454,31 +488,31 @@ const styles = StyleSheet.create({
   unlockBtnText: { ...typeScale.labelMD, color: "#fff" },
   fundWalletLink: { ...typeScale.bodySM, color: Colors.actionPrimary, marginTop: spacing.space1 },
 
-  // Bottom scrim
+  // ── Bottom scrim (gradient illusion) ─────────────────────────────────────
   bottomScrim: {
     position: "absolute",
     left: 0,
     right: 0,
     bottom: 0,
-    height: 300,
+    height: 320,
+    // Solid dark fade — no expo-linear-gradient dependency
     backgroundColor: "rgba(0,0,0,0.55)",
   },
 
-  // Top overlay
+  // ── Top overlay ───────────────────────────────────────────────────────────
   topOverlay: {
     position: "absolute",
     top: 0,
     left: 0,
     right: 0,
-    height: 120,
-    backgroundColor: "rgba(0,0,0,0.5)",
+    paddingBottom: spacing.space4,
+    backgroundColor: "rgba(0,0,0,0.45)",
   },
   topBar: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: spacing.space4,
-    paddingTop: spacing.space3,
   },
   iconBtn: {
     width: 40,
@@ -488,45 +522,96 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  authorRow: { flexDirection: "row", alignItems: "center", gap: spacing.space2 },
+
+  // Brand pill
+  brandPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "rgba(0,0,0,0.50)",
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: "rgba(198,34,41,0.45)",
+  },
+  brandText: {
+    ...typeScale.labelMD,
+    color: "#fff",
+    fontWeight: "700",
+    letterSpacing: 0.5,
+  },
+
+  // ── Bottom-left: author + caption + tags ──────────────────────────────────
+  bottomLeft: {
+    position: "absolute",
+    left: spacing.space4,
+    // Leave room for the engagement bar on the right (60px wide + gap)
+    right: 72,
+    gap: 6,
+  },
+
+  authorRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.space2,
+  },
   authorAvatarWrap: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: Colors.bgElevated,
-    borderWidth: 1.5,
+    borderWidth: 2,
     borderColor: "#fff",
     overflow: "hidden",
     alignItems: "center",
     justifyContent: "center",
+    flexShrink: 0,
   },
-  authorAvatar: { width: 32, height: 32, borderRadius: 16 },
+  authorAvatar: { width: 36, height: 36, borderRadius: 18 },
+  authorTextCol: { flex: 1, gap: 1 },
   authorName: {
     ...typeScale.labelSM,
     color: "#fff",
-    textShadowColor: "rgba(0,0,0,0.5)",
+    fontWeight: "700",
+    textShadowColor: "rgba(0,0,0,0.6)",
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
   },
-  authorTime: { ...typeScale.caption, color: "rgba(255,255,255,0.7)" },
-
-  // Bottom info
-  bottomInfo: {
-    position: "absolute",
-    left: spacing.space4,
-    right: 76,
-    gap: 4,
+  authorHandle: {
+    ...typeScale.caption,
+    color: "rgba(255,255,255,0.75)",
+    textShadowColor: "rgba(0,0,0,0.5)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
+  authorTime: {
+    ...typeScale.caption,
+    color: "rgba(255,255,255,0.55)",
+    flexShrink: 0,
+  },
+
   caption: {
     ...typeScale.bodyMD,
     color: "#fff",
-    textShadowColor: "rgba(0,0,0,0.5)",
+    lineHeight: 20,
+    textShadowColor: "rgba(0,0,0,0.55)",
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
   },
-  tagsRow: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 2 },
-  tag: { ...typeScale.caption, color: "rgba(255,255,255,0.75)" },
+  tagsRow: { flexDirection: "row", flexWrap: "wrap", gap: 5 },
+  tag: {
+    ...typeScale.caption,
+    color: "rgba(255,255,255,0.80)",
+    textShadowColor: "rgba(0,0,0,0.4)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
 
-  // Engagement bar — outside card
-  engagementOverlay: { position: "absolute" },
+  // ── Bottom-right: engagement bar ─────────────────────────────────────────
+  engagementColumn: {
+    position: "absolute",
+    right: spacing.space3,
+    alignItems: "center",
+  },
 });

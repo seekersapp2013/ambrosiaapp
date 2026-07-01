@@ -20,11 +20,11 @@ function RedirectToSignIn() {
 
 // ── Visible tabs config ───────────────────────────────────────────────────────
 const TABS = [
-  { name: "home",    label: "Home",    icon: "home-outline"        as const },
-  { name: "pulse",   label: "Pulse",   icon: "play-circle-outline" as const },
-  { name: "wallet",  label: "Wallet",  icon: "wallet-outline"      as const },
-  { name: "booking", label: "Booking", icon: "calendar-outline"    as const },
-  { name: "profile", label: "Profile", icon: "person-outline"      as const },
+  { name: "for-you",  label: "For You", icon: "newspaper-outline"     as const },
+  { name: "learn",    label: "Learn",   icon: "school-outline"        as const },
+  { name: "circle",   label: "Circle",  icon: "people-circle-outline" as const },
+  { name: "wallet",   label: "Wallet",  icon: "wallet-outline"        as const },
+  { name: "profile",  label: "Profile", icon: "person-outline"        as const },
 ] as const;
 
 // ── Custom tab bar that sits inside the card boundary ─────────────────────────
@@ -184,11 +184,29 @@ export default function TabsLayout() {
             headerShown: false,
           }}
         >
-          <Tabs.Screen name="home"    options={{ title: "Home" }} />
-          <Tabs.Screen name="pulse"   options={{ title: "Pulse" }} />
-          <Tabs.Screen name="wallet"  options={{ title: "Wallet" }} />
-          <Tabs.Screen name="booking" options={{ title: "Booking" }} />
-          <Tabs.Screen name="profile" options={{ title: "Profile" }} />
+          <Tabs.Screen name="for-you"  options={{ title: "For You" }} />
+          <Tabs.Screen name="learn"    options={{ title: "Learn" }} />
+          <Tabs.Screen name="circle"   options={{ title: "Circle" }} />
+          <Tabs.Screen name="wallet"   options={{ title: "Wallet" }} />
+          <Tabs.Screen name="profile"  options={{ title: "Profile" }} />
+          {/* Previously visible — now hidden */}
+          <Tabs.Screen name="home"          options={{ href: null, headerShown: false }} />
+          <Tabs.Screen name="pulse"         options={{ href: null, headerShown: false }} />
+          <Tabs.Screen name="booking/index" options={{ href: null, headerShown: false }} />
+          {/* Hidden booking sub-routes */}
+          <Tabs.Screen name="booking/history"         options={{ href: null, headerShown: false }} />
+          <Tabs.Screen name="booking/new"             options={{ href: null, headerShown: false }} />
+          <Tabs.Screen name="booking/providers"       options={{ href: null, headerShown: false }} />
+          <Tabs.Screen name="booking/settings"        options={{ href: null, headerShown: false }} />
+          <Tabs.Screen name="booking/become-provider" options={{ href: null, headerShown: false }} />
+          <Tabs.Screen name="booking/events"          options={{ href: null, headerShown: false }} />
+          <Tabs.Screen name="booking/my-sessions"     options={{ href: null, headerShown: false }} />
+          <Tabs.Screen name="booking/booking-detail"  options={{ href: null, headerShown: false }} />
+          <Tabs.Screen name="booking/[id]"            options={{ href: null, headerShown: false }} />
+          <Tabs.Screen name="booking/live-session"    options={{ href: null, headerShown: false }} />
+          <Tabs.Screen name="booking/recordings"      options={{ href: null, headerShown: false }} />
+          <Tabs.Screen name="booking/referrals"       options={{ href: null, headerShown: false }} />
+          {/* Hidden routes */}
           <Tabs.Screen name="deposit"      options={{ href: null, headerShown: false }} />
           <Tabs.Screen name="transfer"     options={{ href: null, headerShown: false }} />
           <Tabs.Screen name="withdraw"     options={{ href: null, headerShown: false }} />
@@ -197,6 +215,22 @@ export default function TabsLayout() {
           <Tabs.Screen name="write-reel"   options={{ href: null, headerShown: false }} />
           <Tabs.Screen name="admin"        options={{ href: null, headerShown: false }} />
           <Tabs.Screen name="notification" options={{ href: null, headerShown: false }} />
+          {/* Circle sub-screens */}
+          <Tabs.Screen name="create-circle"    options={{ href: null, headerShown: false }} />
+          <Tabs.Screen name="circle-detail"    options={{ href: null, headerShown: false }} />
+          <Tabs.Screen name="circle-chat"      options={{ href: null, headerShown: false }} />
+          <Tabs.Screen name="circle-members"   options={{ href: null, headerShown: false }} />
+          <Tabs.Screen name="circle-settings"  options={{ href: null, headerShown: false }} />
+          <Tabs.Screen name="circle-events"    options={{ href: null, headerShown: false }} />
+          <Tabs.Screen name="expert-requests"  options={{ href: null, headerShown: false }} />
+          {/* Learn sub-screens */}
+          <Tabs.Screen name="create-course"           options={{ href: null, headerShown: false }} />
+          <Tabs.Screen name="edit-course"             options={{ href: null, headerShown: false }} />
+          <Tabs.Screen name="course-content-manager"  options={{ href: null, headerShown: false }} />
+          <Tabs.Screen name="course-viewer"           options={{ href: null, headerShown: false }} />
+          {/* Shared content sub-screens */}
+          <Tabs.Screen name="write-article"    options={{ href: null, headerShown: false }} />
+          <Tabs.Screen name="article-viewer"   options={{ href: null, headerShown: false }} />
         </Tabs>
       </Authenticated>
     </>

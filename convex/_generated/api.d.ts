@@ -16,6 +16,7 @@ import type * as autoInitializeAI from "../autoInitializeAI.js";
 import type * as batchingService from "../batchingService.js";
 import type * as bookingAI from "../bookingAI.js";
 import type * as bookingNotifications from "../bookingNotifications.js";
+import type * as bookingPayment from "../bookingPayment.js";
 import type * as bookingSettings from "../bookingSettings.js";
 import type * as bookingSubscribers from "../bookingSubscribers.js";
 import type * as bookings from "../bookings.js";
@@ -110,6 +111,7 @@ declare const fullApi: ApiFromModules<{
   batchingService: typeof batchingService;
   bookingAI: typeof bookingAI;
   bookingNotifications: typeof bookingNotifications;
+  bookingPayment: typeof bookingPayment;
   bookingSettings: typeof bookingSettings;
   bookingSubscribers: typeof bookingSubscribers;
   bookings: typeof bookings;

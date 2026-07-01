@@ -1,4 +1,4 @@
-package com.graderng.expoconvexauth
+package com.graderng.ambrosia
 
 import android.app.Application
 import android.content.res.Configuration

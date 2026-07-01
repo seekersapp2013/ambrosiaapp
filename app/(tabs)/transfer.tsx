@@ -138,7 +138,7 @@ export default function TransferScreen() {
           <MobileCard>
             <ScreenHeader
               title="Transfer Funds"
-              onBack={() => router.replace("/(tabs)/wallet")}
+              onBack={() => router.back()}
             />
           {/* Balance pill */}
           {walletBalance !== undefined && (

@@ -120,20 +120,27 @@ async function getRegularPublicCircles(ctx: any, args: any) {
     query = query.filter((q: any) => q.eq(q.field("accessType"), args.accessType));
   }
 
-  // Apply search filter
-  if (args.searchTerm) {
-    const searchLower = args.searchTerm.toLowerCase();
-    query = query.filter((q: any) =>
-      q.or(
-        q.eq(q.field("name").toLowerCase(), searchLower),
-        q.eq(q.field("description").toLowerCase(), searchLower)
-      )
-    );
-  }
-
-  const circles = await query
+  let circles = await query
     .order("desc")
     .take(limit + offset);
+
+  // FIX: Filter by approval status — only show approved or not-required circles
+  // (isActive alone is not enough because admin approval also needs to be "APPROVED")
+  circles = circles.filter((circle: any) =>
+    circle.approvalStatus === "APPROVED" ||
+    circle.approvalStatus === "NOT_REQUIRED" ||
+    circle.approvalStatus === undefined // backward compat
+  );
+
+  // Apply search filter (in-memory because Convex doesn't support .toLowerCase() in filters)
+  if (args.searchTerm) {
+    const searchLower = args.searchTerm.toLowerCase();
+    circles = circles.filter((circle: any) =>
+      circle.name.toLowerCase().includes(searchLower) ||
+      circle.description.toLowerCase().includes(searchLower) ||
+      (circle.tags ?? []).some((tag: string) => tag.toLowerCase().includes(searchLower))
+    );
+  }
 
   // Paginate
   const paginatedCircles = circles.slice(offset, offset + limit);
@@ -141,17 +148,16 @@ async function getRegularPublicCircles(ctx: any, args: any) {
   // Get creator info for each circle
   const circlesWithCreators = await Promise.all(
     paginatedCircles.map(async (circle: any) => {
-      const creator = await ctx.db.get(circle.creatorId);
       const creatorProfile = await ctx.db
         .query("profiles")
-        .filter((q: any) => q.eq(q.field("userId"), circle.creatorId))
+        .withIndex("by_userId", (q: any) => q.eq("userId", circle.creatorId))
         .first();
 
       return {
         ...circle,
         creator: {
-          id: creator?._id,
-          name: creator?.name || creatorProfile?.name,
+          id: circle.creatorId,
+          name: creatorProfile?.name,
           username: creatorProfile?.username,
           avatar: creatorProfile?.avatar,
         },

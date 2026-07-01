@@ -120,6 +120,8 @@ export const approveContent = mutation({
       const circle = await ctx.db.get(contentIdTyped as Id<"circles">);
       if (circle) {
         await ctx.db.patch(contentIdTyped as Id<"circles">, {
+          // FIX: also set isActive = true so the circle appears in public listings
+          isActive: true,
           approvalStatus: "APPROVED",
           approvedBy: userId,
           approvedByRole: roleId,
