@@ -26,6 +26,7 @@ import { api } from "@/convex/_generated/api";
 import { AppBackground } from "@/components/AppBackground";
 import { MobileCard } from "@/components/MobileCard";
 import { Colors } from "@/constants/Colors";
+import { useNavigationHistory } from "@/context/NavigationHistoryContext";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const CATEGORIES = [
@@ -49,6 +50,7 @@ const CURRENCIES = ["USD", "NGN", "GBP", "EUR", "CAD", "AUD", "GHS", "KES", "ZAR
 // ─── Screen ───────────────────────────────────────────────────────────────────
 export default function CreateCourseScreen() {
   const router = useRouter();
+  const history = useNavigationHistory();
   const createCourse = useMutation(api.courses.createCourse);
   const generateUploadUrl = useMutation(api.files.generateUploadUrl);
 
@@ -121,6 +123,7 @@ export default function CreateCourseScreen() {
         tags,
         priceCurrency: currency,
       });
+      history.push("/(tabs)/learn");
       router.replace({
         pathname: "/(tabs)/course-content-manager" as any,
         params: { courseId },
@@ -144,7 +147,7 @@ export default function CreateCourseScreen() {
           {/* Header */}
           <View style={styles.header}>
             <TouchableOpacity
-              onPress={() => router.back()}
+              onPress={() => history.goBack(router, "/(tabs)/learn")}
               style={styles.closeBtn}
               accessibilityRole="button"
               accessibilityLabel="Cancel"
@@ -284,7 +287,7 @@ export default function CreateCourseScreen() {
             <View style={styles.actions}>
               <TouchableOpacity
                 style={styles.cancelBtn}
-                onPress={() => router.back()}
+                onPress={() => history.goBack(router, "/(tabs)/learn")}
                 activeOpacity={0.8}
                 accessibilityRole="button"
                 accessibilityLabel="Cancel"

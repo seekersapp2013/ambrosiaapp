@@ -389,7 +389,9 @@ export function BookingConfirmation({
           <View style={styles.insufficientWrap}>
             <Ionicons name="alert-circle-outline" size={14} color={Colors.statusDanger} />
             <Text style={styles.insufficientText} allowFontScaling={false}>
-              Insufficient balance. You need {currency} {shortfall.toFixed(2)} more. Please fund your wallet.
+              {walletBalance === 0
+                ? `You have no ${currency} balance. This provider charges in ${currency} — add ${currency} funds to your wallet to book.`
+                : `Insufficient balance. You need ${currency} ${shortfall.toFixed(2)} more. Please fund your wallet.`}
             </Text>
           </View>
         )}

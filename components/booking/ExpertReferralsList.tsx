@@ -14,6 +14,7 @@ import {
   FlatList,
   ActivityIndicator,
 } from "react-native";
+import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
@@ -45,7 +46,7 @@ function formatDate(ts: number): string {
 }
 
 // ─── Sent referral row ────────────────────────────────────────────────────────
-function SentRow({ referral }: { referral: any }) {
+function SentRow({ referral, onPress }: { referral: any; onPress: () => void }) {
   const status       = referral.status as string;
   const statusColor  = STATUS_COLOR[status] ?? Colors.textMuted;
   const statusBg     = STATUS_BG[status]    ?? Colors.bgElevated;
@@ -55,7 +56,13 @@ function SentRow({ referral }: { referral: any }) {
   const isPaid       = referral.commissionPaid;
 
   return (
-    <View style={styles.row}>
+    <TouchableOpacity
+      style={styles.row}
+      onPress={onPress}
+      activeOpacity={0.82}
+      accessibilityRole="button"
+      accessibilityLabel={`View referral: ${referral.title}`}
+    >
       <View style={styles.rowIcon}>
         <Ionicons name="git-network-outline" size={16} color={Colors.actionPrimary} />
       </View>
@@ -100,12 +107,12 @@ function SentRow({ referral }: { referral: any }) {
           )}
         </View>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 }
 
 // ─── Received referral row ────────────────────────────────────────────────────
-function ReceivedRow({ referral }: { referral: any }) {
+function ReceivedRow({ referral, onPress }: { referral: any; onPress: () => void }) {
   const status          = referral.status as string;
   const statusColor     = STATUS_COLOR[status] ?? Colors.textMuted;
   const statusBg        = STATUS_BG[status]    ?? Colors.bgElevated;
@@ -114,7 +121,13 @@ function ReceivedRow({ referral }: { referral: any }) {
   const commission      = referral.commissionAmount;
 
   return (
-    <View style={styles.row}>
+    <TouchableOpacity
+      style={styles.row}
+      onPress={onPress}
+      activeOpacity={0.82}
+      accessibilityRole="button"
+      accessibilityLabel={`View referral: ${referral.title}`}
+    >
       <View style={[styles.rowIcon, { backgroundColor: Colors.statusInfoBg }]}>
         <Ionicons name="arrow-down-circle-outline" size={16} color={Colors.statusInfo} />
       </View>
@@ -147,12 +160,13 @@ function ReceivedRow({ referral }: { referral: any }) {
           )}
         </View>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
 export function ExpertReferralsList() {
+  const router = useRouter();
   const [tab, setTab] = useState<"sent" | "received">("sent");
 
   const sentReferrals     = useQuery(api.referrals.getReferringExpertReferrals, {});
@@ -245,7 +259,16 @@ export function ExpertReferralsList() {
               scrollEnabled={false}
               contentContainerStyle={styles.listContent}
               ItemSeparatorComponent={() => <View style={styles.separator} />}
-              renderItem={({ item }) => <SentRow referral={item} />}
+              renderItem={({ item }) => (
+                <SentRow
+                  referral={item}
+                  onPress={() =>
+                    router.push(
+                      `/(tabs)/booking/referral-detail?referralId=${item._id}` as any
+                    )
+                  }
+                />
+              )}
             />
           )}
         </>
@@ -265,7 +288,16 @@ export function ExpertReferralsList() {
               scrollEnabled={false}
               contentContainerStyle={styles.listContent}
               ItemSeparatorComponent={() => <View style={styles.separator} />}
-              renderItem={({ item }) => <ReceivedRow referral={item} />}
+              renderItem={({ item }) => (
+                <ReceivedRow
+                  referral={item}
+                  onPress={() =>
+                    router.push(
+                      `/(tabs)/booking/referral-detail?referralId=${item._id}` as any
+                    )
+                  }
+                />
+              )}
             />
           )}
         </>

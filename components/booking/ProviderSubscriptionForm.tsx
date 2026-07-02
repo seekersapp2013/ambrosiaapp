@@ -23,8 +23,7 @@ import {
   Modal,
   FlatList,
   ActivityIndicator,
-} from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+} from "react-native";import { Ionicons } from "@expo/vector-icons";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Colors } from "@/tokens/colors";
@@ -34,6 +33,7 @@ import { radius } from "@/tokens/radius";
 import { AppInput, TextareaInput } from "@/components/ui/Input";
 import { PrimaryButton, SecondaryButton } from "@/components/ui/Button";
 import { AppSwitch } from "@/components/ui/Toggle";
+import { CURRENCIES, Currency, CURRENCY_SYMBOLS, CURRENCY_LABELS } from "@/utils/currency";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 const DAYS = [
@@ -280,11 +280,20 @@ export function ProviderSubscriptionForm({ onSuccess, onCancel }: ProviderSubscr
   const createSubscriber = useMutation(api.bookingSubscribers.createSubscriber);
   const updateSubscriber = useMutation(api.bookingSubscribers.updateSubscriber);
 
+  // ── Wallet query — used to default the currency picker ──────────────────────
+  const walletData = useQuery((api as any)["wallets/getWalletBalance"].getWalletBalance, {});
+
   // ── Form state ─────────────────────────────────────────────────────────────
   const [jobTitle,          setJobTitle]          = useState(mySubscription?.jobTitle          ?? "");
   const [specialization,    setSpecialization]    = useState(mySubscription?.specialization    ?? "");
   const [oneOnOnePrice,     setOneOnOnePrice]     = useState(String(mySubscription?.oneOnOnePrice     ?? mySubscription?.sessionPrice ?? ""));
   const [groupSessionPrice, setGroupSessionPrice] = useState(String(mySubscription?.groupSessionPrice ?? ""));
+  const [sessionCurrency,   setSessionCurrency]   = useState<Currency>(
+    ((mySubscription as any)?.sessionCurrency as Currency | undefined)
+    ?? (walletData?.primaryCurrency as Currency | undefined)
+    ?? "USD"
+  );
+  const [currencyPickerOpen, setCurrencyPickerOpen] = useState(false);
   const [aboutUser,         setAboutUser]         = useState(mySubscription?.aboutUser         ?? "");
   const [offerDescription,  setOfferDescription]  = useState(mySubscription?.offerDescription  ?? "");
   const [xLink,             setXLink]             = useState(mySubscription?.xLink             ?? "");
@@ -335,6 +344,7 @@ export function ProviderSubscriptionForm({ onSuccess, onCancel }: ProviderSubscr
       oneOnOnePrice:     p1,
       groupSessionPrice: p2,
       sessionPrice:      p1,   // legacy field
+      sessionCurrency,
       aboutUser:         aboutUser.trim(),
       offerDescription:  offerDescription.trim(),
       xLink:             xLink.trim() || undefined,
@@ -433,7 +443,7 @@ export function ProviderSubscriptionForm({ onSuccess, onCancel }: ProviderSubscr
             error={errors.oneOnOnePrice}
             keyboardType="decimal-pad"
             returnKeyType="next"
-            leadingIcon={<Text style={fStyles.currencySymbol}>$</Text>}
+            leadingIcon={<Text style={fStyles.currencySymbol}>{CURRENCY_SYMBOLS[sessionCurrency]}</Text>}
             accessibilityLabel="1-on-1 session price per hour"
           />
         </View>
@@ -446,11 +456,79 @@ export function ProviderSubscriptionForm({ onSuccess, onCancel }: ProviderSubscr
             error={errors.groupSessionPrice}
             keyboardType="decimal-pad"
             returnKeyType="next"
-            leadingIcon={<Text style={fStyles.currencySymbol}>$</Text>}
+            leadingIcon={<Text style={fStyles.currencySymbol}>{CURRENCY_SYMBOLS[sessionCurrency]}</Text>}
             accessibilityLabel="Group session price per hour (optional)"
           />
         </View>
       </View>
+
+      {/* Currency picker */}
+      <View style={fStyles.currencyPickerWrap}>
+        <Text style={fStyles.currencyPickerLabel} allowFontScaling={false}>Pricing Currency</Text>
+        <TouchableOpacity
+          style={fStyles.currencyPickerBtn}
+          onPress={() => setCurrencyPickerOpen(true)}
+          activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityLabel={`Pricing currency: ${sessionCurrency}`}
+        >
+          <Ionicons name="cash-outline" size={18} color={Colors.iconSecondary} />
+          <Text style={fStyles.currencyPickerBtnText} allowFontScaling={false}>
+            {CURRENCY_SYMBOLS[sessionCurrency]}  {sessionCurrency} — {CURRENCY_LABELS[sessionCurrency]}
+          </Text>
+          <Ionicons name="chevron-down" size={16} color={Colors.iconSecondary} />
+        </TouchableOpacity>
+        <View style={fStyles.currencyNotice}>
+          <Ionicons name="information-circle-outline" size={13} color={Colors.statusInfo} />
+          <Text style={fStyles.currencyNoticeText} allowFontScaling={false}>
+            Clients must have a {sessionCurrency} balance to book you.
+          </Text>
+        </View>
+      </View>
+
+      {/* Currency picker modal */}
+      <Modal
+        visible={currencyPickerOpen}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setCurrencyPickerOpen(false)}
+      >
+        <View style={fStyles.cpOverlay}>
+          <TouchableOpacity style={{ flex: 1 }} onPress={() => setCurrencyPickerOpen(false)} accessibilityLabel="Close currency picker" />
+          <View style={fStyles.cpSheet}>
+            <View style={fStyles.cpHeader}>
+              <Text style={fStyles.cpTitle} allowFontScaling={false}>Pricing Currency</Text>
+              <TouchableOpacity onPress={() => setCurrencyPickerOpen(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Ionicons name="close" size={22} color={Colors.iconPrimary} />
+              </TouchableOpacity>
+            </View>
+            <FlatList
+              data={CURRENCIES as unknown as Currency[]}
+              keyExtractor={(c) => c}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ paddingBottom: spacing.space6 }}
+              renderItem={({ item }) => {
+                const active = item === sessionCurrency;
+                return (
+                  <TouchableOpacity
+                    style={[fStyles.cpOption, active && fStyles.cpOptionActive]}
+                    onPress={() => { setSessionCurrency(item); setCurrencyPickerOpen(false); }}
+                    activeOpacity={0.8}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: active }}
+                  >
+                    <Text style={[fStyles.cpOptionText, active && fStyles.cpOptionTextActive]} allowFontScaling={false}>
+                      {CURRENCY_SYMBOLS[item]}  {item}
+                    </Text>
+                    <Text style={fStyles.cpOptionSub} allowFontScaling={false}>{CURRENCY_LABELS[item]}</Text>
+                    {active && <Ionicons name="checkmark" size={18} color={Colors.actionPrimary} />}
+                  </TouchableOpacity>
+                );
+              }}
+            />
+          </View>
+        </View>
+      </Modal>
       <View style={fStyles.pricingTip}>
         <Ionicons name="information-circle-outline" size={14} color={Colors.statusInfo} />
         <Text style={fStyles.pricingTipText} allowFontScaling={false}>
@@ -640,4 +718,71 @@ const fStyles = StyleSheet.create({
   btnRow: { flexDirection: "row", gap: spacing.space3, marginTop: spacing.space4 },
   btnCancel: { flex: 1 },
   btnSubmit: { flex: 2 },
+
+  // Currency picker
+  currencyPickerWrap: { marginBottom: spacing.space5 },
+  currencyPickerLabel: {
+    ...typeScale.labelSM,
+    color: Colors.textSecondary,
+    fontWeight: "600",
+    marginBottom: spacing.space2,
+  },
+  currencyPickerBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.space2,
+    height: 52,
+    borderRadius: radius.radiusMD,
+    borderWidth: 1.5,
+    borderColor: Colors.borderDefault,
+    backgroundColor: Colors.bgSurface,
+    paddingHorizontal: spacing.space4,
+  },
+  currencyPickerBtnText: {
+    ...typeScale.bodyMD,
+    color: Colors.textPrimary,
+    flex: 1,
+  },
+  currencyNotice: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.space2,
+    marginTop: spacing.space2,
+  },
+  currencyNoticeText: {
+    ...typeScale.caption,
+    color: Colors.statusInfo,
+    flex: 1,
+  },
+
+  // Currency picker modal
+  cpOverlay: { flex: 1, backgroundColor: Colors.bgOverlay, justifyContent: "flex-end" },
+  cpSheet: {
+    backgroundColor: Colors.bgSurface,
+    borderTopLeftRadius: radius.radius2XL,
+    borderTopRightRadius: radius.radius2XL,
+    paddingHorizontal: spacing.screenPaddingH,
+    paddingTop: spacing.space4,
+    maxHeight: "60%",
+  },
+  cpHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: spacing.space3,
+  },
+  cpTitle: { ...typeScale.headingSM, color: Colors.textPrimary, fontWeight: "700" },
+  cpOption: {
+    height: 64,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.space3,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.borderSubtle,
+    paddingHorizontal: spacing.space2,
+  },
+  cpOptionActive: { backgroundColor: Colors.bgPrimarySubtle },
+  cpOptionText: { ...typeScale.bodyMD, color: Colors.textSecondary, minWidth: 52 },
+  cpOptionTextActive: { color: Colors.actionPrimary, fontWeight: "600" },
+  cpOptionSub: { ...typeScale.caption, color: Colors.textMuted, flex: 1 },
 });

@@ -11,13 +11,45 @@
  *
  * Per-instance override:
  *   <MobileCard enabled={false}> — disables just that instance
+ *
+ * useCardInsets:
+ *   Returns { left, right } pixel insets so that absolutely-positioned
+ *   overlays (modals, sticky CTAs, FABs, toasts) rendered OUTSIDE the card
+ *   can still align to the card boundary. This keeps everything visually
+ *   within the 500px card column on large screens (web/tablet).
+ *
+ *   Usage:
+ *     const { left: cardLeft, right: cardRight } = useCardInsets();
+ *     // Then in a style: { position:"absolute", left: cardLeft, right: cardRight }
  */
 
 import React from "react";
-import { View, StyleSheet, StyleProp, ViewStyle } from "react-native";
+import { View, StyleSheet, StyleProp, ViewStyle, Dimensions, Platform } from "react-native";
 
 // ─── Global feature flag ──────────────────────────────────────────────────────
 export const MOBILE_CARD_ENABLED = true;
+
+// ─── Card geometry constants (must mirror StyleSheet values below) ────────────
+export const CARD_MAX_WIDTH = 500;
+export const CARD_PADDING_H = 16; // container paddingHorizontal
+
+/**
+ * Returns the left and right pixel insets that align an absolutely-positioned
+ * overlay (sheet, toast, FAB, sticky CTA) to the card boundary.
+ *
+ * When MobileCard is disabled, returns { left: 0, right: 0 }.
+ *
+ * Call this at render time (not in a hook) — it reads Dimensions synchronously.
+ * Re-render on window resize is handled naturally because the component
+ * re-renders when state/props change.
+ */
+export function useCardInsets(): { left: number; right: number } {
+  if (!MOBILE_CARD_ENABLED) return { left: 0, right: 0 };
+  const screenW = Dimensions.get("window").width;
+  const cardW = Math.min(screenW - CARD_PADDING_H * 2, CARD_MAX_WIDTH);
+  const sideInset = (screenW - cardW) / 2;
+  return { left: sideInset, right: sideInset };
+}
 
 // ─── Component ────────────────────────────────────────────────────────────────
 interface MobileCardProps {
@@ -53,12 +85,12 @@ const styles = StyleSheet.create({
   container: {
     width: "100%",
     alignItems: "center",
-    paddingHorizontal: 16,
+    paddingHorizontal: CARD_PADDING_H,
     paddingVertical: 16,
   },
   card: {
     width: "100%",
-    maxWidth: 500,
+    maxWidth: CARD_MAX_WIDTH,
     backgroundColor: "rgba(10, 10, 21, 0.97)",
     borderRadius: 20,
     borderWidth: 1,

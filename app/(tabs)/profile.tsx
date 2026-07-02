@@ -22,6 +22,7 @@ import { typeScale } from "@/tokens/typography";
 import { elevation } from "@/tokens/shadows";
 
 import { AppBackground } from "@/components/AppBackground";
+import { TopNav } from "@/components/TopNav";
 import { AppLoader } from "@/components/AppLoader";
 import { PrimaryButton, SecondaryButton, DestructiveButton, GhostButton, IconButton } from "@/components/ui/Button";
 import { AppInput, TextareaInput } from "@/components/ui/Input";
@@ -709,8 +710,11 @@ export default function ProfileTab() {
         showsVerticalScrollIndicator={false}
       >
         <MobileCard style={styles.cardOverride}>
+        {/* Top nav */}
+        <TopNav hideProfile />
+
         {/* HERO */}
-        <View style={[styles.hero, { paddingTop: insets.top + 16 }]}>
+        <View style={[styles.hero, { paddingTop: 16 }]}>
           <TouchableOpacity
             style={styles.avatarWrap}
             onPress={handlePickImage}

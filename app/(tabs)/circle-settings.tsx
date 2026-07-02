@@ -25,9 +25,11 @@ import { Id } from "@/convex/_generated/dataModel";
 import { AppBackground } from "@/components/AppBackground";
 import { MobileCard } from "@/components/MobileCard";
 import { Colors } from "@/constants/Colors";
+import { useNavigationHistory } from "@/context/NavigationHistoryContext";
 
 export default function CircleSettingsScreen() {
   const router = useRouter();
+  const history = useNavigationHistory();
   const { circleId } = useLocalSearchParams<{ circleId: string }>();
 
   // ── Data ────────────────────────────────────────────────────────────────────
@@ -134,7 +136,7 @@ export default function CircleSettingsScreen() {
       <AppBackground>
         <View style={styles.loadingWrap}>
           <Text style={styles.errorText}>No access.</Text>
-          <TouchableOpacity onPress={() => router.back()}>
+          <TouchableOpacity onPress={() => history.goBack(router, "/(tabs)/circle")}>
             <Text style={styles.backLink}>Go back</Text>
           </TouchableOpacity>
         </View>
@@ -153,7 +155,7 @@ export default function CircleSettingsScreen() {
           {/* Header */}
           <View style={styles.header}>
             <TouchableOpacity
-              onPress={() => router.back()}
+              onPress={() => history.goBack(router, "/(tabs)/circle")}
               style={styles.backBtn}
               accessibilityRole="button"
               accessibilityLabel="Go back"

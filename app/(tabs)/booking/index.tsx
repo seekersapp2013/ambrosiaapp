@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useRef } from "react";
 import {
   View,
   Text,
@@ -6,6 +6,7 @@ import {
   StyleSheet,
   ScrollView,
   ActivityIndicator,
+  TextInput,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -17,9 +18,9 @@ import { spacing } from "@/tokens/spacing";
 import { radius } from "@/tokens/radius";
 import { AppBackground } from "@/components/AppBackground";
 import { MobileCard } from "@/components/MobileCard";
+import { TopNav } from "@/components/TopNav";
 import { PrimaryButton } from "@/components/ui/Button";
 import { EmptyStateCard } from "@/components/ui/Card";
-import { ScreenHeader } from "@/components/ui/ScreenHeader";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type BookingTab = "upcoming" | "completed" | "cancelled";
@@ -241,6 +242,7 @@ function StatBadge({
 export default function BookingScreen() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<BookingTab>("upcoming");
+  const [searchQuery, setSearchQuery] = useState("");
 
   // ── Convex queries ────────────────────────────────────────────────────────
   const bookings = useQuery(api.bookings.getMyBookings, {});
@@ -270,14 +272,30 @@ export default function BookingScreen() {
         cancelled,
       };
 
+      // Apply search filter to the active tab
+      const q = searchQuery.trim().toLowerCase();
+      const applySearch = (list: typeof bookings) => {
+        if (!q) return list;
+        return list.filter((b) => {
+          const providerName = (
+            b.provider?.profile?.name ??
+            b.provider?.profile?.username ??
+            ""
+          ).toLowerCase();
+          const jobTitle = (b.provider?.subscription?.jobTitle ?? "").toLowerCase();
+          const date = (b.sessionDate ?? "").toLowerCase();
+          return providerName.includes(q) || jobTitle.includes(q) || date.includes(q);
+        });
+      };
+
       return {
-        filtered: tabMap[activeTab] ?? [],
+        filtered: applySearch(tabMap[activeTab] ?? []),
         upcomingCount:  upcoming.length,
         completedCount: completed.length,
         cancelledCount: cancelled.length,
         upcomingPreview: upcoming.slice(0, 3),
       };
-    }, [bookings, activeTab]);
+    }, [bookings, activeTab, searchQuery]);
 
   const isProvider = !!mySubscription?.isActive;
 
@@ -290,30 +308,43 @@ export default function BookingScreen() {
 
   return (
     <AppBackground>
-      <ScreenHeader
-        title="My Bookings"
-        trailing={
-          <TouchableOpacity
-            onPress={() => router.push("/(tabs)/booking/providers" as any)}
-            accessibilityRole="button"
-            accessibilityLabel="Find providers"
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <Ionicons name="search-outline" size={26} color={Colors.actionPrimary} />
-          </TouchableOpacity>
-        }
-      />
-
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
         <MobileCard>
+          {/* ── Top nav ────────────────────────────────────────────────── */}
+          <TopNav />
+
           {/* ── Page intro ─────────────────────────────────────────────── */}
           <View style={styles.introBlock}>
-            <Text style={styles.introTitle}>Bookings</Text>
-            <Text style={styles.introSubtitle}>Manage your appointments & sessions</Text>
+            <Text style={styles.introSubtitle}>Manage your appointments &amp; sessions</Text>
+            {/* ── Booking search ──────────────────────────────────────── */}
+            <View style={styles.searchWrap}>
+              <Ionicons name="search-outline" size={16} color={Colors.iconSecondary} />
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Search by provider, session type…"
+                placeholderTextColor={Colors.textMuted}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                returnKeyType="search"
+                clearButtonMode="while-editing"
+                accessibilityLabel="Search bookings"
+                allowFontScaling={false}
+              />
+              {searchQuery.length > 0 && (
+                <TouchableOpacity
+                  onPress={() => setSearchQuery("")}
+                  hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Clear search"
+                >
+                  <Ionicons name="close-circle" size={16} color={Colors.iconSecondary} />
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
 
           {/* ── Stats strip ───────────────────────────────────────────── */}
@@ -610,20 +641,44 @@ const styles = StyleSheet.create({
   scroll: { flex: 1 },
   scrollContent: { paddingBottom: spacing.scrollBottomPadding },
 
-  introBlock: {
+  searchBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: "center",
-    paddingTop: spacing.space6,
+    justifyContent: "center",
+  },
+
+  introBlock: {
+    paddingTop: spacing.space4,
     paddingBottom: spacing.space5,
     paddingHorizontal: spacing.space4,
-  },
-  introTitle: {
-    ...typeScale.headingXL,
-    color: Colors.textPrimary,
   },
   introSubtitle: {
     ...typeScale.bodyMD,
     color: Colors.textMuted,
-    marginTop: 4,
+    marginBottom: spacing.space3,
+  },
+
+  // Booking search bar
+  searchWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: spacing.space4,
+    width: "100%",
+    backgroundColor: Colors.bgElevated,
+    borderRadius: radius.radiusFull,
+    borderWidth: 1,
+    borderColor: Colors.borderSubtle,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 13,
+    color: Colors.textPrimary,
+    padding: 0,
   },
 
   // Stats strip

@@ -3,9 +3,11 @@
  * Full-screen vertical pager — swipe up/down to navigate reels.
  *
  * Architecture note:
- * The engagement bar is rendered OUTSIDE MobileCard as a sibling overlay
- * on AppBackground. This is required because MobileCard has overflow:hidden
- * which cannot be overridden on Android, and would clip the bar.
+ * All overlays (engagement bar, wordmark pill, FAB) are rendered INSIDE
+ * MobileCard using position:absolute relative to the card. This ensures
+ * everything stays within the card boundary on large screens (web/tablet).
+ * overflow:hidden on the card clips native on Android, but on web the
+ * absolute children are not clipped — they remain fully interactive.
  */
 
 import React, { useCallback, useRef, useState } from "react";
@@ -72,9 +74,6 @@ function ReelsFeed() {
   const effectiveTabBarHeight =
     tabBarHeight + (Platform.OS === "android" ? insets.bottom : 0);
   const cellHeight = SCREEN_H - effectiveTabBarHeight - (MOBILE_CARD_ENABLED ? 32 : 0);
-
-  // Right edge of card in screen coordinates
-  const cardRight = (SCREEN_W - cardWidth) / 2;
 
   // ── Active reel for engagement bar ────────────────────────────────────────
   const activeReel = reels && reels.length > 0
@@ -176,12 +175,12 @@ function ReelsFeed() {
   }
 
   // ── Feed ──────────────────────────────────────────────────────────────────
-  // Engagement bar bottom — above tab bar
+  // Engagement bar bottom — above tab bar (relative to card interior)
   const engagementBottom = effectiveTabBarHeight + 24;
 
   return (
     <AppBackground style={styles.root}>
-      {/* ── Card: video pager only, no engagement bar inside ─────────── */}
+      {/* ── Card: video pager + all overlays inside the card ─────────── */}
       <MobileCard
         style={styles.feedCard}
         containerStyle={styles.feedCardContainer}
@@ -269,58 +268,49 @@ function ReelsFeed() {
             </TouchableOpacity>
           </>
         )}
-      </MobileCard>
 
-      {/* ── Pulse wordmark — top-right, outside card ─────────────────── */}
-      <View
-        style={[
-          styles.wordmarkPill,
-          { top: insets.top + 12, right: cardRight + spacing.space4 },
-        ]}
-        pointerEvents="none"
-      >
-        <Text style={styles.wordmarkText} allowFontScaling={false}>
-          Pulse
-        </Text>
-      </View>
-
-      {/* ── Engagement bar — OUTSIDE card, never clipped ─────────────── */}
-      {activeReel && (
+        {/* ── Pulse wordmark — top-right corner, inside card ───────── */}
         <View
-          style={[
-            styles.engagementOverlay,
-            {
-              right: cardRight + spacing.space3,
-              bottom: engagementBottom,
-            },
-          ]}
-          pointerEvents="box-none"
+          style={[styles.wordmarkPill, { top: insets.top + 12 }]}
+          pointerEvents="none"
         >
-          <ReelEngagementBar
-            reel={activeReel}
-            hasAccess={activeHasAccess}
-            disabled={false}
-            resolvedAvatarUrl={activeAvatarUrl}
-          />
+          <Text style={styles.wordmarkText} allowFontScaling={false}>
+            Pulse
+          </Text>
         </View>
-      )}
 
-      {/* ── FAB — OUTSIDE card so it's never clipped either ──────────── */}
-      <TouchableOpacity
-        style={[
-          styles.fab,
-          {
-            right: cardRight + spacing.space4,
-            bottom: effectiveTabBarHeight + 16,
-          },
-        ]}
-        onPress={() => router.push("/(tabs)/write-reel")}
-        activeOpacity={0.85}
-        accessibilityRole="button"
-        accessibilityLabel="Create reel"
-      >
-        <Ionicons name="add" size={28} color="#fff" />
-      </TouchableOpacity>
+        {/* ── Engagement bar — inside card, right-side overlay ──────── */}
+        {activeReel && (
+          <View
+            style={[
+              styles.engagementOverlay,
+              { right: spacing.space3, bottom: engagementBottom },
+            ]}
+            pointerEvents="box-none"
+          >
+            <ReelEngagementBar
+              reel={activeReel}
+              hasAccess={activeHasAccess}
+              disabled={false}
+              resolvedAvatarUrl={activeAvatarUrl}
+            />
+          </View>
+        )}
+
+        {/* ── FAB — inside card, bottom-right corner ────────────────── */}
+        <TouchableOpacity
+          style={[
+            styles.fab,
+            { right: spacing.space4, bottom: effectiveTabBarHeight + 16 },
+          ]}
+          onPress={() => router.push("/(tabs)/write-reel")}
+          activeOpacity={0.85}
+          accessibilityRole="button"
+          accessibilityLabel="Create reel"
+        >
+          <Ionicons name="add" size={28} color="#fff" />
+        </TouchableOpacity>
+      </MobileCard>
     </AppBackground>
   );
 }
@@ -420,14 +410,15 @@ const styles = StyleSheet.create({
   arrowUp: { top: 12 },
   arrowDown: { bottom: 12 },
 
-  // Engagement bar overlay — sits outside card, never clipped
+  // Engagement bar overlay — right-side overlay inside card
   engagementOverlay: {
     position: "absolute",
   },
 
-  // Pulse wordmark pill — top-right corner over the card
+  // Pulse wordmark pill — top-right corner inside the card
   wordmarkPill: {
     position: "absolute",
+    right: 12,
     backgroundColor: Colors.bgBase,
     borderWidth: 1,
     borderColor: Colors.blueBorder,

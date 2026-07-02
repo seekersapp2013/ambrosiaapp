@@ -9,6 +9,7 @@ import { AppLoader } from "@/components/AppLoader";
 import { useTabBarHeight } from "@/utils/useDeviceClass";
 import { zIndex } from "@/tokens/zIndex";
 import { MOBILE_CARD_ENABLED } from "@/components/MobileCard";
+import { useNavigationHistory } from "@/context/NavigationHistoryContext";
 
 function RedirectToSignIn() {
   const router = useRouter();
@@ -20,11 +21,11 @@ function RedirectToSignIn() {
 
 // ── Visible tabs config ───────────────────────────────────────────────────────
 const TABS = [
-  { name: "for-you",  label: "For You", icon: "newspaper-outline"     as const },
-  { name: "learn",    label: "Learn",   icon: "school-outline"        as const },
-  { name: "circle",   label: "Circle",  icon: "people-circle-outline" as const },
-  { name: "wallet",   label: "Wallet",  icon: "wallet-outline"        as const },
-  { name: "profile",  label: "Profile", icon: "person-outline"        as const },
+  { name: "for-you",        label: "For You",  icon: "newspaper-outline"     as const },
+  { name: "learn",          label: "Learn",    icon: "school-outline"        as const },
+  { name: "circle",         label: "Circle",   icon: "people-circle-outline" as const },
+  { name: "wallet",         label: "Wallet",   icon: "wallet-outline"        as const },
+  { name: "booking/index",  label: "Booking",  icon: "calendar-outline"      as const },
 ] as const;
 
 // ── Custom tab bar that sits inside the card boundary ─────────────────────────
@@ -88,6 +89,8 @@ function renderItems(state: any, navigation: any, barHeight: number, paddingBott
     TABS.some((t) => t.name === r.name)
   );
 
+  const history = useNavigationHistory();
+
   return visibleRoutes.map((route: any) => {
     const tabConfig = TABS.find((t) => t.name === route.name)!;
     const isFocused = state.index === state.routes.indexOf(route);
@@ -95,6 +98,8 @@ function renderItems(state: any, navigation: any, barHeight: number, paddingBott
     const onPress = () => {
       const event = navigation.emit({ type: "tabPress", target: route.key, canPreventDefault: true });
       if (!isFocused && !event.defaultPrevented) {
+        // Clear navigation history when user deliberately taps a tab
+        history.clear();
         navigation.navigate(route.name);
       }
     };
@@ -184,15 +189,15 @@ export default function TabsLayout() {
             headerShown: false,
           }}
         >
-          <Tabs.Screen name="for-you"  options={{ title: "For You" }} />
-          <Tabs.Screen name="learn"    options={{ title: "Learn" }} />
-          <Tabs.Screen name="circle"   options={{ title: "Circle" }} />
-          <Tabs.Screen name="wallet"   options={{ title: "Wallet" }} />
-          <Tabs.Screen name="profile"  options={{ title: "Profile" }} />
+          <Tabs.Screen name="for-you"       options={{ title: "For You" }} />
+          <Tabs.Screen name="learn"         options={{ title: "Learn" }} />
+          <Tabs.Screen name="circle"        options={{ title: "Circle" }} />
+          <Tabs.Screen name="wallet"        options={{ title: "Wallet" }} />
+          <Tabs.Screen name="booking/index" options={{ title: "Booking" }} />
           {/* Previously visible — now hidden */}
-          <Tabs.Screen name="home"          options={{ href: null, headerShown: false }} />
-          <Tabs.Screen name="pulse"         options={{ href: null, headerShown: false }} />
-          <Tabs.Screen name="booking/index" options={{ href: null, headerShown: false }} />
+          <Tabs.Screen name="home"    options={{ href: null, headerShown: false }} />
+          <Tabs.Screen name="pulse"   options={{ href: null, headerShown: false }} />
+          <Tabs.Screen name="profile" options={{ href: null, headerShown: false }} />
           {/* Hidden booking sub-routes */}
           <Tabs.Screen name="booking/history"         options={{ href: null, headerShown: false }} />
           <Tabs.Screen name="booking/new"             options={{ href: null, headerShown: false }} />
@@ -205,7 +210,8 @@ export default function TabsLayout() {
           <Tabs.Screen name="booking/[id]"            options={{ href: null, headerShown: false }} />
           <Tabs.Screen name="booking/live-session"    options={{ href: null, headerShown: false }} />
           <Tabs.Screen name="booking/recordings"      options={{ href: null, headerShown: false }} />
-          <Tabs.Screen name="booking/referrals"       options={{ href: null, headerShown: false }} />
+          <Tabs.Screen name="booking/referrals"        options={{ href: null, headerShown: false }} />
+          <Tabs.Screen name="booking/referral-detail" options={{ href: null, headerShown: false }} />
           {/* Hidden routes */}
           <Tabs.Screen name="deposit"      options={{ href: null, headerShown: false }} />
           <Tabs.Screen name="transfer"     options={{ href: null, headerShown: false }} />

@@ -17,10 +17,10 @@ import React, { useRef, useState, useCallback } from "react";
 import {
   View, Text, TextInput, TouchableOpacity, ScrollView,
   KeyboardAvoidingView, Image, Alert, StyleSheet,
-  ActivityIndicator, Switch, Platform, Modal,
+  ActivityIndicator, Switch, Platform, Modal, FlatList,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useMutation } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { useRouter, Redirect } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 import { Authenticated, Unauthenticated, AuthLoading } from "convex/react";
@@ -29,6 +29,8 @@ import { AppBackground } from "@/components/AppBackground";
 import { AppLoader } from "@/components/AppLoader";
 import { MobileCard } from "@/components/MobileCard";
 import { Colors } from "@/constants/Colors";
+import { CURRENCIES, Currency, CURRENCY_SYMBOLS, CURRENCY_LABELS } from "@/utils/currency";
+import { useNavigationHistory } from "@/context/NavigationHistoryContext";
 
 // ─── Lazy native editor ───────────────────────────────────────────────────────
 let RichEditor: any = null;
@@ -824,6 +826,86 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
 
+  // Price row — amount + currency side by side
+  priceRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: 12,
+  },
+  priceAmountInput: {
+    flex: 1,
+    marginBottom: 0,
+  },
+  priceCurrencyBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: Colors.bgElevated,
+    borderWidth: 1,
+    borderColor: Colors.borderDefault,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    minWidth: 90,
+  },
+  priceCurrencyBtnText: {
+    fontSize: 14,
+    color: Colors.textPrimary,
+    fontWeight: "600",
+  },
+
+  // Currency picker modal
+  cpOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    justifyContent: "flex-end",
+  },
+  cpSheet: {
+    backgroundColor: "#141428",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    maxHeight: "55%",
+  },
+  cpHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 12,
+  },
+  cpTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: Colors.textPrimary,
+  },
+  cpOption: {
+    height: 64,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255,255,255,0.08)",
+    paddingHorizontal: 4,
+  },
+  cpOptionActive: {
+    backgroundColor: "rgba(198,34,41,0.10)",
+  },
+  cpOptionText: {
+    fontSize: 14,
+    color: "#D1D5DB",
+    minWidth: 52,
+    fontWeight: "600",
+  },
+  cpOptionTextActive: {
+    color: Colors.primary,
+  },
+  cpOptionSub: {
+    fontSize: 12,
+    color: "#6B7280",
+    flex: 1,
+  },
+
   // Approval notice
   noticeBox: {
     backgroundColor: Colors.redSurface,
@@ -894,6 +976,7 @@ async function uploadImageBlob(
 // ─── Main composer ────────────────────────────────────────────────────────────
 function WriteArticleContent() {
   const router = useRouter();
+  const history = useNavigationHistory();
   const createArticle = useMutation(api.articles.createArticle);
   const generateUploadUrl = useMutation(api.files.generateUploadUrl);
 
@@ -914,6 +997,20 @@ function WriteArticleContent() {
   const [isSensitive, setIsSensitive] = useState(false);
   const [isPremium, setIsPremium] = useState(false);
   const [priceAmount, setPriceAmount] = useState("");
+  const [priceCurrency, setPriceCurrency] = useState<Currency>("USD");
+  const [currencyPickerOpen, setCurrencyPickerOpen] = useState(false);
+
+  // Wallet — used to default the currency to the user's primary currency
+  const walletData = useQuery((api as any)["wallets/getWalletBalance"].getWalletBalance, {});
+
+  // Sync wallet primary currency into priceCurrency once loaded (only if user hasn't changed it)
+  const walletSynced = useRef(false);
+  React.useEffect(() => {
+    if (!walletSynced.current && walletData?.primaryCurrency) {
+      setPriceCurrency(walletData.primaryCurrency as Currency);
+      walletSynced.current = true;
+    }
+  }, [walletData]);
 
   // Submission
   const [submitting, setSubmitting] = useState(false);
@@ -1018,12 +1115,12 @@ function WriteArticleContent() {
         isSensitive,
         isPublic,
         isGated: isPremium,
-        priceToken: isPremium ? "USD" : undefined,
+        priceToken: isPremium ? priceCurrency : undefined,
         priceAmount: isPremium && priceAmount ? parseFloat(priceAmount) : undefined,
         coverImage,
       });
       Alert.alert("Submitted!", "Your article has been submitted for review.", [
-        { text: "OK", onPress: () => router.back() },
+        { text: "OK", onPress: () => history.goBack(router, "/(tabs)/learn") },
       ]);
     } catch (err: any) {
       Alert.alert("Error", err?.message ?? "Failed to submit article.");
@@ -1205,15 +1302,74 @@ function WriteArticleContent() {
             />
           </View>
           {isPremium && (
-            <TextInput
-              style={styles.priceInput}
-              placeholder="Price (USD)"
-              placeholderTextColor={Colors.textMuted}
-              value={priceAmount}
-              onChangeText={setPriceAmount}
-              keyboardType="decimal-pad"
-            />
+            <View style={styles.priceRow}>
+              <TextInput
+                style={[styles.priceInput, styles.priceAmountInput]}
+                placeholder="0.00"
+                placeholderTextColor={Colors.textMuted}
+                value={priceAmount}
+                onChangeText={setPriceAmount}
+                keyboardType="decimal-pad"
+                accessibilityLabel="Article price"
+              />
+              <TouchableOpacity
+                style={styles.priceCurrencyBtn}
+                onPress={() => setCurrencyPickerOpen(true)}
+                activeOpacity={0.8}
+                accessibilityRole="button"
+                accessibilityLabel={`Currency: ${priceCurrency}`}
+              >
+                <Text style={styles.priceCurrencyBtnText} allowFontScaling={false}>
+                  {CURRENCY_SYMBOLS[priceCurrency]} {priceCurrency}
+                </Text>
+                <Ionicons name="chevron-down" size={14} color={Colors.textMuted} />
+              </TouchableOpacity>
+            </View>
           )}
+
+          {/* Currency picker modal */}
+          <Modal
+            visible={currencyPickerOpen}
+            transparent
+            animationType="slide"
+            onRequestClose={() => setCurrencyPickerOpen(false)}
+          >
+            <View style={styles.cpOverlay}>
+              <TouchableOpacity style={{ flex: 1 }} onPress={() => setCurrencyPickerOpen(false)} accessibilityLabel="Close currency picker" />
+              <View style={styles.cpSheet}>
+                <View style={styles.cpHeader}>
+                  <Text style={styles.cpTitle} allowFontScaling={false}>Pricing Currency</Text>
+                  <TouchableOpacity onPress={() => setCurrencyPickerOpen(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                    <Ionicons name="close" size={22} color={Colors.textPrimary} />
+                  </TouchableOpacity>
+                </View>
+                <FlatList
+                  data={CURRENCIES as unknown as Currency[]}
+                  keyExtractor={(c) => c}
+                  showsVerticalScrollIndicator={false}
+                  contentContainerStyle={{ paddingBottom: 32 }}
+                  renderItem={({ item }) => {
+                    const active = item === priceCurrency;
+                    return (
+                      <TouchableOpacity
+                        style={[styles.cpOption, active && styles.cpOptionActive]}
+                        onPress={() => { setPriceCurrency(item); setCurrencyPickerOpen(false); }}
+                        activeOpacity={0.8}
+                        accessibilityRole="button"
+                        accessibilityState={{ selected: active }}
+                      >
+                        <Text style={[styles.cpOptionText, active && styles.cpOptionTextActive]} allowFontScaling={false}>
+                          {CURRENCY_SYMBOLS[item]}  {item}
+                        </Text>
+                        <Text style={styles.cpOptionSub} allowFontScaling={false}>{CURRENCY_LABELS[item]}</Text>
+                        {active && <Ionicons name="checkmark" size={18} color={Colors.primary} />}
+                      </TouchableOpacity>
+                    );
+                  }}
+                />
+              </View>
+            </View>
+          </Modal>
 
           {/* Approval notice */}
           <View style={styles.noticeBox}>
@@ -1225,7 +1381,7 @@ function WriteArticleContent() {
 
           {/* Action buttons */}
           <View style={styles.btnRow}>
-            <TouchableOpacity style={styles.cancelBtn} onPress={() => router.back()} disabled={submitting}>
+            <TouchableOpacity style={styles.cancelBtn} onPress={() => history.goBack(router, "/(tabs)/learn")} disabled={submitting}>
               <Text style={styles.cancelBtnText}>Cancel</Text>
             </TouchableOpacity>
             <TouchableOpacity

@@ -24,11 +24,13 @@ import { api } from "@/convex/_generated/api";
 import { AppBackground } from "@/components/AppBackground";
 import { MobileCard } from "@/components/MobileCard";
 import { Colors } from "@/constants/Colors";
+import { useNavigationHistory } from "@/context/NavigationHistoryContext";
 
 const CURRENCIES = ["USD", "NGN", "GBP", "EUR", "CAD", "GHS", "KES", "GMD", "ZAR"];
 
 export default function CreateCircleScreen() {
   const router = useRouter();
+  const history = useNavigationHistory();
   const createCircle = useMutation(api.circles.createCircle);
 
   // ── Form state ─────────────────────────────────────────────────────────────
@@ -171,10 +173,10 @@ export default function CreateCircleScreen() {
                 if (successResult.requiresApproval) {
                   // Pending review — go to the Circles browse tab,
                   // circle-detail is not useful until the circle is live.
-                  router.replace("/(tabs)/circle" as any);
+                  history.goBack(router, "/(tabs)/circle");
                 } else {
                   // Live immediately — go straight to the circle detail.
-                  router.replace({
+                  router.push({
                     pathname: "/(tabs)/circle-detail",
                     params: { circleId: successResult.circleId },
                   } as any);
@@ -193,7 +195,7 @@ export default function CreateCircleScreen() {
             {/* Secondary — back to browse */}
             <TouchableOpacity
               style={styles.backToCirclesBtn}
-              onPress={() => router.replace("/(tabs)/circle" as any)}
+              onPress={() => history.goBack(router, "/(tabs)/circle")}
               activeOpacity={0.75}
               accessibilityRole="button"
               accessibilityLabel="Back to circles"
@@ -217,7 +219,7 @@ export default function CreateCircleScreen() {
           {/* Header */}
           <View style={styles.header}>
             <TouchableOpacity
-              onPress={() => router.replace("/(tabs)/circle" as any)}
+              onPress={() => history.goBack(router, "/(tabs)/circle")}
               style={styles.backBtn}
               accessibilityRole="button"
               accessibilityLabel="Go back to circles"
@@ -412,7 +414,7 @@ export default function CreateCircleScreen() {
             <View style={styles.btnRow}>
               <TouchableOpacity
                 style={styles.cancelBtn}
-                onPress={() => router.replace("/(tabs)/circle" as any)}
+                onPress={() => history.goBack(router, "/(tabs)/circle")}
                 accessibilityRole="button"
                 accessibilityLabel="Cancel"
               >

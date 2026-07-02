@@ -32,10 +32,12 @@ import { Colors } from "@/tokens/colors";
 import { typeScale } from "@/tokens/typography";
 import { spacing } from "@/tokens/spacing";
 import { CURRENCIES, Currency, CURRENCY_SYMBOLS } from "@/utils/currency";
+import { useNavigationHistory } from "@/context/NavigationHistoryContext";
 
 // ─── Form content ─────────────────────────────────────────────────────────────
 function WriteReelContent() {
   const router = useRouter();
+  const history = useNavigationHistory();
   const insets = useSafeAreaInsets();
 
   const [caption, setCaption] = useState("");
@@ -52,6 +54,16 @@ function WriteReelContent() {
   const generateUploadUrl = useMutation(api.files.generateUploadUrl);
   const createReel = useMutation(api.reels.createReel);
   const myProfile = useQuery(api.profiles.getMyProfile);
+  const walletData = useQuery((api as any)["wallets/getWalletBalance"].getWalletBalance, {});
+
+  // Sync wallet primary currency into priceCurrency once loaded
+  const walletSynced = useRef(false);
+  React.useEffect(() => {
+    if (!walletSynced.current && walletData?.primaryCurrency) {
+      setPriceCurrency(walletData.primaryCurrency as Currency);
+      walletSynced.current = true;
+    }
+  }, [walletData]);
 
   // ── Video preview player ──────────────────────────────────────────────────
   const previewPlayer = useVideoPlayer(videoUri ?? null, (p) => {
@@ -147,7 +159,7 @@ function WriteReelContent() {
       {/* Header — outside card, full width */}
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={() => history.goBack(router)}
           style={styles.headerBtn}
           activeOpacity={0.75}
           accessibilityRole="button"

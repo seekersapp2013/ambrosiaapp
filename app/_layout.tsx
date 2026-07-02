@@ -9,6 +9,7 @@ import { Toasts } from "./Toasts";
 import { ErrorBoundary } from "./ErrorBoundary";
 import { useEffect } from "react";
 import { LogBox, Platform } from "react-native";
+import { NavigationHistoryProvider } from "@/context/NavigationHistoryContext";
 
 // LiveKit's registerGlobals() patches the JS environment with WebRTC primitives.
 // It must only run on native — it calls requireNativeComponent which doesn't
@@ -67,11 +68,13 @@ export default function RootLayout() {
             }
             storageNamespace="ambrosia_auth"
           >
-            <Stack>
-              <Stack.Screen name="index" options={{ headerShown: false }} />
-              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-              <Stack.Screen name="auth" options={{ headerShown: false }} />
-            </Stack>
+            <NavigationHistoryProvider>
+              <Stack>
+                <Stack.Screen name="index" options={{ headerShown: false }} />
+                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                <Stack.Screen name="auth" options={{ headerShown: false }} />
+              </Stack>
+            </NavigationHistoryProvider>
           </ConvexAuthProvider>
         </Toasts>
       </TamaguiProvider>

@@ -32,6 +32,7 @@ import { MobileCard } from "@/components/MobileCard";
 import { Colors } from "@/tokens/colors";
 import { typeScale } from "@/tokens/typography";
 import { spacing } from "@/tokens/spacing";
+import { useNavigationHistory } from "@/context/NavigationHistoryContext";
 
 // ─── Comment item ─────────────────────────────────────────────────────────────
 function CommentItem({ comment }: { comment: any }) {
@@ -85,6 +86,7 @@ function CommentItem({ comment }: { comment: any }) {
 function CommentsContent() {
   const { reelId } = useLocalSearchParams<{ reelId: string }>();
   const router = useRouter();
+  const history = useNavigationHistory();
   const insets = useSafeAreaInsets();
   const inputRef = useRef<TextInput>(null);
   const [text, setText] = useState("");
@@ -114,7 +116,7 @@ function CommentsContent() {
       {/* ── Header — full width, outside card ──────────────────────────── */}
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={() => history.goBack(router)}
           style={styles.backBtn}
           activeOpacity={0.75}
           accessibilityRole="button"

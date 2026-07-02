@@ -26,6 +26,7 @@ import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { AppBackground } from "@/components/AppBackground";
 import { Colors } from "@/constants/Colors";
+import { useNavigationHistory } from "@/context/NavigationHistoryContext";
 
 const QUICK_EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "🙏", "🔥", "🎉"];
 
@@ -52,6 +53,7 @@ const ROLE_COLORS: Record<string, string> = {
 
 export default function CircleChatScreen() {
   const router = useRouter();
+  const history = useNavigationHistory();
   const { circleId } = useLocalSearchParams<{ circleId: string }>();
   const flatListRef = useRef<FlatList>(null);
 
@@ -276,7 +278,7 @@ export default function CircleChatScreen() {
         {/* ── Header ──────────────────────────────────────────────────────── */}
         <View style={styles.header}>
           <TouchableOpacity
-            onPress={() => router.back()}
+            onPress={() => history.goBack(router, "/(tabs)/circle")}
             style={styles.backBtn}
             accessibilityRole="button"
             accessibilityLabel="Go back"

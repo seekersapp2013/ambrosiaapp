@@ -26,11 +26,13 @@ import { MobileCard } from "@/components/MobileCard";
 import { EmptyState } from "@/components/stream/EmptyState";
 import { LoadingSpinner } from "@/components/stream/LoadingSpinner";
 import { Colors } from "@/constants/Colors";
+import { useNavigationHistory } from "@/context/NavigationHistoryContext";
 
 type ContentTab = "articles" | "reels";
 
 export default function CourseContentManagerScreen() {
   const router = useRouter();
+  const history = useNavigationHistory();
   const { courseId } = useLocalSearchParams<{ courseId: string }>();
 
   const course = useQuery(
@@ -197,7 +199,7 @@ export default function CourseContentManagerScreen() {
           {/* Header */}
           <View style={styles.header}>
             <TouchableOpacity
-              onPress={() => router.back()}
+              onPress={() => history.goBack(router, "/(tabs)/learn")}
               style={styles.backBtn}
               accessibilityRole="button"
               accessibilityLabel="Go back"

@@ -31,7 +31,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Colors } from "@/tokens/colors";
 import { typeScale } from "@/tokens/typography";
 import { spacing } from "@/tokens/spacing";
-import { MobileCard } from "@/components/MobileCard";
+import { MobileCard, useCardInsets } from "@/components/MobileCard";
 
 // ─── Comment item ─────────────────────────────────────────────────────────────
 function CommentItem({ comment }: { comment: any }) {
@@ -95,6 +95,7 @@ export function ArticleCommentsSheet({
   onClose,
 }: ArticleCommentsSheetProps) {
   const insets    = useSafeAreaInsets();
+  const cardInsets = useCardInsets();
   const inputRef  = useRef<TextInput>(null);
   const [text, setText]           = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -149,7 +150,7 @@ export function ArticleCommentsSheet({
 
       {/* Sheet */}
       <Animated.View
-        style={[styles.sheetOuter, { transform: [{ translateY }] }]}
+        style={[styles.sheetOuter, { left: cardInsets.left, right: cardInsets.right, transform: [{ translateY }] }]}
       >
         <MobileCard style={styles.card} containerStyle={styles.cardContainer}>
           {/* Handle bar */}

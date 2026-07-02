@@ -12,7 +12,7 @@ import { typeScale } from "@/tokens/typography";
 import { spacing } from "@/tokens/spacing";
 import { radius } from "@/tokens/radius";
 import { AppBackground } from "@/components/AppBackground";
-import { MobileCard } from "@/components/MobileCard";
+import { MobileCard, useCardInsets } from "@/components/MobileCard";
 import { ScreenHeader } from "@/components/ui/ScreenHeader";
 import { EmptyStateCard } from "@/components/ui/Card";
 import { BottomSheet } from "@/components/ui/BottomSheet";
@@ -151,6 +151,7 @@ export default function EventsScreen() {
 
   const isLoading  = providerEvents === undefined;
   const isProvider = !!mySubscription?.isActive;
+  const cardInsets = useCardInsets();
 
   async function handleCancel() {
     if (!cancelTarget) return;
@@ -259,10 +260,15 @@ export default function EventsScreen() {
         ListFooterComponent={<View style={{ height: spacing.scrollBottomPadding }}/>}
       />
 
-      {/* ── FAB ──────────────────────────────────────────────────── */}
+      {/* ── FAB — constrained to card boundary ───────────────────── */}
       {isProvider && (
-        <TouchableOpacity style={evStyles.fab} onPress={() => setShowCreateSheet(true)}
-          activeOpacity={0.88} accessibilityRole="button" accessibilityLabel="Create new event">
+        <TouchableOpacity
+          style={[evStyles.fab, { right: cardInsets.right + 8 }]}
+          onPress={() => setShowCreateSheet(true)}
+          activeOpacity={0.88}
+          accessibilityRole="button"
+          accessibilityLabel="Create new event"
+        >
           <Ionicons name="add" size={28} color="#FFFFFF"/>
         </TouchableOpacity>
       )}
@@ -352,7 +358,7 @@ const evStyles = StyleSheet.create({
   cardPad: { paddingHorizontal:spacing.space4, paddingTop:spacing.space3 },
 
   fab: {
-    position:"absolute", bottom:100, right:24,
+    position:"absolute", bottom:100,
     width:56, height:56, borderRadius:28,
     backgroundColor:Colors.actionPrimary,
     alignItems:"center", justifyContent:"center",

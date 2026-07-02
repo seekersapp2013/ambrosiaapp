@@ -45,6 +45,7 @@ import { ReelEngagementBar } from "@/components/ReelEngagementBar";
 import { Colors } from "@/tokens/colors";
 import { typeScale } from "@/tokens/typography";
 import { spacing } from "@/tokens/spacing";
+import { useNavigationHistory } from "@/context/NavigationHistoryContext";
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get("window");
 
@@ -52,6 +53,7 @@ const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get("window");
 function ViewerContent() {
   const { reelId } = useLocalSearchParams<{ reelId: string }>();
   const router     = useRouter();
+  const history    = useNavigationHistory();
   const insets     = useSafeAreaInsets();
   const [showSensitive, setShowSensitive] = useState(false);
   const [isMuted, setIsMuted]             = useState(false);
@@ -168,7 +170,7 @@ function ViewerContent() {
         <View style={styles.centered}>
           <Ionicons name="warning-outline" size={48} color={Colors.statusWarning} />
           <Text style={styles.notFoundText}>Pulse not found</Text>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backLink}>
+          <TouchableOpacity onPress={() => history.goBack(router)} style={styles.backLink}>
             <Text style={styles.backLinkText}>Go back</Text>
           </TouchableOpacity>
         </View>
@@ -286,7 +288,7 @@ function ViewerContent() {
                 {/* Back */}
                 <TouchableOpacity
                   style={styles.iconBtn}
-                  onPress={() => router.back()}
+                  onPress={() => history.goBack(router)}
                   activeOpacity={0.8}
                   accessibilityRole="button"
                   accessibilityLabel="Go back"

@@ -118,10 +118,12 @@ function ReferralCard({
   referral,
   onSelectExpert,
   onDecline,
+  onViewDetail,
 }: {
   referral: any;
   onSelectExpert: (expertId: string, referralId: string) => void;
   onDecline: (referralId: string) => void;
+  onViewDetail: (referralId: string) => void;
 }) {
   const [expanded, setExpanded] = useState(referral.status === "PENDING");
   const [selectingId, setSelectingId] = useState<string | null>(null);
@@ -227,6 +229,18 @@ function ReferralCard({
           </TouchableOpacity>
         </View>
       )}
+
+      {/* View full details link */}
+      <TouchableOpacity
+        style={styles.viewDetailLink}
+        onPress={() => onViewDetail(referral._id)}
+        accessibilityRole="button"
+        accessibilityLabel="View referral details"
+      >
+        <Ionicons name="information-circle-outline" size={14} color={Colors.actionPrimary} />
+        <Text style={styles.viewDetailText} allowFontScaling={false}>View Full Details</Text>
+        <Ionicons name="chevron-forward" size={14} color={Colors.actionPrimary} />
+      </TouchableOpacity>
     </View>
   );
 }
@@ -323,6 +337,9 @@ export function PatientReferralsList() {
               referral={item}
               onSelectExpert={handleSelectExpert}
               onDecline={(id) => setDeclineTarget(id)}
+              onViewDetail={(id) =>
+                router.push(`/(tabs)/booking/referral-detail?referralId=${id}` as any)
+              }
             />
           )}
         />
@@ -498,6 +515,19 @@ const styles = StyleSheet.create({
   // Decline link
   declineLink: { alignSelf: "center", paddingVertical: spacing.space2 },
   declineLinkText: { ...typeScale.labelSM, color: Colors.statusDanger, textDecorationLine: "underline" },
+
+  // View detail link
+  viewDetailLink: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.space2,
+    borderTopWidth: 1,
+    borderTopColor: Colors.borderSubtle,
+    paddingVertical: spacing.space3,
+    paddingHorizontal: spacing.space4,
+  },
+  viewDetailText: { ...typeScale.labelSM, color: Colors.actionPrimary, fontWeight: "600" },
 
   // Dialog
   dialogBody: { paddingTop: spacing.space2, gap: spacing.space3 },

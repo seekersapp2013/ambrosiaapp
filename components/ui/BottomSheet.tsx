@@ -14,6 +14,7 @@ import {
   Pressable,
   StyleSheet,
   Animated,
+  Dimensions,
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
@@ -25,6 +26,7 @@ import { spacing } from '@/tokens/spacing';
 import { elevation } from '@/tokens/shadows';
 import { duration } from '@/tokens/motion';
 import { zIndex } from '@/tokens/zIndex';
+import { useCardInsets } from '@/components/MobileCard';
 
 interface BottomSheetProps {
   visible: boolean;
@@ -50,6 +52,7 @@ export function BottomSheet({
   variant = 'sheet',
 }: BottomSheetProps) {
   const insets = useSafeAreaInsets();
+  const cardInsets = useCardInsets();
   const isDialog = variant === 'dialog';
 
   // Sheet animation
@@ -136,7 +139,10 @@ export function BottomSheet({
         </Animated.View>
 
         {/* Centered card — sits above overlay via absolute centering */}
-        <View style={styles.dialogCentering} pointerEvents="box-none">
+        <View
+          style={[styles.dialogCentering, { paddingHorizontal: cardInsets.left || spacing.screenPaddingH }]}
+          pointerEvents="box-none"
+        >
           <Animated.View
             style={[
               styles.dialog,
@@ -193,6 +199,7 @@ export function BottomSheet({
           styles.sheet,
           elevation.elevation4,
           { paddingBottom: spacing.space5 + insets.bottom },
+          { left: cardInsets.left, right: cardInsets.right },
           { transform: [{ translateY }], zIndex: zIndex.bottomSheet },
           style,
         ]}

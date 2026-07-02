@@ -11,6 +11,7 @@ import {
   Text,
   StyleSheet,
   Animated,
+  Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/tokens/colors';
@@ -20,6 +21,7 @@ import { spacing } from '@/tokens/spacing';
 import { elevation } from '@/tokens/shadows';
 import { duration } from '@/tokens/motion';
 import { zIndex } from '@/tokens/zIndex';
+import { useCardInsets } from '@/components/MobileCard';
 
 export type ToastVariant = 'success' | 'error' | 'warning' | 'info';
 
@@ -80,6 +82,7 @@ export function Toast({
   const opacity = useRef(new Animated.Value(0)).current;
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const config = TOAST_CONFIG[variant];
+  const cardInsets = useCardInsets();
 
   const hide = useCallback(() => {
     Animated.timing(opacity, {
@@ -126,7 +129,12 @@ export function Toast({
         elevation.elevation4,
         { borderLeftColor: config.borderColor },
         { transform: [{ translateY }], opacity },
-        { bottom: bottomOffset, zIndex: zIndex.toast },
+        {
+          bottom: bottomOffset,
+          zIndex: zIndex.toast,
+          left: cardInsets.left + spacing.screenPaddingH,
+          right: cardInsets.right + spacing.screenPaddingH,
+        },
       ]}
       accessibilityRole="alert"
       accessibilityLiveRegion="polite"
@@ -144,8 +152,6 @@ export function Toast({
 const styles = StyleSheet.create({
   toast: {
     position: 'absolute',
-    left: spacing.screenPaddingH,
-    right: spacing.screenPaddingH,
     backgroundColor: Colors.bgSurface,
     borderRadius: radius.radiusMD,
     borderLeftWidth: 3,

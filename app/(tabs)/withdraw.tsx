@@ -24,7 +24,7 @@ import { ScreenHeader } from "@/components/ui/ScreenHeader";
 import { PrimaryButton } from "@/components/ui/Button";
 import { AppInput } from "@/components/ui/Input";
 import { BaseCard } from "@/components/ui/Card";
-import { MobileCard } from "@/components/MobileCard";
+import { MobileCard, useCardInsets } from "@/components/MobileCard";
 import { OTPInput } from "@/components/ui/Input";
 import { formatAmount } from "@/utils/currency";
 import { getBankLogoUrl } from "@/utils/paystackBanking";
@@ -54,6 +54,7 @@ export default function WithdrawScreen() {
   const [pinModalVisible, setPinModalVisible] = useState(false);
   const [pin, setPin] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
+  const cardInsets = useCardInsets();
 
   // ── Derived ───────────────────────────────────────────────────────────────
   const ngnBalance =
@@ -143,7 +144,7 @@ export default function WithdrawScreen() {
           <MobileCard>
             <ScreenHeader
               title="Withdraw Funds"
-              onBack={() => router.back()}
+              onBack={() => router.replace("/(tabs)/wallet")}
             />
             {/* ── Balance pill ─────────────────────────────────────────── */}
             {walletData !== undefined && (
@@ -323,7 +324,7 @@ export default function WithdrawScreen() {
         onRequestClose={handleCancelPin}
       >
         <View style={styles.modalOverlay}>
-          <MobileCard style={styles.pinSheet}>
+          <MobileCard style={[styles.pinSheet, { marginHorizontal: cardInsets.left }]}>
             {/* Header */}
             <View style={styles.pinSheetHeader}>
               <View style={styles.pinIconWrap}>

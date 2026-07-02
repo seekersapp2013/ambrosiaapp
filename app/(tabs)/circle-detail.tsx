@@ -24,13 +24,16 @@ import * as Clipboard from "expo-clipboard";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { AppBackground } from "@/components/AppBackground";
-import { MobileCard } from "@/components/MobileCard";
+import { MobileCard, useCardInsets } from "@/components/MobileCard";
 import { Colors } from "@/constants/Colors";
+import { useNavigationHistory } from "@/context/NavigationHistoryContext";
 
 export default function CircleDetailScreen() {
   const router = useRouter();
+  const history = useNavigationHistory();
   const { circleId } = useLocalSearchParams<{ circleId: string }>();
   const [isJoining, setIsJoining] = useState(false);
+  const cardInsets = useCardInsets();
 
   // ── Data ────────────────────────────────────────────────────────────────────
   const circle = useQuery(
@@ -89,7 +92,7 @@ export default function CircleDetailScreen() {
       <AppBackground>
         <View style={styles.centeredWrap}>
           <Text style={styles.errorText}>Circle not found.</Text>
-          <TouchableOpacity onPress={() => router.replace("/(tabs)/circle" as any)} style={styles.backLink}>
+          <TouchableOpacity onPress={() => history.goBack(router, "/(tabs)/circle")} style={styles.backLink}>
             <Text style={styles.backLinkText}>Go back</Text>
           </TouchableOpacity>
         </View>
@@ -107,7 +110,7 @@ export default function CircleDetailScreen() {
           {/* Header */}
           <View style={styles.header}>
             <TouchableOpacity
-              onPress={() => router.replace("/(tabs)/circle" as any)}
+              onPress={() => history.goBack(router, "/(tabs)/circle")}
               style={styles.backBtn}
               accessibilityRole="button"
               accessibilityLabel="Go back to circles"
@@ -151,7 +154,7 @@ export default function CircleDetailScreen() {
 
             <TouchableOpacity
               style={styles.pendingBackBtn}
-              onPress={() => router.replace("/(tabs)/circle" as any)}
+              onPress={() => history.goBack(router, "/(tabs)/circle")}
               activeOpacity={0.8}
               accessibilityRole="button"
               accessibilityLabel="Back to circles"
@@ -178,7 +181,7 @@ export default function CircleDetailScreen() {
           {/* ── Header ────────────────────────────────────────────────────── */}
           <View style={styles.header}>
             <TouchableOpacity
-              onPress={() => router.replace("/(tabs)/circle" as any)}
+              onPress={() => history.goBack(router, "/(tabs)/circle")}
               style={styles.backBtn}
               accessibilityRole="button"
               accessibilityLabel="Go back to circles"
@@ -404,7 +407,7 @@ export default function CircleDetailScreen() {
       </ScrollView>
 
       {/* ── Sticky bottom CTA ────────────────────────────────────────────── */}
-      <View style={styles.stickyBar}>
+      <View style={[styles.stickyBar, { left: cardInsets.left, right: cardInsets.right }]}>
         {circle.isMember ? (
           <TouchableOpacity
             style={styles.ctaBtn}
@@ -799,8 +802,6 @@ const styles = StyleSheet.create({
   stickyBar: {
     position: "absolute",
     bottom: 0,
-    left: 0,
-    right: 0,
     padding: 16,
     paddingBottom: 88, // clears tab bar (64px) + safe area buffer
     backgroundColor: "rgba(10,10,21,0.97)",

@@ -4,12 +4,16 @@
  *
  * Layout:
  *   AppBackground (flex:1)
- *   └─ screen (flex:1, column)
- *      ├─ Header chrome (natural height, not scrollable)
+ *   └─ MobileCard (flex:1, centered, max-width 500)
+ *      ├─ Header chrome (top nav + notification banner)
  *      ├─ FlatList (flex:1 — scrolls freely)
- *      └─ FAB cluster (position:absolute, bottom-right, above tab bar)
+ *      └─ FAB cluster (position:absolute inside card, bottom-right)
  *           ├─ Write Article button
  *           └─ Create Pulse button
+ *
+ * All content is inside MobileCard so it stays within the card boundary
+ * on large screens (web/tablet). FABs are position:absolute relative to
+ * the card, not the window.
  *
  * Gated article taps open ContentPaywallSheet inline instead of navigating.
  * On payment success the user is sent to article-viewer (access now granted).
@@ -90,10 +94,10 @@ export default function ForYouScreen() {
 
   return (
     <AppBackground>
-      <RNView style={styles.screen}>
+      <MobileCard containerStyle={styles.cardContainer} style={styles.card}>
 
         {/* ── Sticky header chrome ──────────────────────────────────── */}
-        <MobileCard containerStyle={styles.headerCardContainer} style={styles.headerCard}>
+        <View style={styles.headerInner}>
           {/* Shared top nav — title auto-detected from route */}
           <TopNav />
 
@@ -114,7 +118,7 @@ export default function ForYouScreen() {
               onDismiss={() => router.push("/(tabs)/notification")}
             />
           )}
-        </MobileCard>
+        </View>
 
         {/* ── Scrollable feed ───────────────────────────────────────── */}
         <FlatList
@@ -165,7 +169,7 @@ export default function ForYouScreen() {
           ]}
         />
 
-        {/* ── Floating action buttons ───────────────────────────────── */}
+        {/* ── Floating action buttons — inside card, bottom-right ───── */}
         <RNView
           style={[styles.fabCluster, { bottom: fabBottom }]}
           pointerEvents="box-none"
@@ -193,7 +197,7 @@ export default function ForYouScreen() {
           </TouchableOpacity>
         </RNView>
 
-      </RNView>
+      </MobileCard>
 
       {/* ── Inline paywall for gated articles ────────────────────────── */}
       <ContentPaywallSheet
@@ -223,25 +227,21 @@ export default function ForYouScreen() {
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  screen: {
+  // Outer card fills full height, centered
+  cardContainer: {
     flex: 1,
+    paddingVertical: 16,
+  },
+  card: {
+    flex: 1,
+    // Override border radius for top — full card shape
   },
 
-  // Header chrome — no card padding or border radius
-  headerCardContainer: {
-    paddingVertical: 0,
-    paddingHorizontal: 0,
-  },
-  headerCard: {
-    borderRadius: 0,
-    borderWidth: 0,
+  // Header divider line
+  headerInner: {
     borderBottomWidth: 1,
     borderBottomColor: "rgba(198, 34, 41, 0.3)",
-    shadowOpacity: 0,
-    elevation: 0,
   },
-
-  // Bell — styles now live in TopNav.tsx
 
   // Feed
   feedList: {
@@ -252,7 +252,7 @@ const styles = StyleSheet.create({
     paddingTop: 12,
   },
 
-  // FAB cluster — stacked vertically, right-aligned, above tab bar
+  // FAB cluster — stacked vertically, right-aligned, above tab bar, inside card
   fabCluster: {
     position: "absolute",
     right: 16,

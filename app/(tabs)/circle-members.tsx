@@ -25,6 +25,7 @@ import { Id } from "@/convex/_generated/dataModel";
 import { AppBackground } from "@/components/AppBackground";
 import { MobileCard } from "@/components/MobileCard";
 import { Colors } from "@/constants/Colors";
+import { useNavigationHistory } from "@/context/NavigationHistoryContext";
 
 type Role = "CREATOR" | "ADMIN" | "MODERATOR" | "MEMBER";
 
@@ -37,6 +38,7 @@ const ROLE_CONFIG: Record<Role, { bg: string; border: string; text: string }> = 
 
 export default function CircleMembersScreen() {
   const router = useRouter();
+  const history = useNavigationHistory();
   const { circleId } = useLocalSearchParams<{ circleId: string }>();
   const [searchText, setSearchText] = useState("");
 
@@ -182,7 +184,7 @@ export default function CircleMembersScreen() {
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity
-            onPress={() => router.back()}
+            onPress={() => history.goBack(router, "/(tabs)/circle")}
             style={styles.backBtn}
             accessibilityRole="button"
             accessibilityLabel="Go back"

@@ -118,7 +118,7 @@ import {
           <MobileCard>
             <ScreenHeader
               title="Deposit Funds"
-              onBack={() => router.back()}
+              onBack={() => router.replace("/(tabs)/wallet")}
             />
           {/* Profile incomplete warning */}
           {!profileLoading && (!customerName || !customerEmail || !phoneNumber) && (

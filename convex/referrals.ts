@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query, internalMutation } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { internal } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
 
 export const createReferral = mutation({
@@ -72,6 +73,17 @@ export const createReferral = mutation({
       commissionPaid: false,
       createdAt: now,
     });
+
+    // Notify the patient about their new referral
+    try {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.referralNotifications.notifyPatientNewReferral,
+        { referralId }
+      );
+    } catch (err) {
+      console.error("Failed to send referral notification:", err);
+    }
 
     return { referralId };
   },
@@ -319,6 +331,17 @@ export const selectExpertFromReferral = mutation({
       updatedAt: now,
     });
 
+    // Notify referring expert and the selected expert
+    try {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.referralNotifications.notifyExpertPatientSelected,
+        { referralId: args.referralId }
+      );
+    } catch (err) {
+      console.error("Failed to send referral selection notification:", err);
+    }
+
     return { success: true, referralId: args.referralId };
   },
 });
@@ -354,6 +377,17 @@ export const declineReferral = mutation({
       declineReason: args.reason,
       updatedAt: now,
     });
+
+    // Notify the referring expert
+    try {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.referralNotifications.notifyExpertReferralDeclined,
+        { referralId: args.referralId }
+      );
+    } catch (err) {
+      console.error("Failed to send referral declined notification:", err);
+    }
 
     return { success: true };
   },
@@ -601,6 +635,17 @@ export const completeReferralWithCommission = mutation({
       updatedAt: now,
     });
 
+    // Notify the referring expert that commission has been paid
+    try {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.referralNotifications.notifyExpertReferralCompleted,
+        { referralId: args.referralId }
+      );
+    } catch (err) {
+      console.error("Failed to send referral completed notification:", err);
+    }
+
     return {
       success: true,
       commissionAmount: referral.commissionAmount,
@@ -711,6 +756,17 @@ export const internalCompleteReferralWithCommission = internalMutation({
       completedAt: now,
       updatedAt: now,
     });
+
+    // Notify the referring expert
+    try {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.referralNotifications.notifyExpertReferralCompleted,
+        { referralId: args.referralId }
+      );
+    } catch (err) {
+      console.error("Failed to send referral completed notification:", err);
+    }
 
     return {
       success: true,

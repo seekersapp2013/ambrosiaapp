@@ -28,6 +28,7 @@ import { Id } from "@/convex/_generated/dataModel";
 import { AppBackground } from "@/components/AppBackground";
 import { MobileCard } from "@/components/MobileCard";
 import { Colors } from "@/constants/Colors";
+import { useNavigationHistory } from "@/context/NavigationHistoryContext";
 
 const STATUS_COLORS: Record<string, { bg: string; border: string; text: string }> = {
   OPEN:        { bg: Colors.statusInfoBg,     border: Colors.blueBorder,    text: Colors.statusInfo },
@@ -41,6 +42,7 @@ const CURRENCIES = ["USD", "NGN", "GBP", "EUR", "CAD", "GHS", "KES", "GMD", "ZAR
 
 export default function ExpertRequestsScreen() {
   const router = useRouter();
+  const history = useNavigationHistory();
   const { circleId } = useLocalSearchParams<{ circleId: string }>();
 
   // ── Data ────────────────────────────────────────────────────────────────────
@@ -168,7 +170,7 @@ export default function ExpertRequestsScreen() {
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity
-            onPress={() => router.back()}
+            onPress={() => history.goBack(router, "/(tabs)/circle")}
             style={styles.backBtn}
             accessibilityRole="button"
             accessibilityLabel="Go back"

@@ -24,12 +24,14 @@ import { useQuery } from "convex/react";
 import { useRouter } from "expo-router";
 import { api } from "@/convex/_generated/api";
 import { AppBackground } from "@/components/AppBackground";
-import { MobileCard } from "@/components/MobileCard";
+import { MobileCard, useCardInsets } from "@/components/MobileCard";
+import { TopNav } from "@/components/TopNav";
 import { ContentCard } from "@/components/stream/ContentCard";
 import { CourseCard } from "@/components/stream/CourseCard";
 import { EmptyState } from "@/components/stream/EmptyState";
 import { LoadingSpinner } from "@/components/stream/LoadingSpinner";
 import { Colors } from "@/constants/Colors";
+import { useNavigationHistory } from "@/context/NavigationHistoryContext";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type ViewMode = "all" | "my-courses" | "enrolled";
@@ -43,8 +45,10 @@ interface FeedItem {
 // ─── Screen ───────────────────────────────────────────────────────────────────
 export default function LearnScreen() {
   const router = useRouter();
+  const history = useNavigationHistory();
   const [viewMode, setViewMode] = useState<ViewMode>("all");
   const [showManageSheet, setShowManageSheet] = useState(false);
+  const cardInsets = useCardInsets();
 
   // Feed query — backend enforces approval filtering
   const feedData = useQuery(api.courses.getCourseRelatedContent, {
@@ -76,41 +80,45 @@ export default function LearnScreen() {
 
   const handleArticlePress = useCallback(
     (articleId: string) => {
+      history.push("/(tabs)/learn");
       router.push({
         pathname: "/(tabs)/article-viewer" as any,
         params: { articleId },
       });
     },
-    [router]
+    [router, history]
   );
 
   const handleReelPress = useCallback(
     (_reelId: string) => {
       // All reels open in the Pulse full-screen viewer (pulse.tsx)
+      history.push("/(tabs)/learn");
       router.push("/(tabs)/pulse" as any);
     },
-    [router]
+    [router, history]
   );
 
   const handleCoursePress = useCallback(
     (courseId: string) => {
+      history.push("/(tabs)/learn");
       router.push({
         pathname: "/(tabs)/course-viewer" as any,
         params: { courseId },
       });
     },
-    [router]
+    [router, history]
   );
 
   const handleManageCoursePress = useCallback(
     (courseId: string) => {
       setShowManageSheet(false);
+      history.push("/(tabs)/learn");
       router.push({
         pathname: "/(tabs)/edit-course" as any,
         params: { courseId },
       });
     },
-    [router]
+    [router, history]
   );
 
   const renderItem = useCallback(
@@ -154,9 +162,7 @@ export default function LearnScreen() {
       <SafeAreaView style={styles.safeArea}>
         <MobileCard style={styles.card} containerStyle={styles.cardContainer}>
           {/* ── Header ── */}
-          <View style={styles.header}>
-            <Text style={styles.headerTitle}>Learn</Text>
-          </View>
+          <TopNav />
 
           {/* ── Creation Bar ── */}
           <View style={styles.creationBar}>
@@ -164,19 +170,28 @@ export default function LearnScreen() {
               icon="create-outline"
               label="Article"
               color={Colors.primary}
-              onPress={() => router.push("/(tabs)/write-article" as any)}
+              onPress={() => {
+                history.push("/(tabs)/learn");
+                router.push("/(tabs)/write-article" as any);
+              }}
             />
             <CreationCircle
               icon="videocam-outline"
               label="Pulse"
               color={Colors.palette.purple}
-              onPress={() => router.push("/(tabs)/write-reel" as any)}
+              onPress={() => {
+                history.push("/(tabs)/learn");
+                router.push("/(tabs)/write-reel" as any);
+              }}
             />
             <CreationCircle
               icon="school-outline"
               label="Course"
               color={Colors.palette.blue}
-              onPress={() => router.push("/(tabs)/create-course" as any)}
+              onPress={() => {
+                history.push("/(tabs)/learn");
+                router.push("/(tabs)/create-course" as any);
+              }}
             />
             <CreationCircle
               icon="settings-outline"
@@ -234,7 +249,10 @@ export default function LearnScreen() {
                   ctaLabel={viewMode === "all" ? "Create a Course" : undefined}
                   onCta={
                     viewMode === "all"
-                      ? () => router.push("/(tabs)/create-course" as any)
+                      ? () => {
+                          history.push("/(tabs)/learn");
+                          router.push("/(tabs)/create-course" as any);
+                        }
                       : undefined
                   }
                 />
@@ -251,9 +269,12 @@ export default function LearnScreen() {
         onClose={() => setShowManageSheet(false)}
         onCreateCourse={() => {
           setShowManageSheet(false);
+          history.push("/(tabs)/learn");
           router.push("/(tabs)/create-course" as any);
         }}
         onCoursePress={handleManageCoursePress}
+        cardLeft={cardInsets.left}
+        cardRight={cardInsets.right}
       />
     </AppBackground>
   );
@@ -291,6 +312,8 @@ interface ManageCoursesSheetProps {
   onClose: () => void;
   onCreateCourse: () => void;
   onCoursePress: (courseId: string) => void;
+  cardLeft?: number;
+  cardRight?: number;
 }
 
 function ManageCoursesSheet({
@@ -299,6 +322,8 @@ function ManageCoursesSheet({
   onClose,
   onCreateCourse,
   onCoursePress,
+  cardLeft = 0,
+  cardRight = 0,
 }: ManageCoursesSheetProps) {
   return (
     <Modal
@@ -312,7 +337,7 @@ function ManageCoursesSheet({
         activeOpacity={1}
         onPress={onClose}
       />
-      <View style={styles.sheet}>
+      <View style={[styles.sheet, { left: cardLeft, right: cardRight }]}>
         {/* Sheet handle */}
         <View style={styles.sheetHandle} />
 
@@ -505,8 +530,6 @@ const styles = StyleSheet.create({
   sheet: {
     position: "absolute",
     bottom: 0,
-    left: 0,
-    right: 0,
     backgroundColor: Colors.surface,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,

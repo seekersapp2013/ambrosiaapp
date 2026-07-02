@@ -85,7 +85,7 @@ export default function BookingDetailScreen() {
     jobTitle: providerSubscription.jobTitle,
     specialization: providerSubscription.specialization,
     avatar: avatarUrl ?? undefined,
-    currency: "USD",
+    currency: (providerSubscription as any).sessionCurrency ?? "USD",
     oneOnOnePrice: providerSubscription.oneOnOnePrice ?? providerSubscription.sessionPrice,
     groupSessionPrice: providerSubscription.groupSessionPrice,
     aboutUser: providerSubscription.aboutUser,
@@ -180,7 +180,7 @@ export default function BookingDetailScreen() {
               <View style={styles.pricingItem}>
                 <Text style={styles.pricingLabel} allowFontScaling={false}>1-on-1 Session</Text>
                 <Text style={styles.pricingAmount} allowFontScaling={false}>
-                  ${providerInfo.oneOnOnePrice}<Text style={styles.pricingUnit}>/hr</Text>
+                  {providerInfo.currency} {providerInfo.oneOnOnePrice}<Text style={styles.pricingUnit}>/hr</Text>
                 </Text>
               </View>
               {providerInfo.groupSessionPrice && (
@@ -189,7 +189,7 @@ export default function BookingDetailScreen() {
                   <View style={styles.pricingItem}>
                     <Text style={styles.pricingLabel} allowFontScaling={false}>Group Session</Text>
                     <Text style={styles.pricingAmount} allowFontScaling={false}>
-                      ${providerInfo.groupSessionPrice}<Text style={styles.pricingUnit}>/hr</Text>
+                      {providerInfo.currency} {providerInfo.groupSessionPrice}<Text style={styles.pricingUnit}>/hr</Text>
                     </Text>
                   </View>
                 </>

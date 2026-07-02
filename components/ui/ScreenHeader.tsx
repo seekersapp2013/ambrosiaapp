@@ -2,6 +2,10 @@
  * Ambrosia Design System — Screen Header
  * Phase 7: Top navigation bar, 56px height
  * Accessibility: Phase 21
+ *
+ * When `onBack` is not provided the header uses history.goBack() so that
+ * the user is always returned to the actual previous screen rather than
+ * whatever tab the Tabs navigator last focused.
  */
 
 import React from 'react';
@@ -14,16 +18,20 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { Colors } from '@/tokens/colors';
 import { typeScale } from '@/tokens/typography';
 import { spacing } from '@/tokens/spacing';
 import { elevation } from '@/tokens/shadows';
 import { zIndex } from '@/tokens/zIndex';
 import { IconButton } from './Button';
+import { useNavigationHistory } from '@/context/NavigationHistoryContext';
 
 interface ScreenHeaderProps {
   title?: string;
   onBack?: () => void;
+  /** Fallback route used when history stack is empty and no onBack provided */
+  backFallback?: string;
   trailing?: React.ReactNode;
   transparent?: boolean;
   style?: StyleProp<ViewStyle>;
@@ -32,11 +40,19 @@ interface ScreenHeaderProps {
 export function ScreenHeader({
   title,
   onBack,
+  backFallback = '/(tabs)/for-you',
   trailing,
   transparent = false,
   style,
 }: ScreenHeaderProps) {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const history = useNavigationHistory();
+
+  // Determine the back handler:
+  // 1. Use the explicitly provided onBack if given.
+  // 2. Otherwise, use history.goBack() so we always return to the real previous screen.
+  const handleBack = onBack ?? (() => history.goBack(router, backFallback));
 
   return (
     <View
@@ -51,16 +67,14 @@ export function ScreenHeader({
     >
       {/* Left — back button */}
       <View style={styles.side}>
-        {onBack ? (
-          <IconButton
-            icon={
-              <Ionicons name="chevron-back" size={24} color={Colors.iconPrimary} />
-            }
-            onPress={onBack}
-            accessibilityLabel="Go back"
-            size={36}
-          />
-        ) : null}
+        <IconButton
+          icon={
+            <Ionicons name="chevron-back" size={24} color={Colors.iconPrimary} />
+          }
+          onPress={handleBack}
+          accessibilityLabel="Go back"
+          size={36}
+        />
       </View>
 
       {/* Center — title */}

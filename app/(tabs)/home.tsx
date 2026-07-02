@@ -13,7 +13,7 @@ import { verifyPin } from "@/utils/pinHash";
 import { AppLogo } from "@/components/AppLogo";
 import { Colors } from "@/constants/Colors";
 import { AppBackground } from "@/components/AppBackground";
-import { MobileCard } from "@/components/MobileCard";
+import { MobileCard, useCardInsets } from "@/components/MobileCard";
 import { useRouter } from "expo-router";
 import { NotificationBanner } from "./notification/NotificationBanner";
 
@@ -27,6 +27,7 @@ export default function HomeScreen() {
   const [decryptedMnemonic, setDecryptedMnemonic] = useState("");
   const [pinInput, setPinInput] = useState("");
   const [showPinModal, setShowPinModal] = useState(false);
+  const cardInsets = useCardInsets();
 
   useEffect(() => {
     if (viewer) {
@@ -285,7 +286,7 @@ export default function HomeScreen() {
       {/* ── PIN Modal ── */}
       <Modal visible={showPinModal} transparent animationType="fade" onRequestClose={() => setShowPinModal(false)}>
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+          <View style={[styles.modalContent, { marginHorizontal: cardInsets.left }]}>
             <Text style={styles.modalTitle}>Enter Your PIN</Text>
             <Text style={styles.modalSubtitle}>
               Enter your 4-digit transaction PIN to reveal sensitive wallet details

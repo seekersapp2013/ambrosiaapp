@@ -36,6 +36,7 @@ import { ContentPaywallSheet } from "@/components/ContentPaywallSheet";
 import { ArticleEngagementBar } from "@/components/ArticleEngagementBar";
 import { Colors } from "@/constants/Colors";
 import { useTabBarHeight } from "@/utils/useDeviceClass";
+import { useNavigationHistory } from "@/context/NavigationHistoryContext";
 
 // ─── WebView import (native only) ────────────────────────────────────────────
 let WebView: any = null;
@@ -183,6 +184,7 @@ function injectWebStyles(html: string): string {
 // ─── Screen ───────────────────────────────────────────────────────────────────
 export default function ArticleViewerScreen() {
   const router = useRouter();
+  const history = useNavigationHistory();
   const { articleId } = useLocalSearchParams<{ articleId: string }>();
   const insets       = useSafeAreaInsets();
   const tabBarHeight = useTabBarHeight();
@@ -256,7 +258,7 @@ export default function ArticleViewerScreen() {
             title="Article not found"
             subtitle="This article may have been removed or is not yet published."
             ctaLabel="Go Back"
-            onCta={() => router.back()}
+            onCta={() => history.goBack(router)}
           />
         </View>
       </AppBackground>
@@ -289,7 +291,7 @@ export default function ArticleViewerScreen() {
           <View style={styles.navBar}>
             <TouchableOpacity
               style={styles.backBtn}
-              onPress={() => router.back()}
+              onPress={() => history.goBack(router)}
               accessibilityRole="button"
               accessibilityLabel="Go back"
             >

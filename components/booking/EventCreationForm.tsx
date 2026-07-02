@@ -29,9 +29,9 @@ import { radius } from "@/tokens/radius";
 import { AppInput, TextareaInput } from "@/components/ui/Input";
 import { PrimaryButton, SecondaryButton } from "@/components/ui/Button";
 import { AppSwitch } from "@/components/ui/Toggle";
+import { CURRENCIES, Currency, CURRENCY_SYMBOLS, CURRENCY_LABELS } from "@/utils/currency";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const CURRENCIES = ["USD","NGN","GBP","EUR","CAD","GHS","KES","GMD","ZAR"];
 const DURATIONS  = [30, 60, 90, 120, 180];
 const MONTH_NAMES = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
@@ -192,6 +192,9 @@ export function EventCreationForm({ existingEvent, onSuccess, onCancel }: EventC
   const createEvent = useMutation(api.events.createEvent);
   const updateEvent = useMutation(api.events.updateEvent);
 
+  // Wallet — default currency for new events
+  const walletQuery = useQuery((api as any)["wallets/getWalletBalance"].getWalletBalance, {});
+
   // ── Form state ─────────────────────────────────────────────────────────────
   const [title,          setTitle]          = useState(existingEvent?.title          ?? "");
   const [description,    setDescription]    = useState(existingEvent?.description    ?? "");
@@ -202,6 +205,15 @@ export function EventCreationForm({ existingEvent, onSuccess, onCancel }: EventC
   const [price,          setPrice]          = useState(String(existingEvent?.pricePerPerson ?? "0"));
   const [currency,       setCurrency]       = useState<string>(existingEvent?.priceCurrency ?? "USD");
   const [tagsInput,      setTagsInput]      = useState((existingEvent?.tags ?? []).join(", "));
+
+  // Sync wallet primary currency into currency once loaded (only for new events)
+  const walletSynced = useRef(false);
+  React.useEffect(() => {
+    if (!isEditing && !walletSynced.current && walletQuery?.primaryCurrency) {
+      setCurrency(walletQuery.primaryCurrency);
+      walletSynced.current = true;
+    }
+  }, [walletQuery, isEditing]);
   const [isPublic,       setIsPublic]       = useState(existingEvent?.isPublic ?? true);
   const [isAudioOnly,    setIsAudioOnly]    = useState(existingEvent?.eventType === "AUDIO_ONLY");
   const [maxSpeakers,    setMaxSpeakers]    = useState(String(existingEvent?.audioSettings?.maxSpeakers ?? "5"));
@@ -361,7 +373,9 @@ export function EventCreationForm({ existingEvent, onSuccess, onCancel }: EventC
       <TouchableOpacity style={efStyles.pickerBtn} onPress={() => setShowCurrencyPicker(true)}
         activeOpacity={0.8} accessibilityRole="button" accessibilityLabel={`Currency: ${currency}`}>
         <Ionicons name="cash-outline" size={18} color={Colors.iconSecondary}/>
-        <Text style={efStyles.pickerBtnText} allowFontScaling={false}>{currency}</Text>
+        <Text style={efStyles.pickerBtnText} allowFontScaling={false}>
+          {CURRENCY_SYMBOLS[currency as Currency] ?? ""} {currency} — {CURRENCY_LABELS[currency as Currency] ?? currency}
+        </Text>
         <Ionicons name="chevron-down" size={16} color={Colors.iconSecondary}/>
       </TouchableOpacity>
 
@@ -448,9 +462,10 @@ export function EventCreationForm({ existingEvent, onSuccess, onCancel }: EventC
         onSelect={setTime} onClose={() => setShowTimePicker(false)}
         label="Session Time" renderLabel={displayTime}/>
       <DropdownPicker
-        visible={showCurrencyPicker} options={CURRENCIES} value={currency}
+        visible={showCurrencyPicker} options={CURRENCIES as unknown as string[]} value={currency}
         onSelect={(v) => setCurrency(v)} onClose={() => setShowCurrencyPicker(false)}
-        label="Currency"/>
+        label="Pricing Currency"
+        renderLabel={(v) => `${CURRENCY_SYMBOLS[v as Currency] ?? ""} ${v} — ${CURRENCY_LABELS[v as Currency] ?? v}`}/>
     </ScrollView>
   );
 }

@@ -73,6 +73,7 @@ import type * as profileQueries from "../profileQueries.js";
 import type * as profiles from "../profiles.js";
 import type * as recommendationMetrics from "../recommendationMetrics.js";
 import type * as reels from "../reels.js";
+import type * as referralNotifications from "../referralNotifications.js";
 import type * as referrals from "../referrals.js";
 import type * as scheduledJobs from "../scheduledJobs.js";
 import type * as search from "../search.js";
@@ -168,6 +169,7 @@ declare const fullApi: ApiFromModules<{
   profiles: typeof profiles;
   recommendationMetrics: typeof recommendationMetrics;
   reels: typeof reels;
+  referralNotifications: typeof referralNotifications;
   referrals: typeof referrals;
   scheduledJobs: typeof scheduledJobs;
   search: typeof search;

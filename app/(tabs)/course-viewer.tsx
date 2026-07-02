@@ -20,14 +20,16 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { AppBackground } from "@/components/AppBackground";
-import { MobileCard } from "@/components/MobileCard";
+import { MobileCard, useCardInsets } from "@/components/MobileCard";
 import { LoadingSpinner } from "@/components/stream/LoadingSpinner";
 import { EmptyState } from "@/components/stream/EmptyState";
 import { ContentPaywallSheet } from "@/components/ContentPaywallSheet";
 import { Colors } from "@/constants/Colors";
+import { useNavigationHistory } from "@/context/NavigationHistoryContext";
 
 export default function CourseViewerScreen() {
   const router = useRouter();
+  const history = useNavigationHistory();
   const { courseId } = useLocalSearchParams<{ courseId: string }>();
 
   const course = useQuery(
@@ -47,6 +49,7 @@ export default function CourseViewerScreen() {
   const [descExpanded, setDescExpanded] = useState(false);
   const [paywallOpen, setPaywallOpen] = useState(false);
   const [purchaseGranted, setPurchaseGranted] = useState(false);
+  const cardInsets = useCardInsets();
 
   if (!courseId) return null;
   if (course === undefined || progressData === undefined) {
@@ -91,11 +94,13 @@ export default function CourseViewerScreen() {
         });
       }
       if (item.contentType === "article") {
+        history.push(`/(tabs)/course-viewer?courseId=${courseId}`);
         router.push({
           pathname: "/(tabs)/article-viewer" as any,
           params: { articleId: contentId },
         });
       } else {
+        history.push(`/(tabs)/course-viewer?courseId=${courseId}`);
         router.push({
           pathname: "/(tabs)/reel-viewer" as any,
           params: { reelId: contentId },
@@ -104,8 +109,10 @@ export default function CourseViewerScreen() {
     } catch {
       // Navigate anyway if mark-completed fails
       if (item.contentType === "article") {
+        history.push(`/(tabs)/course-viewer?courseId=${courseId}`);
         router.push({ pathname: "/(tabs)/article-viewer" as any, params: { articleId: contentId } });
       } else {
+        history.push(`/(tabs)/course-viewer?courseId=${courseId}`);
         router.push({ pathname: "/(tabs)/reel-viewer" as any, params: { reelId: contentId } });
       }
     } finally {
@@ -136,7 +143,7 @@ export default function CourseViewerScreen() {
             )}
             <TouchableOpacity
               style={styles.backBtn}
-              onPress={() => router.back()}
+              onPress={() => history.goBack(router, "/(tabs)/learn")}
               accessibilityRole="button"
               accessibilityLabel="Go back"
             >
@@ -296,7 +303,7 @@ export default function CourseViewerScreen() {
       </ScrollView>
 
       {/* Sticky CTA */}
-      <View style={styles.ctaWrap}>
+      <View style={[styles.ctaWrap, { left: cardInsets.left, right: cardInsets.right }]}>
         {isEnrolled ? (
           <View style={styles.enrolledCta}>
             <Ionicons name="checkmark-circle" size={20} color={Colors.statusSuccess} />
@@ -574,8 +581,6 @@ const styles = StyleSheet.create({
   ctaWrap: {
     position: "absolute",
     bottom: 0,
-    left: 0,
-    right: 0,
     padding: 16,
     paddingBottom: 32,
     backgroundColor: Colors.bgBase,

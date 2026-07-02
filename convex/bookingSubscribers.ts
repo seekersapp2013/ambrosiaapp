@@ -10,6 +10,7 @@ export const createSubscriber = mutation({
     oneOnOnePrice: v.optional(v.number()),
     groupSessionPrice: v.optional(v.number()),
     sessionPrice: v.number(), // Legacy field for backward compatibility
+    sessionCurrency: v.optional(v.string()), // Currency the provider charges in
     aboutUser: v.string(),
     xLink: v.optional(v.string()),
     linkedInLink: v.optional(v.string()),
@@ -71,6 +72,7 @@ export const createSubscriber = mutation({
       oneOnOnePrice: oneOnOnePrice,
       groupSessionPrice: groupSessionPrice,
       sessionPrice: args.sessionPrice,
+      sessionCurrency: args.sessionCurrency ?? "USD",
       aboutUser: args.aboutUser.trim(),
       xLink: args.xLink?.trim() || undefined,
       linkedInLink: args.linkedInLink?.trim() || undefined,
@@ -115,6 +117,7 @@ export const updateSubscriber = mutation({
     oneOnOnePrice: v.optional(v.number()),
     groupSessionPrice: v.optional(v.number()),
     sessionPrice: v.number(), // Legacy field for backward compatibility
+    sessionCurrency: v.optional(v.string()), // Currency the provider charges in
     aboutUser: v.string(),
     xLink: v.optional(v.string()),
     linkedInLink: v.optional(v.string()),
@@ -168,6 +171,7 @@ export const updateSubscriber = mutation({
       oneOnOnePrice: oneOnOnePrice,
       groupSessionPrice: groupSessionPrice,
       sessionPrice: args.sessionPrice,
+      sessionCurrency: args.sessionCurrency ?? subscriber.sessionCurrency ?? "USD",
       aboutUser: args.aboutUser.trim(),
       xLink: args.xLink?.trim() || undefined,
       linkedInLink: args.linkedInLink?.trim() || undefined,

@@ -29,6 +29,7 @@ import { MobileCard } from "@/components/MobileCard";
 import { LoadingSpinner } from "@/components/stream/LoadingSpinner";
 import { EmptyState } from "@/components/stream/EmptyState";
 import { Colors } from "@/constants/Colors";
+import { useNavigationHistory } from "@/context/NavigationHistoryContext";
 
 const CATEGORIES = [
   "Health", "Fitness", "Nutrition", "Mental Health", "Medicine",
@@ -40,6 +41,7 @@ const CURRENCIES = ["USD", "NGN", "GBP", "EUR", "CAD", "AUD", "GHS", "KES", "ZAR
 
 export default function EditCourseScreen() {
   const router = useRouter();
+  const history = useNavigationHistory();
   const { courseId } = useLocalSearchParams<{ courseId: string }>();
 
   const course = useQuery(
@@ -193,7 +195,7 @@ export default function EditCourseScreen() {
           {/* Header */}
           <View style={styles.header}>
             <TouchableOpacity
-              onPress={() => router.back()}
+              onPress={() => history.goBack(router, "/(tabs)/learn")}
               style={styles.backBtn}
               accessibilityRole="button"
               accessibilityLabel="Go back"
@@ -362,7 +364,7 @@ export default function EditCourseScreen() {
             <View style={styles.actions}>
               <TouchableOpacity
                 style={styles.cancelBtn}
-                onPress={() => router.back()}
+                onPress={() => history.goBack(router, "/(tabs)/learn")}
                 activeOpacity={0.8}
                 accessibilityRole="button"
                 accessibilityLabel="Cancel"

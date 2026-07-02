@@ -478,6 +478,7 @@ export default defineSchema({
     sessionPrice: v.number(), // Legacy field - Price in USD for 60-minute session (kept for backward compatibility)
     oneOnOnePrice: v.optional(v.number()), // Price for 1-on-1 sessions per hour
     groupSessionPrice: v.optional(v.number()), // Price for group sessions per person per hour
+    sessionCurrency: v.optional(v.string()), // Currency provider charges in (USD, NGN, GBP, etc.)
     aboutUser: v.string(),
     xLink: v.optional(v.string()),
     linkedInLink: v.optional(v.string()),

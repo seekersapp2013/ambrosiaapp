@@ -24,6 +24,7 @@ import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { AppBackground } from "@/components/AppBackground";
 import { MobileCard } from "@/components/MobileCard";
+import { TopNav } from "@/components/TopNav";
 import { Colors } from "@/constants/Colors";
 import { CircleCard } from "@/components/stream/CircleCard";
 import { MyCirclesRow } from "@/components/stream/MyCirclesRow";
@@ -135,8 +136,8 @@ export default function CircleScreen() {
     <AppBackground>
       <MobileCard>
         {/* ── Header — stays fixed, not part of the scroll ────────────────── */}
+        <TopNav hideNotifications />
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Community Circles</Text>
 
           {/* Browse / My Circles toggle */}
           <View style={styles.toggleRow}>
@@ -174,6 +175,7 @@ export default function CircleScreen() {
             accessibilityLabel="Create circle"
           >
             <Ionicons name="add" size={18} color="#fff" />
+            <Text style={styles.createBtnText}>New</Text>
           </TouchableOpacity>
         </View>
 
@@ -347,12 +349,19 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
   },
   createBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: Colors.statusSuccess,
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 16,
+    backgroundColor: Colors.statusSuccess,
+    gap: 3,
+  },
+  createBtnText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#fff",
   },
 
   // ── Browse ─────────────────────────────────────────────────────────────────

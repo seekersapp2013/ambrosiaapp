@@ -10,11 +10,13 @@ import { Colors } from "@/tokens/colors";
 import { typeScale } from "@/tokens/typography";
 import { spacing } from "@/tokens/spacing";
 import { AppBackground } from "@/components/AppBackground";
+import { TopNav } from "@/components/TopNav";
 import { AppLoader } from "@/components/AppLoader";
 import { PrimaryButton } from "@/components/ui/Button";
 import { TransactionCard, EmptyStateCard } from "@/components/ui/Card";
 import { useRouter } from "expo-router";
 import { MobileCard } from "@/components/MobileCard";
+import { useNavigationHistory } from "@/context/NavigationHistoryContext";
 import {
   CURRENCIES, Currency, CURRENCY_SYMBOLS, CURRENCY_LABELS, formatAmount,
 } from "@/utils/currency";
@@ -49,6 +51,7 @@ const TX_ICON: Record<string, "arrow-down" | "arrow-up" | "swap-horizontal"> = {
 
 export default function WalletScreen() {
   const router = useRouter();
+  const history = useNavigationHistory();
   const walletData = useQuery((api as any)["wallets/getWalletBalance"].getWalletBalance, {});
   const transactions = useQuery(
     (api as any)["wallets/getTransactionHistory"].getTransactionHistory,
@@ -78,11 +81,8 @@ export default function WalletScreen() {
         showsVerticalScrollIndicator={false}
       >
         <MobileCard style={styles.cardOverride}>
-        {/* Page title */}
-        <View style={styles.titleBlock}>
-          <Text style={styles.pageTitle}>My Wallet</Text>
-          <Text style={styles.pageSubtitle}>Manage your funds</Text>
-        </View>
+        {/* Top nav */}
+        <TopNav />
 
         {/* Currency dropdown */}
         <View style={styles.dropdownWrap}>
@@ -143,7 +143,10 @@ export default function WalletScreen() {
         <View style={styles.btnWrap}>
           <PrimaryButton
             label="Fund Wallet"
-            onPress={() => router.push("/(tabs)/deposit")}
+            onPress={() => {
+              history.push("/(tabs)/wallet");
+              router.push("/(tabs)/deposit");
+            }}
             color={Colors.statusSuccess}
             icon={<Ionicons name="add-circle-outline" size={20} color="#FFFFFF" />}
           />
@@ -153,14 +156,20 @@ export default function WalletScreen() {
         <View style={styles.btnRow}>
           <PrimaryButton
             label="Transfer"
-            onPress={() => router.push("/(tabs)/transfer")}
+            onPress={() => {
+              history.push("/(tabs)/wallet");
+              router.push("/(tabs)/transfer");
+            }}
             style={styles.btnHalf}
             color={Colors.statusInfo}
             icon={<Ionicons name="swap-horizontal" size={18} color="#FFFFFF" />}
           />
           <PrimaryButton
             label="Withdraw"
-            onPress={() => router.push("/(tabs)/withdraw")}
+            onPress={() => {
+              history.push("/(tabs)/wallet");
+              router.push("/(tabs)/withdraw");
+            }}
             style={styles.btnHalf}
             color={Colors.actionPrimary}
             icon={<Ionicons name="cash-outline" size={18} color="#FFFFFF" />}

@@ -41,7 +41,7 @@ import { Id } from "@/convex/_generated/dataModel";
 import { Colors } from "@/tokens/colors";
 import { typeScale } from "@/tokens/typography";
 import { spacing } from "@/tokens/spacing";
-import { MobileCard } from "@/components/MobileCard";
+import { MobileCard, useCardInsets } from "@/components/MobileCard";
 import { PrimaryButton, SecondaryButton } from "@/components/ui/Button";
 
 // ─── Types ─────────────────────────────────────────────────────────────────
@@ -93,6 +93,7 @@ export function ContentPaywallSheet({
   onSuccess,
 }: ContentPaywallSheetProps) {
   const insets      = useSafeAreaInsets();
+  const cardInsets  = useCardInsets();
   const router      = useRouter();
   const slideAnim   = useRef(new Animated.Value(0)).current;
 
@@ -328,11 +329,13 @@ export function ContentPaywallSheet({
                 </Text>
               )}
             </View>
-            {!isLoadingAffordability && !canAfford && (
+          {!isLoadingAffordability && !canAfford && (
               <View style={styles.insufficientWrap}>
                 <Ionicons name="alert-circle-outline" size={14} color={Colors.statusDanger} />
                 <Text style={styles.insufficientText} allowFontScaling={false}>
-                  Insufficient balance. You need {currency} {shortfall.toFixed(2)} more.
+                  {walletBalance === 0
+                    ? `You have no ${currency} balance. This content can only be purchased with ${currency}. Fund your ${currency} wallet to continue.`
+                    : `Insufficient balance. You need ${currency} ${shortfall.toFixed(2)} more.`}
                 </Text>
               </View>
             )}
@@ -348,10 +351,12 @@ export function ContentPaywallSheet({
               }}
               activeOpacity={0.8}
               accessibilityRole="button"
-              accessibilityLabel="Fund your wallet"
+              accessibilityLabel={`Fund your ${currency} wallet`}
             >
               <Ionicons name="add-circle-outline" size={18} color={Colors.statusInfo} />
-              <Text style={styles.fundWalletText} allowFontScaling={false}>Fund Wallet</Text>
+              <Text style={styles.fundWalletText} allowFontScaling={false}>
+                {walletBalance === 0 ? `Add ${currency} to Wallet` : "Fund Wallet"}
+              </Text>
             </TouchableOpacity>
           )}
         </ScrollView>
@@ -385,7 +390,7 @@ export function ContentPaywallSheet({
       <Pressable style={styles.backdrop} onPress={step === "processing" ? undefined : onClose} />
 
       {/* Animated sheet */}
-      <Animated.View style={[styles.sheetOuter, { transform: [{ translateY }] }]}>
+      <Animated.View style={[styles.sheetOuter, { left: cardInsets.left, right: cardInsets.right, transform: [{ translateY }] }]}>
         <MobileCard style={styles.card} containerStyle={styles.cardContainer}>
           {/* Handle */}
           <View style={styles.handleWrap}>

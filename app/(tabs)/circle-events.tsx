@@ -24,6 +24,7 @@ import { Id } from "@/convex/_generated/dataModel";
 import { AppBackground } from "@/components/AppBackground";
 import { MobileCard } from "@/components/MobileCard";
 import { Colors } from "@/constants/Colors";
+import { useNavigationHistory } from "@/context/NavigationHistoryContext";
 
 type StatusFilter = "ACTIVE" | "CANCELLED";
 
@@ -40,6 +41,7 @@ function formatDate(date: string, time: string): string {
 
 export default function CircleEventsScreen() {
   const router = useRouter();
+  const history = useNavigationHistory();
   const { circleId } = useLocalSearchParams<{ circleId: string }>();
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("ACTIVE");
 
@@ -146,7 +148,7 @@ export default function CircleEventsScreen() {
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity
-            onPress={() => router.back()}
+            onPress={() => history.goBack(router, "/(tabs)/circle")}
             style={styles.backBtn}
             accessibilityRole="button"
             accessibilityLabel="Go back"
