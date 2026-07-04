@@ -59,6 +59,41 @@ export const updateProfile = mutation({
   },
 });
 
+// Get the user's persisted feed mode preference ("for_you" | "ai")
+export const getFeedMode = query({
+  args: {},
+  handler: async (ctx): Promise<"for_you" | "ai"> => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return "for_you";
+
+    const profile = await ctx.db
+      .query("profiles")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .first();
+
+    const mode = (profile as any)?.feedMode;
+    return mode === "ai" ? "ai" : "for_you";
+  },
+});
+
+// Persist the user's feed mode preference
+export const setFeedMode = mutation({
+  args: { mode: v.union(v.literal("for_you"), v.literal("ai")) },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+
+    const profile = await ctx.db
+      .query("profiles")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .first();
+
+    if (!profile) throw new Error("Profile not found");
+
+    await ctx.db.patch(profile._id, { feedMode: args.mode, updatedAt: Date.now() } as any);
+  },
+});
+
 // Generate a Convex storage upload URL for profile pictures
 export const generateUploadUrl = mutation({
   args: {},

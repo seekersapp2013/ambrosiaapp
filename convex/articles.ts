@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { api, internal } from "./_generated/api";
+import { hasPermission } from "./moderationHelpers";
 
 // Create a new article
 export const createArticle = mutation({
@@ -181,13 +182,22 @@ export const getArticleById = query({
       .filter((q) => q.eq(q.field("userId"), article.authorId))
       .first();
 
+    // Resolve storage IDs → public URLs (same pattern as feed.ts)
+    const coverImageUrl = article.coverImage
+      ? await ctx.storage.getUrl(article.coverImage)
+      : null;
+    const avatarUrl = profile?.avatar
+      ? await ctx.storage.getUrl(profile.avatar)
+      : null;
+
     const result = {
       ...article,
+      coverImageUrl: coverImageUrl ?? undefined,
       author: {
         id: author?._id,
         name: author?.name || profile?.name,
         username: profile?.username,
-        avatar: profile?.avatar,
+        avatar: avatarUrl ?? profile?.avatar,
       },
     };
 
@@ -400,8 +410,11 @@ export const deleteArticle = mutation({
       throw new Error("Article not found");
     }
 
-    // Only the article author can delete their article
-    if (article.authorId !== userId) {
+    // Only the article author OR a user with delete_content permission can delete
+    const canDelete =
+      article.authorId === userId ||
+      (await hasPermission(ctx, userId, "delete_content"));
+    if (!canDelete) {
       throw new Error("Not authorized to delete this article");
     }
 

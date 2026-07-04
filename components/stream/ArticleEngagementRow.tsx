@@ -128,16 +128,6 @@ export function ArticleEngagementRow({
 
   return (
     <View style={styles.wrapper}>
-      {/* Lock tooltip */}
-      {locked && (
-        <View style={styles.lockTooltip}>
-          <Ionicons name="lock-closed" size={10} color={Colors.statusWarning} />
-          <Text style={styles.lockTooltipText} allowFontScaling={false}>
-            {isGated ? "Purchase to engage" : "Read the article to engage"}
-          </Text>
-        </View>
-      )}
-
       {/* Row — style-level pointerEvents works on both native and web */}
       <View style={[styles.row, locked && styles.rowLocked]}>
 

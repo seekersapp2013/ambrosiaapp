@@ -109,6 +109,7 @@ export default defineSchema({
     pinHash: v.optional(v.string()), // Bcrypt hashed PIN for withdrawals
     interests: v.optional(v.array(v.string())), // Health-related interests
     tags: v.optional(v.array(v.string())), // User tags for recommendations
+    feedMode: v.optional(v.string()), // "for_you" | "ai" — persisted feed toggle preference
     // TEMPORARY: Old wallet fields - remove after migration
     walletAddress: v.optional(v.string()),
     privateKey: v.optional(v.string()),

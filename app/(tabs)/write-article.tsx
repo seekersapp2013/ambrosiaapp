@@ -718,6 +718,17 @@ const styles = StyleSheet.create({
   },
 
   // Cover image
+  coverLabelRow: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    gap: 8,
+    marginBottom: 6,
+  },
+  requiredBadge: {
+    fontSize: 10,
+    fontWeight: "700" as const,
+    color: Colors.primary,
+  },
   coverPicker: {
     height: 180,
     borderRadius: 10,
@@ -1099,6 +1110,10 @@ function WriteArticleContent() {
       Alert.alert("Missing Content", "Please write some content for your article.");
       return;
     }
+    if (!coverUri) {
+      Alert.alert("Cover image required", "Please upload a cover image for your article.");
+      return;
+    }
     setSubmitting(true);
     try {
       let coverImage: string | undefined;
@@ -1211,7 +1226,10 @@ function WriteArticleContent() {
           </View>
 
           {/* Cover image */}
-          <Text style={styles.label}>Cover Image (16:9)</Text>
+          <View style={styles.coverLabelRow}>
+            <Text style={styles.label}>Cover Image (16:9)</Text>
+            <Text style={styles.requiredBadge}>Required</Text>
+          </View>
           <TouchableOpacity style={styles.coverPicker} onPress={handlePickCover} activeOpacity={0.8}>
             {coverUri ? (
               <>

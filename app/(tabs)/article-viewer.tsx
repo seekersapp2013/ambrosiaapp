@@ -302,17 +302,21 @@ export default function ArticleViewerScreen() {
           </View>
 
           {/* ── Cover image ────────────────────────────────────── */}
-          {article.coverImage ? (
-            <Image
-              source={{ uri: article.coverImage }}
-              style={styles.cover}
-              resizeMode="cover"
-            />
-          ) : (
-            <View style={styles.coverPlaceholder}>
-              <Ionicons name="newspaper-outline" size={40} color="rgba(255,255,255,0.2)" />
-            </View>
-          )}
+          {(() => {
+            // Prefer resolved URL (same pattern as ArticleCard / feed.ts)
+            const imageUri = (article as any).coverImageUrl || article.coverImage;
+            return imageUri ? (
+              <Image
+                source={{ uri: imageUri }}
+                style={styles.cover}
+                resizeMode="cover"
+              />
+            ) : (
+              <View style={styles.coverPlaceholder}>
+                <Ionicons name="newspaper-outline" size={40} color="rgba(255,255,255,0.2)" />
+              </View>
+            );
+          })()}
 
           <View style={styles.body}>
             {/* ── Gated badge ──────────────────────────────────── */}

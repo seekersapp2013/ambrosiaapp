@@ -68,6 +68,9 @@ function ViewerContent() {
   const cardPaddingV  = MOBILE_CARD_ENABLED ? 16 : 0;
   const cardHeight    = SCREEN_H - cardPaddingV * 2;
 
+  // Engagement column right inset — fixed 12px from the card's right inner edge
+  const engagementRight = spacing.space3;
+
   // ── Data ──────────────────────────────────────────────────────────────────
   const reel = useQuery(
     api.reels.getReelById,
@@ -378,7 +381,7 @@ function ViewerContent() {
 
             {/* ── BOTTOM-RIGHT — engagement bar (inside card = no clip) ─── */}
             <View
-              style={[styles.engagementColumn, { bottom: bottomClearance }]}
+              style={[styles.engagementColumn, { bottom: bottomClearance, right: engagementRight }]}
               pointerEvents="box-none"
             >
               <ReelEngagementBar
@@ -539,7 +542,7 @@ const styles = StyleSheet.create({
   },
   brandText: {
     ...typeScale.labelMD,
-    color: "#fff",
+    color: Colors.statusInfo,
     fontWeight: "700",
     letterSpacing: 0.5,
   },
@@ -548,8 +551,8 @@ const styles = StyleSheet.create({
   bottomLeft: {
     position: "absolute",
     left: spacing.space4,
-    // Leave room for the engagement bar on the right (60px wide + gap)
-    right: 72,
+    // 64px engagement column + 12px gap + 12px outer padding = 88px
+    right: 88,
     gap: 6,
   },
 
@@ -613,7 +616,9 @@ const styles = StyleSheet.create({
   // ── Bottom-right: engagement bar ─────────────────────────────────────────
   engagementColumn: {
     position: "absolute",
-    right: spacing.space3,
+    // right is set inline using engagementRight (dynamic)
     alignItems: "center",
+    // Fixed width prevents content from being clipped on narrow cards (web)
+    width: 64,
   },
 });

@@ -27,7 +27,6 @@ import { AppBackground } from "@/components/AppBackground";
 import { MobileCard, useCardInsets } from "@/components/MobileCard";
 import { TopNav } from "@/components/TopNav";
 import { ContentCard } from "@/components/stream/ContentCard";
-import { CourseCard } from "@/components/stream/CourseCard";
 import { EmptyState } from "@/components/stream/EmptyState";
 import { LoadingSpinner } from "@/components/stream/LoadingSpinner";
 import { Colors } from "@/constants/Colors";
@@ -35,12 +34,6 @@ import { useNavigationHistory } from "@/context/NavigationHistoryContext";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type ViewMode = "all" | "my-courses" | "enrolled";
-
-interface FeedItem {
-  key: string;
-  contentType: "article" | "reel";
-  item: any;
-}
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 export default function LearnScreen() {
@@ -59,21 +52,22 @@ export default function LearnScreen() {
   // Courses list for the manage sheet
   const myCourses = useQuery(api.courses.getMyCourses, { limit: 50 });
 
-  // Build a merged + sorted feed list from articles + reels
-  const feedItems: FeedItem[] = React.useMemo(() => {
+  // Current user — needed for follow/delete features in ContentCard
+  const currentUser = useQuery(api.users.viewer);
+
+  // Build a merged + sorted flat feed list — same shape as listUnifiedFeed
+  // Each item already has contentType stamped on it by getCourseRelatedContent
+  const feedItems: any[] = React.useMemo(() => {
     if (!feedData) return [];
-    const articles: FeedItem[] = (feedData.articles ?? []).map((a: any) => ({
-      key: `article-${a._id}`,
+    const articles = (feedData.articles ?? []).map((a: any) => ({
+      ...a,
       contentType: "article" as const,
-      item: a,
     }));
-    const reels: FeedItem[] = (feedData.reels ?? []).map((r: any) => ({
-      key: `reel-${r._id}`,
+    const reels = (feedData.reels ?? []).map((r: any) => ({
+      ...r,
       contentType: "reel" as const,
-      item: r,
     }));
-    // Merge and sort by createdAt descending
-    return [...articles, ...reels].sort((a, b) => b.item.createdAt - a.item.createdAt);
+    return [...articles, ...reels].sort((a, b) => b.createdAt - a.createdAt);
   }, [feedData]);
 
   const isLoading = feedData === undefined;
@@ -122,22 +116,20 @@ export default function LearnScreen() {
   );
 
   const renderItem = useCallback(
-    ({ item, index }: { item: FeedItem; index: number }) => {
+    ({ item }: { item: any }) => {
       return (
         <ContentCard
-          contentType={item.contentType}
-          item={item.item}
-          onPress={() => {
-            if (item.contentType === "article") {
-              handleArticlePress(item.item._id);
-            } else {
-              handleReelPress(item.item._id);
-            }
+          item={item}
+          currentUserId={currentUser?._id}
+          onArticlePress={handleArticlePress}
+          onPulsePress={handleReelPress}
+          onDeleteSuccess={(_id) => {
+            // Convex reactive query auto-removes the item — no local state needed
           }}
         />
       );
     },
-    [handleArticlePress, handleReelPress]
+    [handleArticlePress, handleReelPress, currentUser?._id]
   );
 
   const emptyMessages: Record<ViewMode, { title: string; subtitle: string }> = {
@@ -237,7 +229,7 @@ export default function LearnScreen() {
           ) : (
             <FlatList
               data={feedItems}
-              keyExtractor={(item) => item.key}
+              keyExtractor={(item) => item._id}
               renderItem={renderItem}
               contentContainerStyle={styles.listContent}
               showsVerticalScrollIndicator={false}

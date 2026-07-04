@@ -269,6 +269,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 20,
     paddingBottom: 8,
+    width: 64,         // fixed width — prevents overflow on web/narrow cards
   },
   containerLocked: {
     opacity: 0.35,

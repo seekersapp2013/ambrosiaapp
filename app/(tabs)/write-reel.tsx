@@ -15,6 +15,7 @@ import {
   Alert,
   ActivityIndicator,
   Switch,
+  Image,
 } from "react-native";
 import { useRouter, Redirect } from "expo-router";
 import { useMutation, useQuery } from "convex/react";
@@ -48,6 +49,8 @@ function WriteReelContent() {
   const [isSensitive, setIsSensitive] = useState(false);
   const [isPublic, setIsPublic] = useState(true);
   const [videoUri, setVideoUri] = useState<string | null>(null);
+  const [coverUri, setCoverUri] = useState<string | null>(null);
+  const [coverMime, setCoverMime] = useState("image/jpeg");
   const [submitting, setSubmitting] = useState(false);
   const [currencyOpen, setCurrencyOpen] = useState(false);
 
@@ -88,10 +91,33 @@ function WriteReelContent() {
     }
   }, []);
 
+  // ── Pick cover image ───────────────────────────────────────────────────────
+  const handlePickCover = useCallback(async () => {
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (perm.status !== "granted") {
+      Alert.alert("Permission required", "Please allow access to your photo library.");
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [16, 9],
+      quality: 0.85,
+    });
+    if (!result.canceled && result.assets?.[0]) {
+      setCoverUri(result.assets[0].uri);
+      setCoverMime(result.assets[0].mimeType ?? "image/jpeg");
+    }
+  }, []);
+
   // ── Submit ────────────────────────────────────────────────────────────────
   const handleSubmit = useCallback(async () => {
     if (!videoUri) {
       Alert.alert("No video", "Please select a video first.");
+      return;
+    }
+    if (!coverUri) {
+      Alert.alert("Cover image required", "Please upload a cover image for your Pulse.");
       return;
     }
     const parsedPrice = parseFloat(priceAmount);
@@ -114,6 +140,18 @@ function WriteReelContent() {
       if (!uploadRes.ok) throw new Error("Upload failed");
       const { storageId } = await uploadRes.json();
 
+      // Upload cover image
+      const coverUploadUrl = await generateUploadUrl();
+      const coverResponse = await fetch(coverUri);
+      const coverBlob = await coverResponse.blob();
+      const coverUploadRes = await fetch(coverUploadUrl, {
+        method: "POST",
+        headers: { "Content-Type": coverMime },
+        body: coverBlob,
+      });
+      if (!coverUploadRes.ok) throw new Error("Cover image upload failed");
+      const { storageId: posterStorageId } = await coverUploadRes.json();
+
       const tagsArray = tags
         .split(",")
         .map((t) => t.trim())
@@ -121,6 +159,7 @@ function WriteReelContent() {
 
       await createReel({
         video: storageId,
+        poster: posterStorageId,
         caption: caption.trim() || undefined,
         tags: tagsArray,
         isGated,
@@ -142,6 +181,8 @@ function WriteReelContent() {
     }
   }, [
     videoUri,
+    coverUri,
+    coverMime,
     caption,
     tags,
     isGated,
@@ -156,40 +197,39 @@ function WriteReelContent() {
 
   return (
     <AppBackground style={styles.root}>
-      {/* Header — outside card, full width */}
-      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-        <TouchableOpacity
-          onPress={() => history.goBack(router)}
-          style={styles.headerBtn}
-          activeOpacity={0.75}
-          accessibilityRole="button"
-          accessibilityLabel="Cancel"
-        >
-          <Ionicons name="close" size={24} color={Colors.iconPrimary} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle} allowFontScaling={false}>
-          Create Pulse
-        </Text>
-        <TouchableOpacity
-          style={[styles.publishBtn, (!videoUri || submitting) && styles.publishBtnDisabled]}
-          onPress={handleSubmit}
-          disabled={!videoUri || submitting}
-          activeOpacity={0.85}
-          accessibilityRole="button"
-          accessibilityLabel="Publish reel"
-        >
-          {submitting ? (
-            <ActivityIndicator size="small" color="#fff" />
-          ) : (
-            <Text style={styles.publishBtnText} allowFontScaling={false}>
-              Publish
-            </Text>
-          )}
-        </TouchableOpacity>
-      </View>
-
-      {/* Card wraps the form content */}
       <MobileCard style={styles.formCard} containerStyle={styles.formCardContainer}>
+        {/* Header — inside card, pinned to top */}
+        <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+          <TouchableOpacity
+            onPress={() => history.goBack(router)}
+            style={styles.headerBtn}
+            activeOpacity={0.75}
+            accessibilityRole="button"
+            accessibilityLabel="Cancel"
+          >
+            <Ionicons name="close" size={24} color={Colors.iconPrimary} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle} allowFontScaling={false}>
+            Create Pulse
+          </Text>
+          <TouchableOpacity
+            style={[styles.publishBtn, (!videoUri || !coverUri || submitting) && styles.publishBtnDisabled]}
+            onPress={handleSubmit}
+            disabled={!videoUri || !coverUri || submitting}
+            activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel="Publish reel"
+          >
+            {submitting ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <Text style={styles.publishBtnText} allowFontScaling={false}>
+                Publish
+              </Text>
+            )}
+          </TouchableOpacity>
+        </View>
+
         <ScrollView
           style={styles.scroll}
           contentContainerStyle={[
@@ -237,12 +277,69 @@ function WriteReelContent() {
           </View>
         )}
 
+        {/* Cover image picker */}
+        <View style={styles.field}>
+          <View style={styles.fieldLabelRow}>
+            <Text style={styles.fieldLabel} allowFontScaling={false}>
+              Cover Image
+            </Text>
+            <Text style={styles.fieldRequired} allowFontScaling={false}>Required</Text>
+          </View>
+          <Text style={styles.fieldHint} allowFontScaling={false}>
+            Shown in the feed instead of the video thumbnail
+          </Text>
+          {!coverUri ? (
+            <TouchableOpacity
+              style={styles.coverPicker}
+              onPress={handlePickCover}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel="Select cover image"
+            >
+              <Ionicons name="image-outline" size={32} color={Colors.iconDisabled} />
+              <Text style={styles.coverPickerTitle} allowFontScaling={false}>
+                Select Cover Image
+              </Text>
+              <Text style={styles.coverPickerSub} allowFontScaling={false}>
+                JPG, PNG · 16:9 recommended
+              </Text>
+            </TouchableOpacity>
+          ) : (
+            <View style={styles.coverPreviewWrap}>
+              <Image
+                source={{ uri: coverUri }}
+                style={styles.coverPreview}
+                resizeMode="cover"
+                accessibilityLabel="Cover image preview"
+              />
+              <TouchableOpacity
+                style={styles.removeCoverBtn}
+                onPress={() => setCoverUri(null)}
+                activeOpacity={0.8}
+                accessibilityRole="button"
+                accessibilityLabel="Remove cover image"
+              >
+                <Ionicons name="close-circle" size={28} color="#fff" />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.changeCoverBtn}
+                onPress={handlePickCover}
+                activeOpacity={0.8}
+                accessibilityRole="button"
+                accessibilityLabel="Change cover image"
+              >
+                <Ionicons name="camera-outline" size={14} color="#fff" />
+                <Text style={styles.changeCoverText} allowFontScaling={false}>Change</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+
         {/* Caption */}
         <View style={styles.field}>
           <Text style={styles.fieldLabel} allowFontScaling={false}>
             Caption
-          </Text>
-          <TextInput
+          </Text>          <TextInput
             style={styles.textArea}
             placeholder="Write a caption…"
             placeholderTextColor={Colors.textDisabled}
@@ -441,7 +538,7 @@ const styles = StyleSheet.create({
   // Form card
   formCardContainer: {
     flex: 1,
-    paddingTop: 0,       // header is outside, no top padding needed
+    paddingTop: 0,
     paddingBottom: 16,
   },
   formCard: {
@@ -449,7 +546,7 @@ const styles = StyleSheet.create({
     padding: 0,
   },
 
-  // Header
+  // Header — now lives inside the card
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -457,7 +554,6 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.space3,
     borderBottomWidth: 1,
     borderBottomColor: Colors.borderSubtle,
-    backgroundColor: Colors.bgBase,
   },
   headerBtn: {
     width: 40,
@@ -538,6 +634,16 @@ const styles = StyleSheet.create({
     ...typeScale.labelSM,
     color: Colors.textSecondary,
     fontWeight: "600",
+  },
+  fieldLabelRow: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    gap: spacing.space2,
+  },
+  fieldRequired: {
+    ...typeScale.caption,
+    color: Colors.primary,
+    fontWeight: "700",
   },
   fieldHint: {
     ...typeScale.caption,
@@ -683,5 +789,58 @@ const styles = StyleSheet.create({
   currencyItemText: {
     ...typeScale.bodyMD,
     color: Colors.textPrimary,
+  },
+
+  // Cover image picker
+  coverPicker: {
+    height: 160,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: Colors.borderDefault,
+    borderStyle: "dashed",
+    backgroundColor: Colors.bgElevated,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.space2,
+  },
+  coverPickerTitle: {
+    ...typeScale.labelMD,
+    color: Colors.textSecondary,
+  },
+  coverPickerSub: {
+    ...typeScale.bodySM,
+    color: Colors.textDisabled,
+  },
+  coverPreviewWrap: {
+    height: 160,
+    borderRadius: 12,
+    overflow: "hidden",
+    backgroundColor: Colors.bgElevated,
+  },
+  coverPreview: {
+    width: "100%",
+    height: "100%",
+  },
+  removeCoverBtn: {
+    position: "absolute",
+    top: spacing.space2,
+    right: spacing.space2,
+  },
+  changeCoverBtn: {
+    position: "absolute",
+    bottom: spacing.space2,
+    right: spacing.space2,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "rgba(0,0,0,0.65)",
+    borderRadius: 8,
+    paddingHorizontal: spacing.space3,
+    paddingVertical: spacing.space1,
+  },
+  changeCoverText: {
+    ...typeScale.caption,
+    color: "#fff",
+    fontWeight: "600",
   },
 });

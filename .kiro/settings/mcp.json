@@ -1,0 +1,32 @@
+{
+  "mcpServers": {
+    "latitude": {
+      "command": "cmd",
+      "args": [
+        "/c",
+        "npx",
+        "-y",
+        "mcp-remote",
+        "https://api.latitude.so/v1/mcp"
+      ],
+      "env": {
+        "LATITUDE_API_KEY": "7da454eb-ffce-40d7-9279-75be8c23fd8f",
+        "NODE_OPTIONS": "--use-system-ca",
+        "NODE_TLS_REJECT_UNAUTHORIZED": "0"
+      },
+      "disabled": false,
+      "autoApprove": []
+    },
+    "convex": {
+      "command": "c:\\Users\\PC\\Documents\\ambrosiaapp\\app\\node_modules\\.bin\\convex.cmd",
+      "args": [
+        "mcp",
+        "start",
+        "--project-dir",
+        "c:\\Users\\PC\\Documents\\ambrosiaapp\\app"
+      ],
+      "disabled": false,
+      "autoApprove": []
+    }
+  }
+}

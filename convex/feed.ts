@@ -1,6 +1,5 @@
 import { query } from "./_generated/server";
 import { v } from "convex/values";
-import { api } from "./_generated/api";
 
 // Unified feed that combines articles and reels
 export const listUnifiedFeed = query({
@@ -21,7 +20,31 @@ export const listUnifiedFeed = query({
       .order("desc")
       .take(limit);
 
-    // Get author info for articles
+    // ── Helper: resolve courseInfo for a given content item ──────────────────
+    // The by_content index enforces one-content-per-course, so at most 1 result.
+    async function resolveCourseInfo(
+      contentType: "article" | "reel",
+      contentId: string
+    ): Promise<{ courseTitle: string; order: number } | null> {
+      const membership = await ctx.db
+        .query("courseContent")
+        .withIndex("by_content", (q) =>
+          q.eq("contentType", contentType).eq("contentId", contentId as any)
+        )
+        .first();
+
+      if (!membership) return null;
+
+      const course = await ctx.db.get(membership.courseId);
+      if (!course) return null;
+
+      return {
+        courseTitle: course.title,
+        order: membership.order,
+      };
+    }
+
+    // Get author info for articles (and resolve cover image URL)
     const articlesWithAuthors = await Promise.all(
       articles.map(async (article) => {
         const author = await ctx.db.get(article.authorId);
@@ -30,20 +53,35 @@ export const listUnifiedFeed = query({
           .filter((q) => q.eq(q.field("userId"), article.authorId))
           .first();
 
+        // Resolve cover image storage ID → public URL
+        const coverImageUrl = article.coverImage
+          ? await ctx.storage.getUrl(article.coverImage)
+          : null;
+
+        // Resolve author avatar storage ID → public URL
+        const avatarUrl = profile?.avatar
+          ? await ctx.storage.getUrl(profile.avatar)
+          : null;
+
+        // Resolve course membership
+        const courseInfo = await resolveCourseInfo("article", article._id);
+
         return {
           ...article,
           contentType: "article" as const,
+          coverImageUrl: coverImageUrl ?? undefined,
+          courseInfo: courseInfo ?? undefined,
           author: {
             id: author?._id,
             name: author?.name || profile?.name,
             username: profile?.username,
-            avatar: profile?.avatar,
+            avatar: avatarUrl ?? profile?.avatar,
           },
         };
       })
     );
 
-    // Get author info for reels
+    // Get author info for reels (and resolve poster URL)
     const reelsWithAuthors = await Promise.all(
       reels.map(async (reel) => {
         const author = await ctx.db.get(reel.authorId);
@@ -52,14 +90,35 @@ export const listUnifiedFeed = query({
           .filter((q) => q.eq(q.field("userId"), reel.authorId))
           .first();
 
+        // Resolve poster storage ID → public URL
+        const posterUrl = reel.poster
+          ? await ctx.storage.getUrl(reel.poster)
+          : null;
+
+        // Resolve video storage ID → public URL
+        const videoUrl = reel.video
+          ? await ctx.storage.getUrl(reel.video)
+          : null;
+
+        // Resolve author avatar storage ID → public URL
+        const avatarUrl = profile?.avatar
+          ? await ctx.storage.getUrl(profile.avatar)
+          : null;
+
+        // Resolve course membership
+        const courseInfo = await resolveCourseInfo("reel", reel._id);
+
         return {
           ...reel,
           contentType: "reel" as const,
+          posterUrl: posterUrl ?? undefined,
+          videoUrl: videoUrl ?? undefined,
+          courseInfo: courseInfo ?? undefined,
           author: {
             id: author?._id,
             name: author?.name || profile?.name,
             username: profile?.username,
-            avatar: profile?.avatar,
+            avatar: avatarUrl ?? profile?.avatar,
           },
         };
       })

@@ -227,7 +227,7 @@ export const getPublicCircles = query({
       memberships.forEach((m) => joinedCircleIds.add(m.circleId));
     }
 
-    // Get creator info for each circle and attach isMember
+    // Get creator info for each circle, resolve storage URLs, and attach isMember
     const circlesWithCreators = await Promise.all(
       circles.map(async (circle) => {
         const creatorProfile = await ctx.db
@@ -235,13 +235,24 @@ export const getPublicCircles = query({
           .withIndex("by_userId", (q) => q.eq("userId", circle.creatorId))
           .first();
 
+        // Resolve cover image storage ID → public URL
+        const coverImageUrl = circle.coverImage
+          ? await ctx.storage.getUrl(circle.coverImage)
+          : null;
+
+        // Resolve creator avatar storage ID → public URL
+        const avatarUrl = creatorProfile?.avatar
+          ? await ctx.storage.getUrl(creatorProfile.avatar)
+          : null;
+
         return {
           ...circle,
+          coverImage: coverImageUrl ?? undefined,
           creator: {
             id: circle.creatorId,
             name: creatorProfile?.name,
             username: creatorProfile?.username,
-            avatar: creatorProfile?.avatar,
+            avatar: avatarUrl ?? creatorProfile?.avatar,
           },
           availableSpots: circle.maxMembers 
             ? circle.maxMembers - circle.currentMembers 
@@ -283,6 +294,16 @@ export const getMyCircles = query({
           .withIndex("by_userId", (q) => q.eq("userId", circle.creatorId))
           .first();
 
+        // Resolve cover image storage ID → public URL
+        const coverImageUrl = circle.coverImage
+          ? await ctx.storage.getUrl(circle.coverImage)
+          : null;
+
+        // Resolve creator avatar storage ID → public URL
+        const avatarUrl = creatorProfile?.avatar
+          ? await ctx.storage.getUrl(creatorProfile.avatar)
+          : null;
+
         // Get unread message count
         const lastMessage = await ctx.db
           .query("circleMessages")
@@ -292,11 +313,12 @@ export const getMyCircles = query({
 
         return {
           ...circle,
+          coverImage: coverImageUrl ?? undefined,
           creator: {
             id: circle.creatorId,
             name: creatorProfile?.name,
             username: creatorProfile?.username,
-            avatar: creatorProfile?.avatar,
+            avatar: avatarUrl ?? creatorProfile?.avatar,
           },
           membership,
           lastMessage,

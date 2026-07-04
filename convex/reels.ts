@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { api, internal } from "./_generated/api";
+import { hasPermission } from "./moderationHelpers";
 
 // Create a new reel
 export const createReel = mutation({
@@ -270,8 +271,11 @@ export const deleteReel = mutation({
       throw new Error("Reel not found");
     }
 
-    // Only the reel author can delete their reel
-    if (reel.authorId !== userId) {
+    // Only the reel author OR a user with delete_content permission can delete
+    const canDelete =
+      reel.authorId === userId ||
+      (await hasPermission(ctx, userId, "delete_content"));
+    if (!canDelete) {
       throw new Error("Not authorized to delete this reel");
     }
 

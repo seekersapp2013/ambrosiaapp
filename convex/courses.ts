@@ -886,7 +886,7 @@ export const getCourseRelatedContent = query({
         ))
         .take(limit);
 
-      // Get author info for articles
+      // Get author info for articles + resolve storage URLs
       const articlesWithAuthors = await Promise.all(
         allArticles.map(async (article) => {
           const authorProfile = await ctx.db
@@ -894,19 +894,47 @@ export const getCourseRelatedContent = query({
             .withIndex("by_userId", (q) => q.eq("userId", article.authorId))
             .first();
 
+          // Resolve cover image storage ID → public URL
+          const coverImageUrl = article.coverImage
+            ? await ctx.storage.getUrl(article.coverImage)
+            : null;
+
+          // Resolve author avatar storage ID → public URL
+          const avatarUrl = authorProfile?.avatar
+            ? await ctx.storage.getUrl(authorProfile.avatar)
+            : null;
+
+          // Resolve course membership
+          const courseMembership = await ctx.db
+            .query("courseContent")
+            .withIndex("by_content", (q) =>
+              q.eq("contentType", "article").eq("contentId", article._id)
+            )
+            .first();
+          let courseInfo: { courseTitle: string; order: number } | undefined;
+          if (courseMembership) {
+            const course = await ctx.db.get(courseMembership.courseId);
+            if (course) {
+              courseInfo = { courseTitle: course.title, order: courseMembership.order };
+            }
+          }
+
           return {
             ...article,
+            contentType: "article" as const,
+            coverImageUrl: coverImageUrl ?? undefined,
+            courseInfo,
             author: {
               id: article.authorId,
               name: authorProfile?.name,
               username: authorProfile?.username,
-              avatar: authorProfile?.avatar,
+              avatar: avatarUrl ?? authorProfile?.avatar,
             },
           };
         })
       );
 
-      // Get author info for reels
+      // Get author info for reels + resolve storage URLs
       const reelsWithAuthors = await Promise.all(
         allReels.map(async (reel) => {
           const authorProfile = await ctx.db
@@ -914,13 +942,47 @@ export const getCourseRelatedContent = query({
             .withIndex("by_userId", (q) => q.eq("userId", reel.authorId))
             .first();
 
+          // Resolve poster storage ID → public URL
+          const posterUrl = reel.poster
+            ? await ctx.storage.getUrl(reel.poster)
+            : null;
+
+          // Resolve video storage ID → public URL
+          const videoUrl = reel.video
+            ? await ctx.storage.getUrl(reel.video)
+            : null;
+
+          // Resolve author avatar storage ID → public URL
+          const avatarUrl = authorProfile?.avatar
+            ? await ctx.storage.getUrl(authorProfile.avatar)
+            : null;
+
+          // Resolve course membership
+          const courseMembership = await ctx.db
+            .query("courseContent")
+            .withIndex("by_content", (q) =>
+              q.eq("contentType", "reel").eq("contentId", reel._id)
+            )
+            .first();
+          let courseInfo: { courseTitle: string; order: number } | undefined;
+          if (courseMembership) {
+            const course = await ctx.db.get(courseMembership.courseId);
+            if (course) {
+              courseInfo = { courseTitle: course.title, order: courseMembership.order };
+            }
+          }
+
           return {
             ...reel,
+            contentType: "reel" as const,
+            posterUrl: posterUrl ?? undefined,
+            videoUrl: videoUrl ?? undefined,
+            courseInfo,
             author: {
               id: reel.authorId,
               name: authorProfile?.name,
               username: authorProfile?.username,
-              avatar: authorProfile?.avatar,
+              avatar: avatarUrl ?? authorProfile?.avatar,
             },
           };
         })
@@ -974,7 +1036,7 @@ export const getCourseRelatedContent = query({
       .filter(content => content.contentType === 'reel')
       .map(content => content.contentId);
 
-    // Fetch articles and reels with STRICT approval filtering
+    // Fetch articles and reels with STRICT approval filtering + resolve storage URLs
     const articles = await Promise.all(
       articleIds.slice(0, limit).map(async (id) => {
         const article = await ctx.db.get(id as any);
@@ -997,13 +1059,41 @@ export const getCourseRelatedContent = query({
           .withIndex("by_userId", (q) => q.eq("userId", article.authorId as any))
           .first();
 
+        // Resolve cover image storage ID → public URL
+        const coverImageUrl = (article as any).coverImage
+          ? await ctx.storage.getUrl((article as any).coverImage)
+          : null;
+
+        // Resolve author avatar storage ID → public URL
+        const avatarUrl = authorProfile?.avatar
+          ? await ctx.storage.getUrl(authorProfile.avatar)
+          : null;
+
+        // Resolve course membership
+        const courseMembership = await ctx.db
+          .query("courseContent")
+          .withIndex("by_content", (q) =>
+            q.eq("contentType", "article").eq("contentId", id as any)
+          )
+          .first();
+        let courseInfo: { courseTitle: string; order: number } | undefined;
+        if (courseMembership) {
+          const course = await ctx.db.get(courseMembership.courseId);
+          if (course) {
+            courseInfo = { courseTitle: course.title, order: courseMembership.order };
+          }
+        }
+
         return {
           ...article,
+          contentType: "article" as const,
+          coverImageUrl: coverImageUrl ?? undefined,
+          courseInfo,
           author: {
             id: article.authorId as any,
             name: authorProfile?.name,
             username: authorProfile?.username,
-            avatar: authorProfile?.avatar,
+            avatar: avatarUrl ?? authorProfile?.avatar,
           },
         };
       })
@@ -1026,13 +1116,47 @@ export const getCourseRelatedContent = query({
           .withIndex("by_userId", (q) => q.eq("userId", reel.authorId as any))
           .first();
 
+        // Resolve poster storage ID → public URL
+        const posterUrl = (reel as any).poster
+          ? await ctx.storage.getUrl((reel as any).poster)
+          : null;
+
+        // Resolve video storage ID → public URL
+        const videoUrl = (reel as any).video
+          ? await ctx.storage.getUrl((reel as any).video)
+          : null;
+
+        // Resolve author avatar storage ID → public URL
+        const avatarUrl = authorProfile?.avatar
+          ? await ctx.storage.getUrl(authorProfile.avatar)
+          : null;
+
+        // Resolve course membership
+        const courseMembership = await ctx.db
+          .query("courseContent")
+          .withIndex("by_content", (q) =>
+            q.eq("contentType", "reel").eq("contentId", id as any)
+          )
+          .first();
+        let reelCourseInfo: { courseTitle: string; order: number } | undefined;
+        if (courseMembership) {
+          const course = await ctx.db.get(courseMembership.courseId);
+          if (course) {
+            reelCourseInfo = { courseTitle: course.title, order: courseMembership.order };
+          }
+        }
+
         return {
           ...reel,
+          contentType: "reel" as const,
+          posterUrl: posterUrl ?? undefined,
+          videoUrl: videoUrl ?? undefined,
+          courseInfo: reelCourseInfo,
           author: {
             id: reel.authorId as any,
             name: authorProfile?.name,
             username: authorProfile?.username,
-            avatar: authorProfile?.avatar,
+            avatar: avatarUrl ?? authorProfile?.avatar,
           },
         };
       })

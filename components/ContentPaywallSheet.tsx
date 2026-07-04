@@ -362,7 +362,7 @@ export function ContentPaywallSheet({
         </ScrollView>
 
         {/* Sticky footer */}
-        <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.space3 }]}>
+        <View style={[styles.footer, { paddingBottom: spacing.space4 }]}>
           <SecondaryButton label="Cancel" onPress={onClose} style={styles.footerCancel} />
           <PrimaryButton
             label={`Unlock · ${currency} ${price.toFixed(2)}`}
@@ -390,7 +390,7 @@ export function ContentPaywallSheet({
       <Pressable style={styles.backdrop} onPress={step === "processing" ? undefined : onClose} />
 
       {/* Animated sheet */}
-      <Animated.View style={[styles.sheetOuter, { left: cardInsets.left, right: cardInsets.right, transform: [{ translateY }] }]}>
+      <Animated.View style={[styles.sheetOuter, { bottom: insets.bottom, left: cardInsets.left, right: cardInsets.right, transform: [{ translateY }] }]}>
         <MobileCard style={styles.card} containerStyle={styles.cardContainer}>
           {/* Handle */}
           <View style={styles.handleWrap}>
@@ -438,10 +438,9 @@ const styles = StyleSheet.create({
 
   sheetOuter: {
     position: "absolute",
-    bottom: 0,
     left: 0,
     right: 0,
-    maxHeight: "85%",
+    maxHeight: "88%",
   },
 
   cardContainer: {

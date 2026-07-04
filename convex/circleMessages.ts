@@ -127,6 +127,11 @@ export const getMessages = query({
           )
           .first();
 
+        // Resolve avatar storage ID → public URL
+        const avatarUrl = senderProfile?.avatar
+          ? await ctx.storage.getUrl(senderProfile.avatar)
+          : null;
+
         // Get reactions
         const reactions = await ctx.db
           .query("circleMessageReactions")
@@ -178,7 +183,7 @@ export const getMessages = query({
             id: message.senderId,
             name: senderProfile?.name,
             username: senderProfile?.username,
-            avatar: senderProfile?.avatar,
+            avatar: avatarUrl ?? undefined,
             role: senderMembership?.role,
           },
           reactions: reactionsList,

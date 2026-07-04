@@ -569,3 +569,13 @@ export const amIModerator = query({
     return assignments.length > 0;
   },
 });
+
+// Check if the current authenticated user has the "delete_content" permission.
+// Used by ContentCards to show the delete button for moderators/admins.
+export const canIDeleteContent = query({
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return false;
+    return await hasPermission(ctx, userId, "delete_content");
+  },
+});
