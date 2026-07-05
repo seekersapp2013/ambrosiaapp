@@ -402,13 +402,14 @@ export const inferUserInterests = internalMutation({
           updatedAt: now,
         });
       } else if (strength >= 20) {
-        // Create new interest if strength is significant
+        // BUG FIX: was missing updatedAt — decayUnusedInterests skipped these rows
         await ctx.db.insert("userInterests", {
           userId: args.userId,
           interest,
           source: "inferred",
           strength,
           createdAt: now,
+          updatedAt: now,
         });
       }
     }

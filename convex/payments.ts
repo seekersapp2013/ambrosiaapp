@@ -74,7 +74,7 @@ export const purchaseContent = mutation({
       throw new Error("Content author not found");
     }
 
-    // Check if already purchased
+    // Check if already purchased — if so, grant access immediately (idempotent)
     const existingPayment = await ctx.db
       .query("payments")
       .withIndex("by_content", (q) => 
@@ -84,7 +84,16 @@ export const purchaseContent = mutation({
       .first();
 
     if (existingPayment) {
-      throw new Error("Content already purchased");
+      // User has already paid — return success so access is granted
+      return {
+        success: true,
+        alreadyPurchased: true,
+        paymentId: existingPayment._id,
+        transactionId: existingPayment.transactionId,
+        creatorAmount: existingPayment.amount * DEFAULT_CREATOR_SHARE,
+        platformAmount: existingPayment.amount * DEFAULT_PLATFORM_SHARE,
+        currency: existingPayment.token,
+      };
     }
 
     // Check if user is trying to buy their own content

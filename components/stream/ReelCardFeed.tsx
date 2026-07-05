@@ -124,23 +124,26 @@ export function ReelCardFeed({ reel, onPress, isOwnContent, onDeleteRequest, can
 
   const thumbnailUri = reel.posterUrl || reel.poster;
 
+  // Only use the video player when there is no cover image but there is a video.
+  // Passing an empty string when unused avoids initialising a real player.
+  const needsVideoPlayer = !thumbnailUri && !!reel.videoUrl;
+
   // Show delete button for own content or users with delete_content permission
   const showDelete = (isOwnContent || canDeleteContent) && !!onDeleteRequest;
 
-  // Player is kept for backward-compat but only used if no poster is available
-  // and a videoUrl exists. New content always has a poster so this won't run.
-  const player = useVideoPlayer((!thumbnailUri && reel.videoUrl) ? reel.videoUrl : "", (p) => {
-    if (!reel.videoUrl || thumbnailUri) return;
+  const player = useVideoPlayer(needsVideoPlayer ? reel.videoUrl! : "", (p) => {
+    if (!needsVideoPlayer) return;
     p.muted = true;
     p.loop  = true;
     p.play();
   });
 
   useEffect(() => {
+    if (!needsVideoPlayer) return;
     return () => {
       try { player?.pause(); } catch { /* ignore */ }
     };
-  }, [player]);
+  }, [player, needsVideoPlayer]);
 
   return (
     <View style={styles.card}>
@@ -152,11 +155,13 @@ export function ReelCardFeed({ reel, onPress, isOwnContent, onDeleteRequest, can
         accessibilityLabel={`Pulse by ${authorName} — tap to watch`}
       >
         <View style={styles.thumbnailWrap}>
-          {thumbnailUri ? (
-            // Cover image takes priority — shown for all content that has one
+          {/* Cover image — shown whenever a poster/thumbnail URL is available */}
+          {thumbnailUri && (
             <Image source={{ uri: thumbnailUri }} style={styles.thumbnail} resizeMode="cover" />
-          ) : reel.videoUrl ? (
-            // Legacy content without a poster: fall back to muted video preview
+          )}
+
+          {/* Legacy fallback: no poster but has video — show muted video preview */}
+          {!thumbnailUri && reel.videoUrl && (
             <VideoView
               player={player}
               style={styles.thumbnail}
@@ -166,8 +171,10 @@ export function ReelCardFeed({ reel, onPress, isOwnContent, onDeleteRequest, can
               allowsPictureInPicture={false}
               accessibilityLabel="Pulse preview"
             />
-          ) : (
-            // No cover image and no video (pending upload or old draft)
+          )}
+
+          {/* Placeholder: no cover image and no video (pending upload or old draft) */}
+          {!thumbnailUri && !reel.videoUrl && (
             <View style={styles.thumbnailPlaceholder}>
               <Ionicons name="videocam-outline" size={32} color="rgba(255,255,255,0.3)" />
             </View>

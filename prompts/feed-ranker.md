@@ -1,8 +1,14 @@
 # Feed Ranker Prompt — Integration Guide
 
 File: `prompts/feed-ranker.promptl`  
-Platform: [Latitude](https://latitude.so) — PromptL format  
-Model: `gpt-4o` at temperature 0.2
+Platform: [Latitude](https://latitude.so) — observability only (traces, signals, monitors)  
+LLM: Amazon Nova via `api.nova.amazon.com` — same key already in `.env.local`  
+Model: `nova-2-lite-v1` at temperature 0.2  
+
+> **Provider note:** Latitude no longer hosts or executes prompts. It is an observability
+> platform — it receives traces of your LLM calls and surfaces issues. The prompt content
+> below lives in your codebase as a string in `convex/feedAI.ts`. Nova remains the LLM
+> provider. No new API keys are needed beyond what you already have.
 
 ---
 

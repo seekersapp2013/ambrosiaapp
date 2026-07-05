@@ -127,8 +127,8 @@ export const trackFollowAndUpdateInterests = internalMutation({
     
     if (!followedProfile) return;
     
-    // Extract interests from followed user's tags
-    const followedInterests = followedProfile.tags || [];
+    // BUG FIX: was followedProfile.tags — the field is profile.interests
+    const followedInterests = followedProfile.interests || [];
     
     // Update user's interests based on who they follow
     for (const interest of followedInterests) {
