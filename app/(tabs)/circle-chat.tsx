@@ -6,7 +6,7 @@ import React, { useState, useRef, useCallback, memo } from "react";
 import {
   View, Text, TouchableOpacity, FlatList, TextInput, StyleSheet,
   Alert, ActivityIndicator, Animated, KeyboardAvoidingView, Platform, Image,
-  StatusBar,
+  StatusBar, ScrollView, Pressable,
 } from "react-native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useQuery, useMutation } from "convex/react";
@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { AppBackground } from "@/components/AppBackground";
+import { MobileCard } from "@/components/MobileCard";
 import { Colors } from "@/constants/Colors";
 import { useNavigationHistory } from "@/context/NavigationHistoryContext";
 import { useTabBarHeight } from "@/utils/useDeviceClass";
@@ -204,6 +205,7 @@ export default function CircleChatScreen() {
   const [messageText, setMessageText] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [showEmojiBar, setShowEmojiBar] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
   const emojiAnim = useRef(new Animated.Value(0)).current;
 
   const circle = useQuery(api.circles.getCircleById,
@@ -212,13 +214,17 @@ export default function CircleChatScreen() {
     circleId ? { circleId: circleId as Id<"circles">, limit: 80 } : "skip");
   const pinnedMessages = useQuery(api.circleMessages.getPinnedMessages,
     circleId ? { circleId: circleId as Id<"circles"> } : "skip");
+  const membersResult = useQuery(api.circleMembers.getCircleMembers,
+    circleId && showMenu ? { circleId: circleId as Id<"circles">, limit: 100 } : "skip");
 
   const sendMessage  = useMutation(api.circleMessages.sendMessage);
   const deleteMsg    = useMutation(api.circleMessages.deleteMessage);
   const togglePin    = useMutation(api.circleMessages.togglePinMessage);
   const addReaction  = useMutation(api.circleMessages.addReaction);
+  const leaveCircle  = useMutation(api.circleMembers.leaveCircle);
 
   const isAdmin = ["CREATOR","ADMIN","MODERATOR"].includes(circle?.membership?.role ?? "");
+  const isCreator = circle?.membership?.role === "CREATOR";
   const inputPaddingBottom = tabBarHeight + insets.bottom + 8;
 
   // ── Emoji bar toggle ──────────────────────────────────────────────────────
@@ -270,6 +276,30 @@ export default function CircleChatScreen() {
     try { await addReaction({ messageId: msgId as Id<"circleMessages">, emoji }); } catch {}
   }, [addReaction]);
 
+  // ── Leave circle ──────────────────────────────────────────────────────────
+  const handleLeave = useCallback(() => {
+    Alert.alert(
+      "Leave Circle",
+      `Are you sure you want to leave "${circle?.name ?? "this circle"}"?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Leave",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await leaveCircle({ circleId: circleId as Id<"circles"> });
+              setShowMenu(false);
+              history.goBack(router, "/(tabs)/circle");
+            } catch (err: any) {
+              Alert.alert("Error", err?.message ?? "Could not leave circle.");
+            }
+          },
+        },
+      ]
+    );
+  }, [circle, circleId, leaveCircle, router, history]);
+
   // ── renderItem ────────────────────────────────────────────────────────────
   const renderItem = useCallback(({ item: msg, index }: { item: any; index: number }) => {
     const list = messages as any[] ?? [];
@@ -316,9 +346,11 @@ export default function CircleChatScreen() {
   if (circle === undefined || messages === undefined) {
     return (
       <AppBackground>
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color={Colors.primary} />
-        </View>
+        <MobileCard containerStyle={styles.cardContainer} style={styles.card}>
+          <View style={styles.center}>
+            <ActivityIndicator size="large" color={Colors.primary} />
+          </View>
+        </MobileCard>
       </AppBackground>
     );
   }
@@ -328,6 +360,7 @@ export default function CircleChatScreen() {
   return (
     <AppBackground>
       <StatusBar barStyle="light-content" />
+      <MobileCard containerStyle={styles.cardContainer} style={styles.card}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -366,7 +399,7 @@ export default function CircleChatScreen() {
 
           <TouchableOpacity
             style={styles.headerIconBtn}
-            onPress={() => router.push({ pathname: "/(tabs)/circle-detail", params: { circleId } } as any)}
+            onPress={() => setShowMenu(true)}
           >
             <Ionicons name="ellipsis-vertical" size={22} color={Colors.textPrimary} />
           </TouchableOpacity>
@@ -433,6 +466,12 @@ export default function CircleChatScreen() {
             placeholderTextColor={Colors.textMuted}
             value={messageText}
             onChangeText={setMessageText}
+            onKeyPress={({ nativeEvent }) => {
+              if (nativeEvent.key === "Enter") {
+                handleSend();
+              }
+            }}
+            blurOnSubmit={false}
             multiline
             maxLength={2000}
             accessibilityLabel="Message input"
@@ -450,6 +489,135 @@ export default function CircleChatScreen() {
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
+
+      {/* ── Circle Menu Sheet — absolute overlay inside the card ──── */}
+      {showMenu && (
+        <>
+          {/* Backdrop */}
+          <Pressable
+            style={StyleSheet.absoluteFillObject}
+            onPress={() => setShowMenu(false)}
+          >
+            <View style={styles.menuBackdrop} />
+          </Pressable>
+
+          {/* Sheet */}
+          <View style={styles.menuSheet}>
+            {/* Handle */}
+            <View style={styles.menuHandle} />
+
+            {/* Circle info header */}
+            <View style={styles.menuCircleHeader}>
+              <View style={styles.menuCircleAvatar}>
+                {circle?.coverImage
+                  ? <Image source={{ uri: circle.coverImage }} style={styles.menuCircleAvatarImg} />
+                  : <Ionicons name="people-circle-outline" size={32} color={Colors.primary} />
+                }
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.menuCircleName}>{circle?.name}</Text>
+                <Text style={styles.menuCircleSub}>
+                  {circle?.currentMembers ?? 0} members · {circle?.type === "PRIVATE" ? "Private" : "Public"}
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.menuDivider} />
+
+            {/* Circle Details action */}
+            <TouchableOpacity
+              style={styles.menuAction}
+              onPress={() => {
+                setShowMenu(false);
+                router.push({ pathname: "/(tabs)/circle-detail", params: { circleId } } as any);
+              }}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.menuActionIcon, { backgroundColor: Colors.bgPrimarySubtle }]}>
+                <Ionicons name="information-circle-outline" size={20} color={Colors.primary} />
+              </View>
+              <Text style={styles.menuActionText}>Circle Details</Text>
+              <Ionicons name="chevron-forward" size={16} color={Colors.iconSecondary} />
+            </TouchableOpacity>
+
+            <View style={styles.menuDivider} />
+
+            {/* Members section */}
+            <View style={styles.menuSectionHeader}>
+              <Ionicons name="people-outline" size={15} color={Colors.textMuted} />
+              <Text style={styles.menuSectionTitle}>
+                Participants · {membersResult?.total ?? circle?.currentMembers ?? 0}
+              </Text>
+            </View>
+
+            <ScrollView
+              style={styles.membersList}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            >
+              {membersResult === undefined ? (
+                <View style={styles.membersLoading}>
+                  <ActivityIndicator size="small" color={Colors.primary} />
+                </View>
+              ) : (
+                membersResult.members.map((m: any) => {
+                  const name = m.profile?.name ?? m.profile?.username ?? "Unknown";
+                  const initial = name[0]?.toUpperCase() ?? "?";
+                  const roleInfo = ROLE_BADGE[m.role];
+                  return (
+                    <View key={m._id} style={styles.memberRow}>
+                      <View style={styles.memberAvatar}>
+                        {m.profile?.avatar
+                          ? <Image source={{ uri: m.profile.avatar }} style={styles.memberAvatarImg} />
+                          : <Text style={styles.memberAvatarInitial}>{initial}</Text>
+                        }
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.memberName} numberOfLines={1}>{name}</Text>
+                        {m.profile?.username && (
+                          <Text style={styles.memberUsername}>@{m.profile.username}</Text>
+                        )}
+                      </View>
+                      {roleInfo && (
+                        <View style={[styles.memberRoleBadge, { backgroundColor: `${roleInfo.color}22`, borderColor: `${roleInfo.color}44` }]}>
+                          <Text style={[styles.memberRoleText, { color: roleInfo.color }]}>{roleInfo.label}</Text>
+                        </View>
+                      )}
+                    </View>
+                  );
+                })
+              )}
+            </ScrollView>
+
+            <View style={styles.menuDivider} />
+
+            {/* Leave circle — always visible except for creator */}
+            {circle?.membership?.role !== "CREATOR" ? (
+              <TouchableOpacity
+                style={styles.menuAction}
+                onPress={handleLeave}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.menuActionIcon, { backgroundColor: Colors.statusDangerBg }]}>
+                  <Ionicons name="exit-outline" size={20} color={Colors.statusDanger} />
+                </View>
+                <Text style={[styles.menuActionText, { color: Colors.statusDanger }]}>Leave Circle</Text>
+              </TouchableOpacity>
+            ) : (
+              <View style={styles.menuAction}>
+                <View style={[styles.menuActionIcon, { backgroundColor: Colors.bgElevated }]}>
+                  <Ionicons name="shield-checkmark-outline" size={20} color={Colors.textMuted} />
+                </View>
+                <Text style={[styles.menuActionText, { color: Colors.textMuted }]}>You own this circle</Text>
+              </View>
+            )}
+
+            <View style={{ height: tabBarHeight + insets.bottom + 16 }} />
+          </View>
+        </>
+      )}
+
+      </MobileCard>
     </AppBackground>
   );
 }
@@ -457,6 +625,18 @@ export default function CircleChatScreen() {
 // ── Styles ────────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
+
+  // MobileCard layout
+  cardContainer: {
+    flex: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    alignItems: "center",
+  },
+  card: {
+    flex: 1,
+    overflow: "hidden",
+  },
 
   // Header
   header: {
@@ -670,4 +850,131 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   sendBtnOff: { opacity: 0.4, shadowOpacity: 0 },
+
+  // ── Circle menu sheet ─────────────────────────────────────────────────────
+  menuBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.55)",
+  },
+  menuSheet: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: Colors.bgSurface,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    borderTopWidth: 1,
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
+    borderColor: Colors.borderDefault,
+    paddingTop: 12,
+    // shadow
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 20,
+  },
+  menuHandle: {
+    width: 40, height: 4, borderRadius: 2,
+    backgroundColor: Colors.borderDefault,
+    alignSelf: "center",
+    marginBottom: 16,
+  },
+  menuCircleHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+  },
+  menuCircleAvatar: {
+    width: 52, height: 52, borderRadius: 26,
+    backgroundColor: Colors.bgElevated,
+    borderWidth: 1.5, borderColor: Colors.redBorder,
+    alignItems: "center", justifyContent: "center",
+    overflow: "hidden",
+  },
+  menuCircleAvatarImg: { width: "100%", height: "100%" },
+  menuCircleName: {
+    fontSize: 16, fontWeight: "700", color: Colors.textPrimary,
+  },
+  menuCircleSub: {
+    fontSize: 12, color: Colors.textMuted, marginTop: 2,
+  },
+  menuDivider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: Colors.borderSubtle,
+    marginHorizontal: 16,
+  },
+  menuAction: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+  },
+  menuActionIcon: {
+    width: 38, height: 38, borderRadius: 19,
+    alignItems: "center", justifyContent: "center",
+  },
+  menuActionText: {
+    flex: 1,
+    fontSize: 15, fontWeight: "600", color: Colors.textPrimary,
+  },
+  menuSectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 20,
+    paddingTop: 14,
+    paddingBottom: 8,
+  },
+  menuSectionTitle: {
+    fontSize: 12, fontWeight: "700",
+    color: Colors.textMuted,
+    textTransform: "uppercase",
+    letterSpacing: 0.6,
+  },
+  membersList: {
+    maxHeight: 220,
+  },
+  membersLoading: {
+    paddingVertical: 20,
+    alignItems: "center",
+  },
+  memberRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: Colors.borderSubtle,
+  },
+  memberAvatar: {
+    width: 38, height: 38, borderRadius: 19,
+    backgroundColor: Colors.bgPrimaryMid,
+    borderWidth: 1, borderColor: Colors.redBorder,
+    alignItems: "center", justifyContent: "center",
+    overflow: "hidden",
+  },
+  memberAvatarImg: { width: "100%", height: "100%" },
+  memberAvatarInitial: {
+    fontSize: 15, fontWeight: "800", color: Colors.textPrimary,
+  },
+  memberName: {
+    fontSize: 14, fontWeight: "600", color: Colors.textPrimary,
+  },
+  memberUsername: {
+    fontSize: 11, color: Colors.textMuted, marginTop: 1,
+  },
+  memberRoleBadge: {
+    paddingHorizontal: 7, paddingVertical: 2,
+    borderRadius: 6, borderWidth: 1,
+  },
+  memberRoleText: {
+    fontSize: 10, fontWeight: "800", letterSpacing: 0.3,
+  },
 });
