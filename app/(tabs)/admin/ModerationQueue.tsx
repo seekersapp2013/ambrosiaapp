@@ -1,6 +1,7 @@
 /**
  * ModerationQueue — React Native
- * Phase 3: FlatList of pending content with approve/reject actions.
+ * Phase 3 + Light/Dark mode overhaul
+ * FlatList of pending content with approve/reject actions.
  */
 
 import React, { useState } from 'react';
@@ -22,7 +23,7 @@ import { api } from '@/convex/_generated/api';
 import { Ionicons } from '@expo/vector-icons';
 import { useCanApprove } from '@/app/hooks/usePermissions';
 import { EmptyStateCard } from '@/components/ui/Card';
-import { Colors } from '@/tokens/colors';
+import { useColors } from '@/hooks/useColors';
 import { typeScale } from '@/tokens/typography';
 import { spacing } from '@/tokens/spacing';
 import { radius } from '@/tokens/radius';
@@ -48,6 +49,7 @@ const CONTENT_ICONS: Record<ContentTypeValue, keyof typeof Ionicons.glyphMap> = 
 };
 
 export function ModerationQueue() {
+  const C = useColors();
   const [selectedFilter, setSelectedFilter] = useState<FilterType>('all');
   const [rejectTarget, setRejectTarget] = useState<any>(null);
   const [rejectReason, setRejectReason] = useState('');
@@ -128,22 +130,22 @@ export function ModerationQueue() {
     const canAct = canApproveType(item.contentType);
 
     return (
-      <View style={styles.itemCard}>
+      <View style={[styles.itemCard, { backgroundColor: C.bgElevated, borderColor: C.borderSubtle }]}>
         {/* Top row: badge + date */}
         <View style={styles.itemTopRow}>
-          <View style={styles.typeBadge}>
-            <Ionicons name={icon} size={12} color={Colors.palette.purple} />
-            <Text style={styles.typeBadgeText}>{label}</Text>
+          <View style={[styles.typeBadge, { backgroundColor: C.isDark ? C.purpleSurface : 'rgba(139,92,246,0.08)' }]}>
+            <Ionicons name={icon} size={12} color={C.palette.purple} />
+            <Text style={[styles.typeBadgeText, { color: C.palette.purple }]}>{label}</Text>
           </View>
-          <Text style={styles.itemDate}>
+          <Text style={[styles.itemDate, { color: C.textDisabled }]}>
             {new Date(item.createdAt).toLocaleDateString()}
           </Text>
         </View>
 
         {/* Submitter */}
-        <Text style={styles.itemSubmitter}>
+        <Text style={[styles.itemSubmitter, { color: C.textMuted }]}>
           Submitted by{' '}
-          <Text style={styles.itemSubmitterName}>
+          <Text style={[styles.itemSubmitterName, { color: C.textPrimary }]}>
             {item.submitter?.username
               ? `@${item.submitter.username}`
               : item.submitter?.name ?? 'Unknown'}
@@ -151,7 +153,7 @@ export function ModerationQueue() {
         </Text>
 
         {/* Content ID */}
-        <Text style={styles.itemId} numberOfLines={1}>
+        <Text style={[styles.itemId, { color: C.textDisabled }]} numberOfLines={1}>
           ID: {item.contentId}
         </Text>
 
@@ -159,21 +161,21 @@ export function ModerationQueue() {
         {canAct && (
           <View style={styles.itemActions}>
             <TouchableOpacity
-              style={[styles.actionBtn, styles.approveBtn]}
+              style={[styles.actionBtn, { backgroundColor: C.statusSuccess }]}
               onPress={() => handleApprove(item)}
               accessibilityRole="button"
               accessibilityLabel={`Approve ${label}`}
             >
-              <Ionicons name="checkmark" size={14} color={Colors.textPrimary} />
+              <Ionicons name="checkmark" size={14} color="#FFFFFF" />
               <Text style={styles.actionBtnText}>Approve</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.actionBtn, styles.rejectBtn]}
+              style={[styles.actionBtn, { backgroundColor: C.statusDanger }]}
               onPress={() => openRejectModal(item)}
               accessibilityRole="button"
               accessibilityLabel={`Reject ${label}`}
             >
-              <Ionicons name="close" size={14} color={Colors.textPrimary} />
+              <Ionicons name="close" size={14} color="#FFFFFF" />
               <Text style={styles.actionBtnText}>Reject</Text>
             </TouchableOpacity>
           </View>
@@ -196,12 +198,16 @@ export function ModerationQueue() {
           const active = selectedFilter === f.id;
           return (
             <TouchableOpacity
-              style={[styles.filterPill, active && styles.filterPillActive]}
+              style={[
+                styles.filterPill,
+                { backgroundColor: C.isDark ? C.bgElevated : C.bgInput, borderColor: C.borderSubtle },
+                active && { backgroundColor: C.actionPrimary, borderColor: C.actionPrimary },
+              ]}
               onPress={() => setSelectedFilter(f.id)}
               accessibilityRole="tab"
               accessibilityState={{ selected: active }}
             >
-              <Text style={[styles.filterPillText, active && styles.filterPillTextActive]}>
+              <Text style={[styles.filterPillText, { color: C.textMuted }, active && styles.filterPillTextActive]}>
                 {f.label}
               </Text>
             </TouchableOpacity>
@@ -212,7 +218,7 @@ export function ModerationQueue() {
       {/* Queue list */}
       {queue === undefined ? (
         <View style={styles.loaderWrap}>
-          <ActivityIndicator color={Colors.actionPrimary} size="large" />
+          <ActivityIndicator color={C.actionPrimary} size="large" />
         </View>
       ) : (
         <FlatList
@@ -242,17 +248,17 @@ export function ModerationQueue() {
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.modalOverlay}
         >
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Reject Content</Text>
-            <Text style={styles.modalSubtitle}>
+          <View style={[styles.modalCard, { backgroundColor: C.bgSurface, borderColor: C.borderSubtle }]}>
+            <Text style={[styles.modalTitle, { color: C.textPrimary }]}>Reject Content</Text>
+            <Text style={[styles.modalSubtitle, { color: C.textMuted }]}>
               Please provide a reason. The creator will be notified.
             </Text>
             <TextInput
-              style={styles.modalInput}
+              style={[styles.modalInput, { backgroundColor: C.bgInput, borderColor: C.borderDefault, color: C.textPrimary }]}
               value={rejectReason}
               onChangeText={setRejectReason}
               placeholder="Enter rejection reason…"
-              placeholderTextColor={Colors.textDisabled}
+              placeholderTextColor={C.textDisabled}
               multiline
               numberOfLines={4}
               textAlignVertical="top"
@@ -262,7 +268,7 @@ export function ModerationQueue() {
               <TouchableOpacity
                 style={[
                   styles.modalBtn,
-                  styles.modalBtnReject,
+                  { backgroundColor: C.statusDanger },
                   (!rejectReason.trim() || isRejecting) && styles.modalBtnDisabled,
                 ]}
                 onPress={handleReject}
@@ -271,18 +277,18 @@ export function ModerationQueue() {
                 accessibilityLabel="Confirm rejection"
               >
                 {isRejecting ? (
-                  <ActivityIndicator color={Colors.textPrimary} size="small" />
+                  <ActivityIndicator color="#FFFFFF" size="small" />
                 ) : (
-                  <Text style={styles.modalBtnText}>Reject</Text>
+                  <Text style={styles.modalBtnRejectText}>Reject</Text>
                 )}
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.modalBtn, styles.modalBtnCancel]}
+                style={[styles.modalBtn, { backgroundColor: C.isDark ? C.bgElevated : C.bgInput, borderWidth: 1, borderColor: C.borderDefault }]}
                 onPress={closeRejectModal}
                 accessibilityRole="button"
                 accessibilityLabel="Cancel rejection"
               >
-                <Text style={[styles.modalBtnText, { color: Colors.textPrimary }]}>Cancel</Text>
+                <Text style={[styles.modalBtnCancelText, { color: C.textPrimary }]}>Cancel</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -293,14 +299,10 @@ export function ModerationQueue() {
 }
 
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-  },
-  filterBarList: {
-    flexGrow: 0,
-    flexShrink: 0,
-    height: 48,
-  },
+  root: { flex: 1 },
+
+  // Filter bar
+  filterBarList: { flexGrow: 0, flexShrink: 0, height: 48 },
   filterBar: {
     paddingHorizontal: spacing.screenPaddingH,
     paddingVertical: spacing.space2,
@@ -311,44 +313,28 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.space3,
     paddingVertical: 6,
     borderRadius: radius.radiusFull,
-    backgroundColor: Colors.bgElevated,
     borderWidth: 1,
-    borderColor: Colors.borderSubtle,
     height: 30,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  filterPillActive: {
-    backgroundColor: Colors.actionPrimary,
-    borderColor: Colors.actionPrimary,
-  },
   filterPillText: {
     ...typeScale.labelSM,
-    color: Colors.textMuted,
     lineHeight: 16,
   },
-  filterPillTextActive: {
-    color: Colors.textPrimary,
-  },
-  loaderWrap: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  filterPillTextActive: { color: '#FFFFFF', fontWeight: '700' },
+
+  loaderWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   listContent: {
     paddingHorizontal: spacing.screenPaddingH,
     paddingBottom: spacing.scrollBottomPadding,
   },
-  emptyState: {
-    marginTop: spacing.space10,
-  },
+  emptyState: { marginTop: spacing.space10 },
 
   // Item card
   itemCard: {
-    backgroundColor: Colors.bgSurface,
     borderRadius: radius.radiusLG,
     borderWidth: 1,
-    borderColor: Colors.borderSubtle,
     padding: spacing.space4,
     marginBottom: spacing.space3,
   },
@@ -362,38 +348,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: Colors.purpleSurface,
     borderRadius: radius.radiusFull,
     paddingHorizontal: spacing.space2,
     paddingVertical: 3,
   },
-  typeBadgeText: {
-    ...typeScale.caption,
-    color: Colors.palette.purple,
-    fontWeight: '600',
-  },
-  itemDate: {
-    ...typeScale.caption,
-    color: Colors.textDisabled,
-  },
-  itemSubmitter: {
-    ...typeScale.bodySM,
-    color: Colors.textMuted,
-    marginBottom: 4,
-  },
-  itemSubmitterName: {
-    color: Colors.textPrimary,
-    fontWeight: '600',
-  },
-  itemId: {
-    ...typeScale.caption,
-    color: Colors.textDisabled,
-    marginBottom: spacing.space3,
-  },
-  itemActions: {
-    flexDirection: 'row',
-    gap: spacing.space2,
-  },
+  typeBadgeText: { ...typeScale.caption, fontWeight: '600' },
+  itemDate: { ...typeScale.caption },
+  itemSubmitter: { ...typeScale.bodySM, marginBottom: 4 },
+  itemSubmitterName: { fontWeight: '600' },
+  itemId: { ...typeScale.caption, marginBottom: spacing.space3 },
+  itemActions: { flexDirection: 'row', gap: spacing.space2 },
   actionBtn: {
     flex: 1,
     flexDirection: 'row',
@@ -403,59 +367,34 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.space2,
     borderRadius: radius.radiusMD,
   },
-  approveBtn: {
-    backgroundColor: Colors.statusSuccess,
-  },
-  rejectBtn: {
-    backgroundColor: Colors.statusDanger,
-  },
-  actionBtnText: {
-    ...typeScale.labelSM,
-    color: Colors.textPrimary,
-  },
+  actionBtnText: { ...typeScale.labelSM, color: '#FFFFFF', fontWeight: '700' },
 
   // Modal
   modalOverlay: {
     flex: 1,
-    backgroundColor: Colors.bgOverlay,
+    backgroundColor: 'rgba(0,0,0,0.6)',
     alignItems: 'center',
     justifyContent: 'center',
     padding: spacing.screenPaddingH,
   },
   modalCard: {
-    backgroundColor: Colors.bgSurface,
     borderRadius: radius.radiusLG,
     borderWidth: 1,
-    borderColor: Colors.borderSubtle,
     padding: spacing.space6,
     width: '100%',
     maxWidth: 400,
   },
-  modalTitle: {
-    ...typeScale.headingMD,
-    color: Colors.textPrimary,
-    marginBottom: spacing.space2,
-  },
-  modalSubtitle: {
-    ...typeScale.bodySM,
-    color: Colors.textMuted,
-    marginBottom: spacing.space4,
-  },
+  modalTitle: { ...typeScale.headingMD, marginBottom: spacing.space2 },
+  modalSubtitle: { ...typeScale.bodySM, marginBottom: spacing.space4 },
   modalInput: {
-    backgroundColor: Colors.bgElevated,
     borderRadius: radius.radiusMD,
     borderWidth: 1,
-    borderColor: Colors.borderDefault,
-    color: Colors.textPrimary,
     padding: spacing.space3,
     minHeight: 100,
     ...typeScale.bodyMD,
     marginBottom: spacing.space4,
   },
-  modalActions: {
-    flexDirection: 'row',
-    gap: spacing.space3,
-  },
+  modalActions: { flexDirection: 'row', gap: spacing.space3 },
   modalBtn: {
     flex: 1,
     alignItems: 'center',
@@ -464,19 +403,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.radiusMD,
     minHeight: 44,
   },
-  modalBtnReject: {
-    backgroundColor: Colors.statusDanger,
-  },
-  modalBtnCancel: {
-    backgroundColor: Colors.bgElevated,
-    borderWidth: 1,
-    borderColor: Colors.borderDefault,
-  },
-  modalBtnDisabled: {
-    opacity: 0.4,
-  },
-  modalBtnText: {
-    ...typeScale.labelMD,
-    color: Colors.textPrimary,
-  },
+  modalBtnDisabled: { opacity: 0.4 },
+  modalBtnRejectText: { ...typeScale.labelMD, color: '#FFFFFF', fontWeight: '700' },
+  modalBtnCancelText: { ...typeScale.labelMD, fontWeight: '600' },
 });

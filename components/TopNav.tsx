@@ -1,17 +1,28 @@
 /**
  * TopNav — Shared top navigation header used across all tab screens.
  *
- * - Title is derived automatically from the active route segment so it
- *   matches the current bottom-nav label (e.g. "For You", "Wallet", …).
- * - Pass `title` explicitly to override the auto-detected label.
- * - Notification bell with unread badge is included by default.
- * - Profile avatar button navigates to the profile screen.
- * - Back button appears automatically when there is navigation history
- *   (i.e. the user arrived here from another screen via history.push).
+ * Theme behaviour:
+ *   Dark  — bgSurface (#0F0F1E) with crimson-tinted bottom border (unchanged)
+ *   Light — solid white (#FFFFFF) with a neutral hairline bottom border
+ *           and a mild drop shadow. Clean and flat — matching the reference
+ *           health-app navigation style.
+ *
+ * Features:
+ *   - Auto title from route segment (or explicit `title` prop)
+ *   - Sun/moon toggle for light/dark mode
+ *   - Notification bell with unread badge
+ *   - Profile avatar
+ *   - Back button when navigation history exists
  */
 
 import React from "react";
-import { TouchableOpacity, StyleSheet, View as RNView, Image } from "react-native";
+import {
+  TouchableOpacity,
+  StyleSheet,
+  View as RNView,
+  Image,
+  Platform,
+} from "react-native";
 import { View, Text } from "tamagui";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useSegments } from "expo-router";
@@ -19,7 +30,8 @@ import { useQuery } from "convex/react";
 
 import { api } from "@/convex/_generated/api";
 import { AppLogo } from "@/components/AppLogo";
-import { Colors } from "@/constants/Colors";
+import { useAppTheme } from "@/context/ThemeContext";
+import { useColors } from "@/hooks/useColors";
 import { useNavigationHistory } from "@/context/NavigationHistoryContext";
 
 // ─── Segment → human-readable label map ──────────────────────────────────────
@@ -40,78 +52,86 @@ const SEGMENT_LABELS: Record<string, string> = {
 
 function useRouteTitle(): string {
   const segments = useSegments();
-  // segments looks like ["(tabs)", "for-you"] — grab the last meaningful part
   const last = [...segments].reverse().find((s) => !s.startsWith("("));
   if (!last) return "";
-  return SEGMENT_LABELS[last] ?? last.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+  return (
+    SEGMENT_LABELS[last] ??
+    last.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
+  );
 }
 
-// ─── Logo size — keeps title height consistent with the logo ─────────────────
 const LOGO_SIZE = 40;
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 interface TopNavProps {
-  /** Override the auto-detected route title */
-  title?: string;
-  /** Hide the notification bell (default: false) */
+  title?:             string;
   hideNotifications?: boolean;
-  /** Hide the profile avatar button (default: false) */
-  hideProfile?: boolean;
-  /** Extra element(s) rendered between the title and the bell/avatar buttons */
-  trailing?: React.ReactNode;
+  hideProfile?:       boolean;
+  trailing?:          React.ReactNode;
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
-export function TopNav({ title, hideNotifications = false, hideProfile = false, trailing }: TopNavProps) {
-  const router = useRouter();
-  const routeTitle = useRouteTitle();
-  const label = title ?? routeTitle;
-  const history = useNavigationHistory();
+export function TopNav({
+  title,
+  hideNotifications = false,
+  hideProfile       = false,
+  trailing,
+}: TopNavProps) {
+  const router   = useRouter();
+  const label    = title ?? useRouteTitle();
+  const history  = useNavigationHistory();
+  const { isDark, toggleTheme } = useAppTheme();
+  const C        = useColors();
 
-  const unreadCount = useQuery(api.notifications.getUnreadCount);
-
-  // Fetch current user's profile for the avatar
-  const profile = useQuery(api.profiles.getMyProfile) as
-    | { avatar?: string | null; name?: string | null; username?: string | null }
-    | null
-    | undefined;
+  const unreadCount     = useQuery(api.notifications.getUnreadCount);
+  const profile         = useQuery(api.profiles.getMyProfile) as
+    | { avatar?: string | null } | null | undefined;
   const profilePictureUrl = useQuery(
     api.profiles.getProfilePictureUrl,
     profile?.avatar ? { storageId: profile.avatar } : "skip"
   );
 
-  // Show a back button only when the user arrived here via history.push
   const hasHistory = history.stackDepth > 0;
+
+  // ── nav bar surface ────────────────────────────────────────────────────────
+  // Both modes use dark navy — gives the app a strong branded header contrast.
+  const navBg          = '#0F0F1E';
+  const navBorderColor = 'rgba(198,34,41,0.35)';
+
+  // Text/icon colors are always light on the dark nav surface
+  const navTextColor = '#FFFFFF';
+  const navIconColor = '#D1D5DB';
 
   return (
     <View
-      backgroundColor={Colors.surface}
+      backgroundColor={navBg}
       borderBottomWidth={1}
-      borderBottomColor={Colors.redBorder}
+      borderBottomColor={navBorderColor}
       paddingVertical="$3"
       paddingHorizontal="$4"
+      // No shadow needed — dark nav on both modes
     >
       <View flexDirection="row" alignItems="center" gap="$3">
-        {/* Back button — only shown when there's history */}
+
+        {/* Back button or Logo */}
         {hasHistory ? (
           <TouchableOpacity
             onPress={() => history.goBack(router)}
-            style={styles.backBtn}
+            style={styles.iconBtn}
             accessibilityRole="button"
             accessibilityLabel="Go back"
           >
-            <Ionicons name="chevron-back" size={24} color={Colors.textSecondary} />
+            <Ionicons name="chevron-back" size={24} color={navIconColor} />
           </TouchableOpacity>
         ) : (
-          /* Logo — shown when no back button */
           <AppLogo size={LOGO_SIZE} showGlow />
         )}
 
-        {/* Title — same height as the logo so they sit flush */}
+        {/* Title */}
         <View flex={1} height={LOGO_SIZE} justifyContent="center">
           <Text
-            color={Colors.textPrimary}
-            fontSize={LOGO_SIZE * 0.7}   // 28px — visually balanced with 40px logo
+            color={navTextColor}
+            fontSize={LOGO_SIZE * 0.7}
             fontWeight="800"
             letterSpacing={-0.5}
             numberOfLines={1}
@@ -121,34 +141,40 @@ export function TopNav({ title, hideNotifications = false, hideProfile = false, 
           </Text>
         </View>
 
-        {/* Trailing slot — extra actions before bell/avatar */}
+        {/* Trailing slot */}
         {trailing}
+
+        {/* Light / Dark toggle */}
+        <TouchableOpacity
+          onPress={toggleTheme}
+          style={styles.iconBtn}
+          accessibilityRole="button"
+          accessibilityLabel={isDark ? "Switch to light mode" : "Switch to dark mode"}
+        >
+          <Ionicons
+            name={isDark ? "sunny-outline" : "moon-outline"}
+            size={20}
+            color={navIconColor}
+          />
+        </TouchableOpacity>
 
         {/* Notification bell */}
         {!hideNotifications && (
           <TouchableOpacity
             onPress={() => {
-              // Track navigation before going to notifications
               history.push("/(tabs)/for-you");
               router.push("/(tabs)/notification");
             }}
-            style={styles.bellBtn}
+            style={styles.iconBtn}
             accessibilityRole="button"
             accessibilityLabel="Notifications"
           >
-            <Ionicons
-              name="notifications-outline"
-              size={22}
-              color={Colors.textSecondary}
-            />
+            <Ionicons name="notifications-outline" size={22} color={navIconColor} />
             {(unreadCount ?? 0) > 0 && (
-              <RNView style={styles.bellBadge}>
-                <Text
-                  color="#fff"
-                  fontSize={9}
-                  fontWeight="700"
-                  allowFontScaling={false}
-                >
+              <RNView
+                style={[styles.bellBadge, { backgroundColor: C.actionPrimary }]}
+              >
+                <Text color="#fff" fontSize={9} fontWeight="700" allowFontScaling={false}>
                   {(unreadCount ?? 0) > 99 ? "99+" : unreadCount}
                 </Text>
               </RNView>
@@ -168,14 +194,18 @@ export function TopNav({ title, hideNotifications = false, hideProfile = false, 
             accessibilityLabel="Profile"
           >
             {profilePictureUrl ? (
-              <Image
-                source={{ uri: profilePictureUrl }}
-                style={styles.avatarImg}
-                accessible={false}
-              />
+              <Image source={{ uri: profilePictureUrl }} style={styles.avatarImg} accessible={false} />
             ) : (
-              <RNView style={styles.avatarPlaceholder}>
-                <Ionicons name="person" size={16} color={Colors.textSecondary} />
+              <RNView
+                style={[
+                  styles.avatarPlaceholder,
+                  {
+                    backgroundColor: C.bgElevated,
+                    borderColor:     C.redBorder,
+                  },
+                ]}
+              >
+                <Ionicons name="person" size={16} color={navIconColor} />
               </RNView>
             )}
           </TouchableOpacity>
@@ -187,52 +217,50 @@ export function TopNav({ title, hideNotifications = false, hideProfile = false, 
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  backBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "center",
+  lightShadow: {
+    // Soft downward shadow on light mode nav — separates it from page content
+    shadowColor:   "#000000",
+    shadowOffset:  { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius:  8,
+    elevation:     3,
   },
-  bellBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "center",
-    position: "relative",
+  iconBtn: {
+    width:           40,
+    height:          40,
+    borderRadius:    20,
+    alignItems:      "center",
+    justifyContent:  "center",
+    position:        "relative",
   },
   bellBadge: {
-    position: "absolute",
-    top: 4,
-    right: 4,
-    minWidth: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: Colors.primary,
-    alignItems: "center",
-    justifyContent: "center",
+    position:        "absolute",
+    top:             4,
+    right:           4,
+    minWidth:        16,
+    height:          16,
+    borderRadius:    8,
+    alignItems:      "center",
+    justifyContent:  "center",
     paddingHorizontal: 3,
   },
   avatarBtn: {
-    width: 34,
-    height: 34,
+    width:        34,
+    height:       34,
     borderRadius: 17,
-    overflow: "hidden",
+    overflow:     "hidden",
   },
   avatarImg: {
-    width: 34,
-    height: 34,
+    width:        34,
+    height:       34,
     borderRadius: 17,
   },
   avatarPlaceholder: {
-    width: 34,
-    height: 34,
+    width:        34,
+    height:       34,
     borderRadius: 17,
-    backgroundColor: Colors.surface,
-    borderWidth: 1,
-    borderColor: Colors.redBorder,
-    alignItems: "center",
+    borderWidth:  1,
+    alignItems:   "center",
     justifyContent: "center",
   },
 });

@@ -28,13 +28,14 @@ import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Colors } from "@/tokens/colors";
+import { useColors } from "@/hooks/useColors";
 import { typeScale } from "@/tokens/typography";
 import { spacing } from "@/tokens/spacing";
 import { MobileCard, useCardInsets } from "@/components/MobileCard";
 
 // ─── Comment item ─────────────────────────────────────────────────────────────
 function CommentItem({ comment }: { comment: any }) {
+  const C = useColors();
   const avatarUrl = useQuery(
     api.files.getFileUrl,
     comment.author?.avatar ? { storageId: comment.author.avatar } : "skip"
@@ -53,7 +54,7 @@ function CommentItem({ comment }: { comment: any }) {
 
   return (
     <View style={styles.commentRow}>
-      <View style={styles.commentAvatar}>
+      <View style={[styles.commentAvatar, { backgroundColor: C.bgElevated, borderColor: C.borderSubtle }]}>
         {avatarUrl ? (
           <Image
             source={{ uri: avatarUrl }}
@@ -61,19 +62,19 @@ function CommentItem({ comment }: { comment: any }) {
             accessible={false}
           />
         ) : (
-          <Ionicons name="person" size={18} color={Colors.iconSecondary} />
+          <Ionicons name="person" size={18} color={C.iconSecondary} />
         )}
       </View>
       <View style={styles.commentBody}>
         <View style={styles.commentMeta}>
-          <Text style={styles.commentAuthor} allowFontScaling={false}>
+          <Text style={[styles.commentAuthor, { color: C.textPrimary }]} allowFontScaling={false}>
             {comment.author?.username ?? comment.author?.name ?? "Unknown"}
           </Text>
-          <Text style={styles.commentTime} allowFontScaling={false}>
+          <Text style={[styles.commentTime, { color: C.textDisabled }]} allowFontScaling={false}>
             {timeAgo(comment.createdAt)}
           </Text>
         </View>
-        <Text style={styles.commentText}>
+        <Text style={[styles.commentText, { color: C.textSecondary }]}>
           {comment.content}
         </Text>
       </View>
@@ -100,6 +101,17 @@ export function ArticleCommentsSheet({
   const [text, setText]           = useState("");
   const [submitting, setSubmitting] = useState(false);
   const slideAnim = useRef(new Animated.Value(0)).current;
+  const C = useColors();
+
+  // Header and input bar always use dark-mode appearance for contrast
+  const headerBg = '#0F0F1E';
+  const headerText = '#FFFFFF';
+  const headerIcon = '#D1D5DB';
+  const headerBorder = 'rgba(255,255,255,0.08)';
+  const inputBarBg = '#0F0F1E';
+  const inputBg = '#08080F';
+  const inputBorder = 'rgba(255,255,255,0.12)';
+  const inputText = '#FFFFFF';
 
   const comments      = useQuery(
     api.engagement.getArticleComments,
@@ -153,28 +165,28 @@ export function ArticleCommentsSheet({
         style={[styles.sheetOuter, { left: cardInsets.left, right: cardInsets.right, transform: [{ translateY }] }]}
       >
         <MobileCard style={styles.card} containerStyle={styles.cardContainer}>
-          {/* Handle bar */}
-          <View style={styles.handleWrap}>
-            <View style={styles.handle} />
-          </View>
-
-          {/* Header */}
-          <View style={styles.sheetHeader}>
-            <Text style={styles.sheetTitle} allowFontScaling={false}>
-              Comments
-              {comments !== undefined && (
-                <Text style={styles.sheetCount}> ({comments.length})</Text>
-              )}
-            </Text>
-            <TouchableOpacity
-              onPress={onClose}
-              style={styles.closeBtn}
-              activeOpacity={0.75}
-              accessibilityRole="button"
-              accessibilityLabel="Close comments"
-            >
-              <Ionicons name="close" size={22} color={Colors.iconPrimary} />
-            </TouchableOpacity>
+          {/* Handle bar — inside the dark header */}
+          <View style={[styles.sheetHeader, { backgroundColor: headerBg, borderBottomColor: headerBorder }]}>
+            <View style={styles.handleWrap}>
+              <View style={styles.handle} />
+            </View>
+            <View style={styles.headerRow}>
+              <Text style={[styles.sheetTitle, { color: headerText }]} allowFontScaling={false}>
+                Comments
+                {comments !== undefined && (
+                  <Text style={{ color: '#9CA3AF' }}> ({comments.length})</Text>
+                )}
+              </Text>
+              <TouchableOpacity
+                onPress={onClose}
+                style={styles.closeBtn}
+                activeOpacity={0.75}
+                accessibilityRole="button"
+                accessibilityLabel="Close comments"
+              >
+                <Ionicons name="close" size={22} color={headerIcon} />
+              </TouchableOpacity>
+            </View>
           </View>
 
           <KeyboardAvoidingView
@@ -185,19 +197,19 @@ export function ArticleCommentsSheet({
             {/* Comment list */}
             {comments === undefined ? (
               <View style={styles.centered}>
-                <ActivityIndicator color={Colors.actionPrimary} />
+                <ActivityIndicator color={C.actionPrimary} />
               </View>
             ) : comments.length === 0 ? (
               <View style={styles.centered}>
                 <Ionicons
                   name="chatbubble-outline"
                   size={40}
-                  color={Colors.iconDisabled}
+                  color={C.textDisabled}
                 />
-                <Text style={styles.emptyText} allowFontScaling={false}>
+                <Text style={[styles.emptyText, { color: C.textMuted }]} allowFontScaling={false}>
                   No comments yet
                 </Text>
-                <Text style={styles.emptySubtext} allowFontScaling={false}>
+                <Text style={[styles.emptySubtext, { color: C.textDisabled }]} allowFontScaling={false}>
                   Be the first to comment
                 </Text>
               </View>
@@ -208,19 +220,19 @@ export function ArticleCommentsSheet({
                 renderItem={({ item }) => <CommentItem comment={item} />}
                 contentContainerStyle={styles.listContent}
                 showsVerticalScrollIndicator={false}
-                ItemSeparatorComponent={() => <View style={styles.separator} />}
+                ItemSeparatorComponent={() => <View style={[styles.separator, { backgroundColor: C.borderSubtle }]} />}
                 style={styles.list}
                 keyboardShouldPersistTaps="handled"
               />
             )}
 
             {/* Input bar */}
-            <View style={[styles.inputBar, { paddingBottom: insets.bottom + 8 }]}>
+            <View style={[styles.inputBar, { paddingBottom: insets.bottom + 8, backgroundColor: inputBarBg, borderTopColor: headerBorder }]}>
               <TextInput
                 ref={inputRef}
-                style={styles.input}
+                style={[styles.input, { backgroundColor: inputBg, borderColor: inputBorder, color: inputText }]}
                 placeholder="Add a comment…"
-                placeholderTextColor={Colors.textDisabled}
+                placeholderTextColor="#6B7280"
                 value={text}
                 onChangeText={setText}
                 maxLength={500}
@@ -234,7 +246,8 @@ export function ArticleCommentsSheet({
               <TouchableOpacity
                 style={[
                   styles.sendBtn,
-                  (!text.trim() || submitting) && styles.sendBtnDisabled,
+                  { backgroundColor: C.actionPrimary },
+                  (!text.trim() || submitting) && { backgroundColor: C.actionPrimaryDisabled },
                 ]}
                 onPress={handleSubmit}
                 disabled={!text.trim() || submitting}
@@ -284,35 +297,35 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 0,
   },
 
+  sheetHeader: {
+    paddingHorizontal: spacing.space4,
+    paddingBottom: spacing.space3,
+    borderBottomWidth: 1,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+  },
   handleWrap: {
     alignItems: "center",
     paddingTop: 10,
-    paddingBottom: 4,
+    paddingBottom: 8,
   },
   handle: {
     width: 36,
     height: 4,
     borderRadius: 2,
-    backgroundColor: Colors.borderDefault,
+    backgroundColor: 'rgba(255,255,255,0.20)',
   },
-
-  sheetHeader: {
+  headerRow: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: spacing.space4,
-    paddingVertical: spacing.space3,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.borderSubtle,
   },
   sheetTitle: {
     flex: 1,
     ...typeScale.headingMD,
-    color: Colors.textPrimary,
     textAlign: "center",
   },
   sheetCount: {
     ...typeScale.bodyMD,
-    color: Colors.textMuted,
   },
   closeBtn: {
     width: 32,
@@ -321,7 +334,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
 
-  sheetBody: { flex: 1 },
+  sheetBody: { flex: 1, backgroundColor: 'transparent' },
 
   list: { flex: 1 },
   listContent: {
@@ -330,7 +343,6 @@ const styles = StyleSheet.create({
   },
   separator: {
     height: 1,
-    backgroundColor: Colors.borderSubtle,
     marginVertical: spacing.space3,
   },
 
@@ -342,9 +354,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: Colors.bgElevated,
     borderWidth: 1,
-    borderColor: Colors.borderSubtle,
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
@@ -362,11 +372,10 @@ const styles = StyleSheet.create({
     gap: spacing.space2,
     marginBottom: 3,
   },
-  commentAuthor: { ...typeScale.labelSM, color: Colors.textPrimary },
-  commentTime:   { ...typeScale.caption, color: Colors.textDisabled },
+  commentAuthor: { ...typeScale.labelSM },
+  commentTime:   { ...typeScale.caption },
   commentText: {
     ...typeScale.bodyMD,
-    color: Colors.textSecondary,
     lineHeight: 20,
   },
 
@@ -376,8 +385,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: spacing.space3,
   },
-  emptyText:    { ...typeScale.headingSM, color: Colors.textMuted },
-  emptySubtext: { ...typeScale.bodyMD,    color: Colors.textDisabled },
+  emptyText:    { ...typeScale.headingSM },
+  emptySubtext: { ...typeScale.bodyMD },
 
   inputBar: {
     flexDirection: "row",
@@ -386,29 +395,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.space4,
     paddingTop: spacing.space3,
     borderTopWidth: 1,
-    borderTopColor: Colors.borderSubtle,
-    backgroundColor: Colors.bgElevated,
   },
   input: {
     flex: 1,
     height: 44,
-    backgroundColor: Colors.bgBase,
     borderWidth: 1,
-    borderColor: Colors.borderDefault,
     borderRadius: 22,
     paddingHorizontal: spacing.space4,
     ...typeScale.bodyMD,
-    color: Colors.textPrimary,
   },
   sendBtn: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: Colors.actionPrimary,
     alignItems: "center",
     justifyContent: "center",
-  },
-  sendBtnDisabled: {
-    backgroundColor: Colors.actionPrimaryDisabled,
   },
 });

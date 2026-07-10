@@ -172,7 +172,7 @@ export default function HistoryScreen() {
     <AppBackground>
       <ScreenHeader
         title="Booking History"
-        onBack={() => router.back()}
+        onBack={() => router.replace("/(tabs)/booking" as any)}
       />
 
       <MobileCard>

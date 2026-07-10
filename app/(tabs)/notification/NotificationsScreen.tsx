@@ -22,8 +22,10 @@ import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useRouter } from "expo-router";
 
 import { Colors } from "@/tokens/colors";
+import { useColors } from "@/hooks/useColors";
 import { typeScale } from "@/tokens/typography";
 import { spacing } from "@/tokens/spacing";
 import { radius } from "@/tokens/radius";
@@ -55,6 +57,20 @@ function getNotificationIcon(type: string): keyof typeof Ionicons.glyphMap {
     case "WALLET_WITHDRAWAL":        return "arrow-up-circle";
     case "WALLET_TRANSFER_SENT":     return "send";
     case "WALLET_TRANSFER_RECEIVED": return "wallet";
+    // ── Booking types ────────────────────────────────────────────────────────
+    case "booking_confirmed":        return "calendar-outline";
+    case "booking_new":              return "calendar";
+    case "booking_cancelled":        return "close-circle-outline";
+    case "booking_reminder":         return "alarm-outline";
+    case "session_started":          return "videocam";
+    case "session_ended":            return "videocam-off-outline";
+    // ── Referral types ───────────────────────────────────────────────────────
+    case "referral_new_received":    return "git-network-outline";
+    case "referral_expert_selected": return "checkmark-circle-outline";
+    case "referral_selected_expert": return "person-add-outline";
+    case "referral_declined":        return "close-circle-outline";
+    case "referral_completed":       return "trophy-outline";
+    case "referral_circle_created":  return "people-circle-outline";
     default:                         return "notifications";
   }
 }
@@ -73,6 +89,20 @@ function getNotificationIconColor(type: string): string {
     case "WALLET_WITHDRAWAL":        return Colors.statusWarning;
     case "WALLET_TRANSFER_SENT":     return Colors.statusInfo;
     case "WALLET_TRANSFER_RECEIVED": return Colors.statusSuccess;
+    // ── Booking types ────────────────────────────────────────────────────────
+    case "booking_confirmed":        return Colors.statusSuccess;
+    case "booking_new":              return Colors.actionPrimary;
+    case "booking_cancelled":        return Colors.statusDanger;
+    case "booking_reminder":         return Colors.statusWarning;
+    case "session_started":          return Colors.statusSuccess;
+    case "session_ended":            return Colors.textMuted;
+    // ── Referral types ───────────────────────────────────────────────────────
+    case "referral_new_received":    return Colors.actionPrimary;
+    case "referral_expert_selected": return Colors.statusSuccess;
+    case "referral_selected_expert": return Colors.statusInfo;
+    case "referral_declined":        return Colors.statusDanger;
+    case "referral_completed":       return Colors.statusSuccess;
+    case "referral_circle_created":  return Colors.statusWarning;
     default:                         return Colors.iconSecondary;
   }
 }
@@ -113,8 +143,16 @@ export function NotificationsScreen({
   highlightNotificationId,
 }: NotificationsScreenProps) {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const C = useColors();
   const [activeCategory, setActiveCategory] = useState<CategoryFilter>("all");
   const [refreshing, setRefreshing] = useState(false);
+
+  // Header always uses dark navy for contrast (same as TopNav)
+  const headerBg = '#0F0F1E';
+  const headerText = '#FFFFFF';
+  const headerIcon = '#D1D5DB';
+  const headerBorder = 'rgba(198,34,41,0.35)';
 
   const notifications = useQuery(api.notifications.getMyNotifications, {
     limit: 50,
@@ -171,24 +209,122 @@ export function NotificationsScreen({
     setTimeout(() => setRefreshing(false), 600);
   }, []);
 
+  // ── Deep-link routing based on notification type + metadata ──────────────
+  const handleNotificationPress = useCallback(
+    (notif: any) => {
+      // Mark as read first (non-blocking)
+      if (!notif.isRead) {
+        handleMarkRead(notif._id).catch(() => {});
+      }
+
+      const meta = notif.metadata ?? {};
+      const type: string = notif.type ?? "";
+
+      // Referral notifications → referral detail
+      if (
+        type === "referral_new_received" ||
+        type === "referral_expert_selected" ||
+        type === "referral_selected_expert" ||
+        type === "referral_declined" ||
+        type === "referral_completed"
+      ) {
+        if (meta.referralId) {
+          router.push({
+            pathname: "/(tabs)/booking/referral-detail",
+            params: { referralId: meta.referralId },
+          } as any);
+          return;
+        }
+      }
+
+      // Circle-created notification → go to circle chat directly
+      if (type === "referral_circle_created") {
+        if (meta.circleId) {
+          router.push({
+            pathname: "/(tabs)/circle-chat",
+            params: { circleId: meta.circleId },
+          } as any);
+          return;
+        }
+        // Fallback: open the referral if no circleId yet
+        if (meta.referralId) {
+          router.push({
+            pathname: "/(tabs)/booking/referral-detail",
+            params: { referralId: meta.referralId },
+          } as any);
+          return;
+        }
+      }
+
+      // Booking notifications → booking detail
+      if (
+        type === "booking_confirmed" ||
+        type === "booking_new" ||
+        type === "booking_cancelled" ||
+        type === "booking_reminder" ||
+        type === "session_started" ||
+        type === "session_ended"
+      ) {
+        const bookingId = meta.bookingId ?? notif.relatedContentId;
+        if (bookingId) {
+          router.push({
+            pathname: "/(tabs)/booking/booking-detail",
+            params: { bookingId },
+          } as any);
+          return;
+        }
+        // Fallback: open booking hub
+        router.push("/(tabs)/booking" as any);
+        return;
+      }
+
+      // Wallet notifications → wallet tab
+      if (
+        type === "WALLET_DEPOSIT" ||
+        type === "WALLET_WITHDRAWAL" ||
+        type === "WALLET_TRANSFER_SENT" ||
+        type === "WALLET_TRANSFER_RECEIVED"
+      ) {
+        router.push("/(tabs)/wallet" as any);
+        return;
+      }
+
+      // Content notifications → article or reel viewer
+      const contentId = meta.articleId ?? meta.reelId ?? notif.relatedContentId;
+      if (contentId && (type === "CONTENT_LIKED" || type === "CONTENT_CLAPPED" || type === "CONTENT_COMMENTED" || type === "COMMENT_REPLY")) {
+        if (meta.articleId) {
+          router.push({ pathname: "/(tabs)/article-viewer", params: { articleId: meta.articleId } } as any);
+          return;
+        }
+        if (meta.reelId) {
+          router.push({ pathname: "/(tabs)/reel-viewer", params: { reelId: meta.reelId } } as any);
+          return;
+        }
+      }
+
+      // Default: no-op (notification already marked read above)
+    },
+    [handleMarkRead, router]
+  );
+
   const isLoading = notifications === undefined;
 
   return (
     <AppBackground style={styles.root}>
       <MobileCard style={styles.mobileCard} containerStyle={styles.mobileCardContainer}>
         {/* ── Header ── */}
-        <View style={[styles.header, { paddingTop: insets.top + spacing.space3 }]}>
+        <View style={[styles.header, { paddingTop: insets.top + spacing.space3, backgroundColor: headerBg, borderBottomColor: headerBorder }]}>
           <TouchableOpacity
             onPress={onBack}
             style={styles.headerBtn}
             accessibilityRole="button"
             accessibilityLabel="Go back"
           >
-            <Ionicons name="arrow-back" size={22} color={Colors.textPrimary} />
+            <Ionicons name="arrow-back" size={22} color={headerIcon} />
           </TouchableOpacity>
 
           <View style={styles.headerCenter}>
-            <Text style={styles.headerTitle} allowFontScaling={false}>
+            <Text style={[styles.headerTitle, { color: headerText }]} allowFontScaling={false}>
               Notifications
             </Text>
             {(unreadCount ?? 0) > 0 && (
@@ -208,7 +344,7 @@ export function NotificationsScreen({
                 accessibilityRole="button"
                 accessibilityLabel="Mark all as read"
               >
-                <Ionicons name="checkmark-done" size={20} color={Colors.actionPrimary} />
+                <Ionicons name="checkmark-done" size={20} color={C.actionPrimary} />
               </TouchableOpacity>
             )}
             <TouchableOpacity
@@ -217,13 +353,13 @@ export function NotificationsScreen({
               accessibilityRole="button"
               accessibilityLabel="Notification settings"
             >
-              <Ionicons name="settings-outline" size={20} color={Colors.iconSecondary} />
+              <Ionicons name="settings-outline" size={20} color={headerIcon} />
             </TouchableOpacity>
           </View>
         </View>
 
         {/* ── Category filter ── */}
-        <View style={styles.categoryBar}>
+        <View style={[styles.categoryBar, { backgroundColor: headerBg, borderBottomColor: headerBorder }]}>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -235,6 +371,7 @@ export function NotificationsScreen({
                 onPress={() => setActiveCategory(cat.id)}
                 style={[
                   styles.categoryChip,
+                  { backgroundColor: C.isDark ? C.bgElevated : '#171730', borderColor: C.isDark ? C.borderSubtle : 'rgba(255,255,255,0.12)' },
                   activeCategory === cat.id && styles.categoryChipActive,
                 ]}
                 accessibilityRole="button"
@@ -244,12 +381,13 @@ export function NotificationsScreen({
                 <Ionicons
                   name={cat.icon}
                   size={13}
-                  color={activeCategory === cat.id ? Colors.textPrimary : Colors.iconSecondary}
+                  color={activeCategory === cat.id ? '#FFFFFF' : '#9CA3AF'}
                 />
                 <Text
                   style={[
                     styles.categoryChipText,
-                    activeCategory === cat.id && styles.categoryChipTextActive,
+                    { color: '#9CA3AF' },
+                    activeCategory === cat.id && { color: '#FFFFFF' },
                   ]}
                   allowFontScaling={false}
                 >
@@ -263,8 +401,8 @@ export function NotificationsScreen({
         {/* ── List ── */}
         {isLoading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator color={Colors.actionPrimary} size="large" />
-            <Text style={styles.loadingText}>Loading notifications…</Text>
+            <ActivityIndicator color={C.actionPrimary} size="large" />
+            <Text style={[styles.loadingText, { color: C.textMuted }]}>Loading notifications…</Text>
           </View>
         ) : (
           <FlatList
@@ -279,7 +417,7 @@ export function NotificationsScreen({
               <RefreshControl
                 refreshing={refreshing}
                 onRefresh={onRefresh}
-                tintColor={Colors.actionPrimary}
+                tintColor={C.actionPrimary}
               />
             }
             ListEmptyComponent={
@@ -302,14 +440,15 @@ export function NotificationsScreen({
 
               return (
                 <TouchableOpacity
-                  onPress={() => !notif.isRead && handleMarkRead(notif._id)}
+                  onPress={() => handleNotificationPress(notif)}
                   activeOpacity={0.75}
                   accessibilityRole="button"
                   accessibilityLabel={notif.title}
                   style={[
                     styles.notifCard,
-                    !notif.isRead && styles.notifCardUnread,
-                    isHighlighted && styles.notifCardHighlighted,
+                    { backgroundColor: C.bgSurface, borderColor: C.borderSubtle },
+                    !notif.isRead && { backgroundColor: C.bgPrimarySubtle, borderColor: C.borderFilled },
+                    isHighlighted && { borderColor: C.actionPrimary, backgroundColor: C.bgPrimaryMid },
                     { borderLeftColor: borderColor },
                   ]}
                 >
@@ -324,17 +463,18 @@ export function NotificationsScreen({
                       <Text
                         style={[
                           styles.notifTitle,
-                          !notif.isRead && styles.notifTitleUnread,
+                          { color: C.textSecondary },
+                          !notif.isRead && { color: C.textPrimary },
                         ]}
                         numberOfLines={1}
                         allowFontScaling={true}
                       >
                         {notif.title}
                       </Text>
-                      {!notif.isRead && <View style={styles.unreadDot} />}
+                      {!notif.isRead && <View style={[styles.unreadDot, { backgroundColor: C.actionPrimary }]} />}
                     </View>
                     <Text
-                      style={styles.notifMessage}
+                      style={[styles.notifMessage, { color: C.textMuted }]}
                       numberOfLines={2}
                       allowFontScaling={true}
                     >
@@ -342,11 +482,11 @@ export function NotificationsScreen({
                     </Text>
                     <View style={styles.notifMeta}>
                       {notif.actor?.name && (
-                        <Text style={styles.notifActor} numberOfLines={1} allowFontScaling={false}>
+                        <Text style={[styles.notifActor, { color: C.textDisabled }]} numberOfLines={1} allowFontScaling={false}>
                           {notif.actor.name}
                         </Text>
                       )}
-                      <Text style={styles.notifTime} allowFontScaling={false}>
+                      <Text style={[styles.notifTime, { color: C.textDisabled }]} allowFontScaling={false}>
                         {timeAgo(notif.createdAt)}
                       </Text>
                     </View>
@@ -360,7 +500,7 @@ export function NotificationsScreen({
                     accessibilityLabel="Delete notification"
                     style={styles.deleteBtn}
                   >
-                    <Ionicons name="trash-outline" size={15} color={Colors.iconDisabled} />
+                    <Ionicons name="trash-outline" size={15} color={C.iconDisabled} />
                   </TouchableOpacity>
                 </TouchableOpacity>
               );

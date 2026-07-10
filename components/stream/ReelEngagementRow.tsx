@@ -21,7 +21,7 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { Ionicons } from "@expo/vector-icons";
-import { Colors } from "@/constants/Colors";
+import { useColors } from "@/hooks/useColors";
 import { ReelCommentsSheet } from "@/components/ReelCommentsSheet";
 
 interface ReelEngagementRowProps {
@@ -38,6 +38,7 @@ export function ReelEngagementRow({
   isGated = false,
 }: ReelEngagementRowProps) {
   const [commentsOpen, setCommentsOpen] = useState(false);
+  const C = useColors();
 
   const id = reelId as Id<"reels">;
 
@@ -100,26 +101,37 @@ export function ReelEngagementRow({
         </TouchableOpacity>
       );
 
+  // Engagement row always sits on a dark surface — use light text/icons
+  const engMuted = C.isDark ? C.textMuted : '#9CA3AF';
+  const engBorder = C.isDark ? C.borderSubtle : 'rgba(255,255,255,0.08)';
+
   return (
     <View style={styles.wrapper}>
-      <View style={[styles.row, locked && styles.rowLocked]}>
+      <View style={[
+        styles.row,
+        locked && styles.rowLocked,
+        {
+          borderTopColor:  engBorder,
+          backgroundColor: C.bgEngagement ?? C.bgSurface,
+        },
+      ]}>
 
         {/* Like */}
         <Btn onPress={handleLike} accessibilityLabel={isLiked ? "Unlike" : "Like"}>
           <Ionicons
             name={isLiked ? "heart" : "heart-outline"}
             size={16}
-            color={isLiked ? "#FF3B5C" : Colors.textMuted}
+            color={isLiked ? "#FF3B5C" : engMuted}
           />
-          <Text style={[styles.count, isLiked && { color: "#FF3B5C" }]}>
+          <Text style={[styles.count, { color: engMuted }, isLiked && { color: "#FF3B5C" }]}>
             {likeCount != null ? likeCount : "Like"}
           </Text>
         </Btn>
 
         {/* Comment */}
         <Btn onPress={handleComment} accessibilityLabel="Comment">
-          <Ionicons name="chatbubble-outline" size={16} color={Colors.textMuted} />
-          <Text style={styles.count}>
+          <Ionicons name="chatbubble-outline" size={16} color={engMuted} />
+          <Text style={[styles.count, { color: engMuted }]}>
             {comments !== undefined ? comments.length : "–"}
           </Text>
         </Btn>
@@ -129,9 +141,9 @@ export function ReelEngagementRow({
           <Ionicons
             name={isBookmarked ? "bookmark" : "bookmark-outline"}
             size={16}
-            color={isBookmarked ? Colors.primary : Colors.textMuted}
+            color={isBookmarked ? C.actionPrimary : engMuted}
           />
-          <Text style={[styles.count, isBookmarked && styles.countActive]}>Save</Text>
+          <Text style={[styles.count, { color: engMuted }, isBookmarked && { color: C.actionPrimary }]}>Save</Text>
         </Btn>
 
         {/* Share — always available */}
@@ -142,8 +154,8 @@ export function ReelEngagementRow({
           accessibilityRole="button"
           accessibilityLabel="Share"
         >
-          <Ionicons name="share-social-outline" size={16} color={Colors.textMuted} />
-          <Text style={styles.count}>Share</Text>
+          <Ionicons name="share-social-outline" size={16} color={engMuted} />
+          <Text style={[styles.count, { color: engMuted }]}>Share</Text>
         </TouchableOpacity>
 
       </View>
@@ -166,11 +178,12 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 10,
-    paddingVertical: 10,
+    paddingVertical: 12,
     borderTopWidth: 1,
-    borderTopColor: Colors.borderSubtle,
     gap: 4,
     flexWrap: "wrap",
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
   },
   rowLocked: {
     opacity: 0.35,
@@ -186,10 +199,6 @@ const styles = StyleSheet.create({
   },
   count: {
     fontSize: 11,
-    color: Colors.textMuted,
     fontWeight: "500",
-  },
-  countActive: {
-    color: Colors.primary,
   },
 });

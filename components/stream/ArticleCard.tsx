@@ -20,7 +20,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { Colors } from "@/constants/Colors";
+import { useColors } from "@/hooks/useColors";
 import { ArticleEngagementRow } from "./ArticleEngagementRow";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
@@ -72,6 +72,7 @@ interface FollowPillProps {
 }
 
 function FollowPill({ authorId }: FollowPillProps) {
+  const C = useColors();
   const isFollowing = useQuery(api.follows.isFollowing, {
     userId: authorId as Id<"users">,
   });
@@ -88,11 +89,10 @@ function FollowPill({ authorId }: FollowPillProps) {
     }
   };
 
-  // While the query loads, show a neutral pill skeleton
   if (isFollowing === undefined) {
     return (
       <View style={followStyles.pill}>
-        <ActivityIndicator size={10} color={Colors.textMuted} />
+        <ActivityIndicator size={10} color={C.textMuted} />
       </View>
     );
   }
@@ -101,15 +101,20 @@ function FollowPill({ authorId }: FollowPillProps) {
     <TouchableOpacity
       onPress={handlePress}
       activeOpacity={0.75}
-      style={[followStyles.pill, isFollowing ? followStyles.pillFollowing : followStyles.pillFollow]}
+      style={[
+        followStyles.pill,
+        isFollowing
+          ? [followStyles.pillFollowing, { borderColor: C.borderSubtle }]
+          : [followStyles.pillFollow, { backgroundColor: C.actionPrimary }],
+      ]}
       accessibilityRole="button"
       accessibilityLabel={isFollowing ? "Unfollow creator" : "Follow creator"}
       disabled={pending}
     >
       {pending ? (
-        <ActivityIndicator size={10} color={isFollowing ? Colors.textMuted : "#fff"} />
+        <ActivityIndicator size={10} color={isFollowing ? C.textMuted : "#fff"} />
       ) : (
-        <Text style={[followStyles.pillText, isFollowing && followStyles.pillTextFollowing]}>
+        <Text style={[followStyles.pillText, isFollowing && { color: C.textMuted }]}>
           {isFollowing ? "Following" : "Follow"}
         </Text>
       )}
@@ -131,6 +136,7 @@ interface ArticleCardProps {
 }
 
 export function ArticleCard({ article, onPress, onGatedPress, isOwnContent, onDeleteRequest, canDeleteContent }: ArticleCardProps) {
+  const C = useColors();
   // Show "You" for own content, otherwise resolve author name normally
   const authorName = isOwnContent
     ? "You"
@@ -173,15 +179,15 @@ export function ArticleCard({ article, onPress, onGatedPress, isOwnContent, onDe
               resizeMode="cover"
             />
           ) : (
-            <View style={styles.coverPlaceholder}>
-              <Ionicons name="newspaper-outline" size={32} color="rgba(255,255,255,0.3)" />
+            <View style={[styles.coverPlaceholder, { backgroundColor: C.bgElevated }]}>
+              <Ionicons name="newspaper-outline" size={32} color={C.isDark ? "rgba(255,255,255,0.3)" : "rgba(0,0,0,0.15)"} />
             </View>
           )}
 
           {/* Article type badge — mirrors the Pulse badge in ReelCardFeed */}
-          <View style={styles.articleBadge}>
-            <Ionicons name="newspaper-outline" size={13} color={Colors.primary} />
-            <Text style={styles.articleBadgeText}>Article</Text>
+          <View style={[styles.articleBadge, { borderColor: C.actionPrimary }]}>
+            <Ionicons name="newspaper-outline" size={13} color={C.actionPrimary} />
+            <Text style={[styles.articleBadgeText, { color: C.actionPrimary }]}>Article</Text>
           </View>
 
           {/* Delete button — top-right, shown for author or admin */}
@@ -199,41 +205,41 @@ export function ArticleCard({ article, onPress, onGatedPress, isOwnContent, onDe
           )}
         </View>
 
-        <View style={styles.body}>
+        <View style={[styles.body, { backgroundColor: C.bgSurface }]}>
           {/* Gated badge — hidden for own content */}
           {article.isGated && !isOwnContent && (
-            <View style={styles.gatedBadge}>
-              <Ionicons name="lock-closed" size={10} color={Colors.statusWarning} />
-              <Text style={styles.gatedText}>Premium</Text>
+            <View style={[styles.gatedBadge, { backgroundColor: C.amberSurface, borderColor: C.amberBorder }]}>
+              <Ionicons name="lock-closed" size={10} color={C.statusWarning} />
+              <Text style={[styles.gatedText, { color: C.statusWarning }]}>Premium</Text>
             </View>
           )}
 
           {/* Course indicator badge */}
           {article.courseInfo && (
             <View style={styles.courseBadge}>
-              <Ionicons name="book-outline" size={11} color={Colors.statusInfo} />
-              <Text style={styles.courseBadgeText} numberOfLines={1}>
+              <Ionicons name="book-outline" size={11} color={C.statusInfo} />
+              <Text style={[styles.courseBadgeText, { color: C.statusInfo }]} numberOfLines={1}>
                 {article.courseInfo.courseTitle}
               </Text>
               <View style={styles.courseBadgeSep} />
-              <Text style={styles.courseLessonText}>
+              <Text style={[styles.courseLessonText, { color: C.statusInfo }]}>
                 Lesson {article.courseInfo.order}
               </Text>
             </View>
           )}
 
-          <Text style={styles.title} numberOfLines={2}>
+          <Text style={[styles.title, { color: C.textPrimary }]} numberOfLines={2}>
             {article.title}
           </Text>
 
           {/* Body text preview ending with ellipsis */}
           {bodyPreview ? (
-            <Text style={styles.bodyPreview} numberOfLines={3}>
+            <Text style={[styles.bodyPreview, { color: C.textSecondary }]} numberOfLines={3}>
               {bodyPreview}
               {bodyPreview.length >= 160 ? "..." : ""}
             </Text>
           ) : article.subtitle ? (
-            <Text style={styles.subtitle} numberOfLines={2}>
+            <Text style={[styles.subtitle, { color: C.textMuted }]} numberOfLines={2}>
               {article.subtitle}...
             </Text>
           ) : null}
@@ -241,9 +247,9 @@ export function ArticleCard({ article, onPress, onGatedPress, isOwnContent, onDe
           {/* Premium price banner — hidden for own content */}
           {article.isGated && !isOwnContent && article.priceAmount != null && article.priceToken ? (
             <View style={styles.priceBanner}>
-              <Ionicons name="lock-closed" size={14} color={Colors.primary} />
-              <Text style={styles.priceBannerLabel}>Premium Content</Text>
-              <Text style={styles.priceBannerAmount}>
+              <Ionicons name="lock-closed" size={14} color={C.actionPrimary} />
+              <Text style={[styles.priceBannerLabel, { color: C.actionPrimary }]}>Premium Content</Text>
+              <Text style={[styles.priceBannerAmount, { color: C.statusInfo }]}>
                 {article.priceAmount} {article.priceToken}
               </Text>
             </View>
@@ -261,19 +267,19 @@ export function ArticleCard({ article, onPress, onGatedPress, isOwnContent, onDe
                 <Ionicons
                   name="person-circle-outline"
                   size={16}
-                  color={Colors.textMuted}
+                  color={C.textMuted}
                 />
               )}
             </View>
-            <Text style={[styles.authorName, isOwnContent && styles.authorNameSelf]} numberOfLines={1}>
+            <Text style={[styles.authorName, { color: C.textSecondary }, isOwnContent && { color: C.actionPrimary, fontWeight: "700" }]} numberOfLines={1}>
               {authorName}
             </Text>
-            <Text style={styles.dot}>·</Text>
-            <Text style={styles.timestamp}>{timeAgo}</Text>
+            <Text style={[styles.dot, { color: C.textMuted }]}>·</Text>
+            <Text style={[styles.timestamp, { color: C.textMuted }]}>{timeAgo}</Text>
             {article.readTimeMin ? (
               <>
-                <Text style={styles.dot}>·</Text>
-                <Text style={styles.readTime}>{article.readTimeMin} min read</Text>
+                <Text style={[styles.dot, { color: C.textMuted }]}>·</Text>
+                <Text style={[styles.readTime, { color: C.textMuted }]}>{article.readTimeMin} min read</Text>
               </>
             ) : null}
             {/* Follow pill — only for other people's content */}
@@ -286,8 +292,8 @@ export function ArticleCard({ article, onPress, onGatedPress, isOwnContent, onDe
           {article.tags && article.tags.length > 0 && (
             <View style={styles.tagsRow}>
               {article.tags.slice(0, 3).map((tag) => (
-                <View key={tag} style={styles.tag}>
-                  <Text style={styles.tagText}>#{tag}</Text>
+                <View key={tag} style={[styles.tag, { backgroundColor: C.bgElevated }]}>
+                  <Text style={[styles.tagText, { color: C.textMuted }]}>#{tag}</Text>
                 </View>
               ))}
             </View>
@@ -319,7 +325,6 @@ function formatTimeAgo(ts: number): string {
 
 const styles = StyleSheet.create({
   card: {
-    // Visual container is now MobileCard — no border/bg/radius here
     overflow: "hidden",
     marginBottom: 0,
   },
@@ -335,7 +340,6 @@ const styles = StyleSheet.create({
   coverPlaceholder: {
     width: "100%",
     height: "100%",
-    backgroundColor: Colors.bgElevated,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -351,12 +355,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 9,
     paddingVertical: 5,
     borderWidth: 1,
-    borderColor: Colors.primary,
   },
   articleBadgeText: {
     fontSize: 11,
     fontWeight: "700",
-    color: Colors.primary,
     letterSpacing: 0.3,
   },
   deleteButton: {
@@ -375,39 +377,37 @@ const styles = StyleSheet.create({
   body: {
     padding: 14,
     gap: 6,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    marginTop: -20,
+    zIndex: 1,
   },
   gatedBadge: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
     alignSelf: "flex-start",
-    backgroundColor: Colors.amberSurface,
     borderRadius: 20,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderWidth: 1,
-    borderColor: Colors.amberBorder,
     marginBottom: 2,
   },
   gatedText: {
     fontSize: 10,
     fontWeight: "700",
-    color: Colors.statusWarning,
   },
   title: {
     fontSize: 15,
     fontWeight: "700",
-    color: Colors.textPrimary,
     lineHeight: 22,
   },
   subtitle: {
     fontSize: 13,
-    color: Colors.textMuted,
     lineHeight: 18,
   },
   bodyPreview: {
     fontSize: 13,
-    color: Colors.textSecondary,
     lineHeight: 19,
   },
   priceBanner: {
@@ -426,12 +426,10 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 12,
     fontWeight: "700",
-    color: Colors.primary,
   },
   priceBannerAmount: {
     fontSize: 13,
     fontWeight: "800",
-    color: Colors.statusInfo,
   },
   metaRow: {
     flexDirection: "row",
@@ -452,16 +450,11 @@ const styles = StyleSheet.create({
   authorName: {
     fontSize: 12,
     fontWeight: "500",
-    color: Colors.textSecondary,
     maxWidth: 100,
   },
-  authorNameSelf: {
-    color: Colors.primary,
-    fontWeight: "700",
-  },
-  dot: { fontSize: 12, color: Colors.textMuted },
-  timestamp: { fontSize: 11, color: Colors.textMuted },
-  readTime: { fontSize: 11, color: Colors.textMuted },
+  dot: { fontSize: 12 },
+  timestamp: { fontSize: 11 },
+  readTime: { fontSize: 11 },
   tagsRow: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -469,13 +462,11 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   tag: {
-    backgroundColor: Colors.bgElevated,
     borderRadius: 6,
     paddingHorizontal: 7,
     paddingVertical: 2,
   },
-  tagText: { fontSize: 10, color: Colors.textMuted },
-  // ── Course badge ──────────────────────────────────────────────────────────
+  tagText: { fontSize: 10 },
   courseBadge: {
     flexDirection: "row",
     alignItems: "center",
@@ -493,7 +484,6 @@ const styles = StyleSheet.create({
   courseBadgeText: {
     fontSize: 10,
     fontWeight: "600",
-    color: Colors.statusInfo,
     flexShrink: 1,
   },
   courseBadgeSep: {
@@ -505,7 +495,6 @@ const styles = StyleSheet.create({
   courseLessonText: {
     fontSize: 10,
     fontWeight: "700",
-    color: Colors.statusInfo,
   },
 });
 
@@ -521,20 +510,17 @@ const followStyles = StyleSheet.create({
     justifyContent: "center",
   },
   pillFollow: {
-    backgroundColor: Colors.primary,
+    // backgroundColor set inline via C.actionPrimary
   },
   pillFollowing: {
     backgroundColor: "transparent",
     borderWidth: 1,
-    borderColor: Colors.borderSubtle,
+    // borderColor set inline via C.borderSubtle
   },
   pillText: {
     fontSize: 10,
     fontWeight: "700",
     color: "#fff",
     letterSpacing: 0.2,
-  },
-  pillTextFollowing: {
-    color: Colors.textMuted,
   },
 });

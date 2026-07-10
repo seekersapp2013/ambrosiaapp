@@ -39,6 +39,7 @@ import { useRouter } from "expo-router";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { Colors } from "@/tokens/colors";
+import { useColors } from "@/hooks/useColors";
 import { typeScale } from "@/tokens/typography";
 import { spacing } from "@/tokens/spacing";
 import { MobileCard, useCardInsets } from "@/components/MobileCard";
@@ -96,6 +97,13 @@ export function ContentPaywallSheet({
   const cardInsets  = useCardInsets();
   const router      = useRouter();
   const slideAnim   = useRef(new Animated.Value(0)).current;
+  const C           = useColors();
+
+  // Header always uses dark navy for consistency with TopNav/comments
+  const headerBg = '#0F0F1E';
+  const headerText = '#FFFFFF';
+  const headerIcon = '#D1D5DB';
+  const headerBorder = 'rgba(255,255,255,0.08)';
 
   const [step, setStep]       = useState<"summary" | "processing" | "success" | "error">("summary");
   const [errorMsg, setErrorMsg] = useState("");
@@ -172,7 +180,7 @@ export function ContentPaywallSheet({
     if (step === "processing") {
       return (
         <View style={styles.centeredWrap}>
-          <ActivityIndicator size="large" color={Colors.actionPrimary} />
+          <ActivityIndicator size="large" color={'#C62229'} />
           <Text style={styles.processingTitle} allowFontScaling={false}>
             Processing payment…
           </Text>
@@ -188,7 +196,7 @@ export function ContentPaywallSheet({
       return (
         <View style={styles.centeredWrap}>
           <View style={styles.successIconWrap}>
-            <Ionicons name="checkmark-circle" size={64} color={Colors.statusSuccess} />
+            <Ionicons name="checkmark-circle" size={64} color={'#22C55E'} />
           </View>
           <Text style={styles.successTitle} allowFontScaling={false}>
             Access Granted!
@@ -198,13 +206,13 @@ export function ContentPaywallSheet({
           </Text>
           <View style={styles.successDetails}>
             <View style={styles.successRow}>
-              <Ionicons name={contentTypeIcon(contentType)} size={16} color={Colors.iconSecondary} />
+              <Ionicons name={contentTypeIcon(contentType)} size={16} color={'#9CA3AF'} />
               <Text style={styles.successDetailText} numberOfLines={2} allowFontScaling={false}>
                 {title}
               </Text>
             </View>
             <View style={styles.successRow}>
-              <Ionicons name="wallet-outline" size={16} color={Colors.iconSecondary} />
+              <Ionicons name="wallet-outline" size={16} color={'#9CA3AF'} />
               <Text style={styles.successDetailText} allowFontScaling={false}>
                 {currency} {price.toFixed(2)} deducted from wallet
               </Text>
@@ -228,7 +236,7 @@ export function ContentPaywallSheet({
       return (
         <View style={styles.centeredWrap}>
           <View style={styles.errorIconWrap}>
-            <Ionicons name="alert-circle" size={56} color={Colors.statusDanger} />
+            <Ionicons name="alert-circle" size={56} color={'#EF4444'} />
           </View>
           <Text style={styles.errorTitle} allowFontScaling={false}>Payment Failed</Text>
           <Text style={styles.errorMsg} allowFontScaling={false}>{errorMsg}</Text>
@@ -252,7 +260,7 @@ export function ContentPaywallSheet({
           {/* Content preview card */}
           <View style={styles.contentCard}>
             <View style={styles.contentIconWrap}>
-              <Ionicons name={contentTypeIcon(contentType)} size={24} color={Colors.actionPrimary} />
+              <Ionicons name={contentTypeIcon(contentType)} size={24} color={'#C62229'} />
             </View>
             <View style={styles.contentInfo}>
               <View style={styles.contentTypeBadge}>
@@ -293,7 +301,7 @@ export function ContentPaywallSheet({
 
           {/* Revenue split info */}
           <View style={styles.infoCard}>
-            <Ionicons name="information-circle-outline" size={16} color={Colors.statusInfo} />
+            <Ionicons name="information-circle-outline" size={16} color={'#3B82F6'} />
             <Text style={styles.infoText} allowFontScaling={false}>
               70% goes directly to the creator. 30% supports the platform.
             </Text>
@@ -310,18 +318,18 @@ export function ContentPaywallSheet({
               <Ionicons
                 name="wallet-outline"
                 size={18}
-                color={canAfford ? Colors.statusSuccess : Colors.statusDanger}
+                color={canAfford ? '#22C55E' : '#EF4444'}
               />
               <Text style={styles.walletLabel} allowFontScaling={false}>
                 Wallet Balance ({currency})
               </Text>
               {isLoadingAffordability ? (
-                <ActivityIndicator size="small" color={Colors.actionPrimary} />
+                <ActivityIndicator size="small" color={'#C62229'} />
               ) : (
                 <Text
                   style={[
                     styles.walletBalance,
-                    { color: canAfford ? Colors.statusSuccess : Colors.statusDanger },
+                    { color: canAfford ? '#22C55E' : '#EF4444' },
                   ]}
                   allowFontScaling={false}
                 >
@@ -331,7 +339,7 @@ export function ContentPaywallSheet({
             </View>
           {!isLoadingAffordability && !canAfford && (
               <View style={styles.insufficientWrap}>
-                <Ionicons name="alert-circle-outline" size={14} color={Colors.statusDanger} />
+                <Ionicons name="alert-circle-outline" size={14} color={'#EF4444'} />
                 <Text style={styles.insufficientText} allowFontScaling={false}>
                   {walletBalance === 0
                     ? `You have no ${currency} balance. This content can only be purchased with ${currency}. Fund your ${currency} wallet to continue.`
@@ -353,7 +361,7 @@ export function ContentPaywallSheet({
               accessibilityRole="button"
               accessibilityLabel={`Fund your ${currency} wallet`}
             >
-              <Ionicons name="add-circle-outline" size={18} color={Colors.statusInfo} />
+              <Ionicons name="add-circle-outline" size={18} color={'#3B82F6'} />
               <Text style={styles.fundWalletText} allowFontScaling={false}>
                 {walletBalance === 0 ? `Add ${currency} to Wallet` : "Fund Wallet"}
               </Text>
@@ -392,31 +400,31 @@ export function ContentPaywallSheet({
       {/* Animated sheet */}
       <Animated.View style={[styles.sheetOuter, { bottom: insets.bottom, left: cardInsets.left, right: cardInsets.right, transform: [{ translateY }] }]}>
         <MobileCard style={styles.card} containerStyle={styles.cardContainer}>
-          {/* Handle */}
-          <View style={styles.handleWrap}>
-            <View style={styles.handle} />
-          </View>
-
-          {/* Header */}
-          <View style={styles.sheetHeader}>
-            <Text style={styles.sheetTitle} allowFontScaling={false}>
-              {step === "success"
-                ? "Payment Successful"
-                : step === "error"
-                ? "Payment Failed"
-                : "Unlock Content"}
-            </Text>
-            {step !== "processing" && (
-              <TouchableOpacity
-                onPress={onClose}
-                style={styles.closeBtn}
-                activeOpacity={0.75}
-                accessibilityRole="button"
-                accessibilityLabel="Close"
-              >
-                <Ionicons name="close" size={22} color={Colors.iconPrimary} />
-              </TouchableOpacity>
-            )}
+          {/* Handle + Header — merged dark navy section at top */}
+          <View style={[styles.sheetHeader, { backgroundColor: headerBg, borderBottomColor: headerBorder }]}>
+            <View style={styles.handleWrap}>
+              <View style={styles.handle} />
+            </View>
+            <View style={styles.headerRow}>
+              <Text style={[styles.sheetTitle, { color: headerText }]} allowFontScaling={false}>
+                {step === "success"
+                  ? "Payment Successful"
+                  : step === "error"
+                  ? "Payment Failed"
+                  : "Unlock Content"}
+              </Text>
+              {step !== "processing" && (
+                <TouchableOpacity
+                  onPress={onClose}
+                  style={styles.closeBtn}
+                  activeOpacity={0.75}
+                  accessibilityRole="button"
+                  accessibilityLabel="Close"
+                >
+                  <Ionicons name="close" size={22} color={headerIcon} />
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
 
           {/* Body */}
@@ -459,27 +467,29 @@ const styles = StyleSheet.create({
   handleWrap: {
     alignItems: "center",
     paddingTop: 10,
-    paddingBottom: 4,
+    paddingBottom: 8,
   },
   handle: {
     width: 36,
     height: 4,
     borderRadius: 2,
-    backgroundColor: Colors.borderDefault,
+    backgroundColor: 'rgba(255,255,255,0.20)',
   },
 
   sheetHeader: {
+    paddingHorizontal: spacing.space4,
+    paddingBottom: spacing.space3,
+    borderBottomWidth: 1,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+  },
+  headerRow: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: spacing.space4,
-    paddingVertical: spacing.space3,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.borderSubtle,
   },
   sheetTitle: {
     flex: 1,
     ...typeScale.headingMD,
-    color: Colors.textPrimary,
     fontWeight: "700",
   },
   closeBtn: {
@@ -504,13 +514,13 @@ const styles = StyleSheet.create({
   // Processing
   processingTitle: {
     ...typeScale.headingMD,
-    color: Colors.textPrimary,
+    color: '#FFFFFF',
     marginTop: spacing.space4,
     textAlign: "center",
   },
   processingSubtext: {
     ...typeScale.bodyMD,
-    color: Colors.textMuted,
+    color: '#9CA3AF',
     textAlign: "center",
   },
 
@@ -518,21 +528,21 @@ const styles = StyleSheet.create({
   successIconWrap: { marginBottom: spacing.space2 },
   successTitle: {
     ...typeScale.headingLG,
-    color: Colors.textPrimary,
+    color: '#FFFFFF',
     fontWeight: "700",
     textAlign: "center",
   },
   successSubtitle: {
     ...typeScale.bodyMD,
-    color: Colors.textMuted,
+    color: '#9CA3AF',
     textAlign: "center",
   },
   successDetails: {
     width: "100%",
-    backgroundColor: Colors.bgElevated,
+    backgroundColor: '#171730',
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: Colors.borderSubtle,
+    borderColor: 'rgba(255,255,255,0.08)',
     padding: spacing.space4,
     gap: spacing.space3,
     marginTop: spacing.space4,
@@ -544,16 +554,16 @@ const styles = StyleSheet.create({
   },
   successDetailText: {
     ...typeScale.bodyMD,
-    color: Colors.textSecondary,
+    color: '#D1D5DB',
     flex: 1,
   },
   doneBtn: {
     marginTop: spacing.space4,
     height: 52,
     borderRadius: 999,
-    backgroundColor: Colors.statusSuccessBg,
+    backgroundColor: 'rgba(34,197,94,0.12)',
     borderWidth: 1,
-    borderColor: Colors.greenBorder,
+    borderColor: 'rgba(34,197,94,0.28)',
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: spacing.space8,
@@ -561,7 +571,7 @@ const styles = StyleSheet.create({
   },
   doneBtnText: {
     ...typeScale.labelLG,
-    color: Colors.statusSuccess,
+    color: '#22C55E',
     fontWeight: "700",
   },
 
@@ -569,12 +579,12 @@ const styles = StyleSheet.create({
   errorIconWrap: { marginBottom: spacing.space2 },
   errorTitle: {
     ...typeScale.headingMD,
-    color: Colors.statusDanger,
+    color: '#EF4444',
     fontWeight: "700",
   },
   errorMsg: {
     ...typeScale.bodyMD,
-    color: Colors.textMuted,
+    color: '#9CA3AF',
     textAlign: "center",
     lineHeight: 22,
   },
@@ -596,22 +606,22 @@ const styles = StyleSheet.create({
     gap: spacing.space3,
   },
 
-  // Content preview card
+  // Content preview card — uses dark surface for contrast in both modes
   contentCard: {
     flexDirection: "row",
     alignItems: "flex-start",
     gap: spacing.space3,
-    backgroundColor: Colors.bgElevated,
+    backgroundColor: '#0F0F1E',
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: Colors.borderSubtle,
+    borderColor: 'rgba(255,255,255,0.08)',
     padding: spacing.space4,
   },
   contentIconWrap: {
     width: 44,
     height: 44,
     borderRadius: 10,
-    backgroundColor: Colors.bgPrimaryMid,
+    backgroundColor: 'rgba(198,34,41,0.12)',
     alignItems: "center",
     justifyContent: "center",
     flexShrink: 0,
@@ -619,42 +629,42 @@ const styles = StyleSheet.create({
   contentInfo: { flex: 1, gap: 4 },
   contentTypeBadge: {
     alignSelf: "flex-start",
-    backgroundColor: Colors.bgPrimarySubtle,
+    backgroundColor: 'rgba(198,34,41,0.06)',
     borderRadius: 999,
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderWidth: 1,
-    borderColor: Colors.borderFilled,
+    borderColor: 'rgba(198,34,41,0.35)',
   },
   contentTypeText: {
     fontSize: 10,
     fontWeight: "700",
-    color: Colors.actionPrimary,
+    color: '#C62229',
     textTransform: "uppercase",
     letterSpacing: 0.5,
   },
   contentTitle: {
     ...typeScale.headingSM,
-    color: Colors.textPrimary,
+    color: '#FFFFFF',
     fontWeight: "600",
   },
   contentCreator: {
     ...typeScale.bodySM,
-    color: Colors.textMuted,
+    color: '#9CA3AF',
   },
 
-  // Pricing card
+  // Pricing card — dark surface
   pricingCard: {
-    backgroundColor: Colors.bgElevated,
+    backgroundColor: '#0F0F1E',
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: Colors.borderSubtle,
+    borderColor: 'rgba(255,255,255,0.08)',
     padding: spacing.space4,
     gap: spacing.space2,
   },
   sectionTitle: {
     ...typeScale.labelSM,
-    color: Colors.textSecondary,
+    color: '#D1D5DB',
     fontWeight: "700",
     textTransform: "uppercase",
     letterSpacing: 0.6,
@@ -666,52 +676,52 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: spacing.space1,
   },
-  pricingLabel: { ...typeScale.bodyMD, color: Colors.textMuted },
-  pricingValue: { ...typeScale.bodyMD, color: Colors.textSecondary, fontWeight: "500" },
+  pricingLabel: { ...typeScale.bodyMD, color: '#9CA3AF' },
+  pricingValue: { ...typeScale.bodyMD, color: '#D1D5DB', fontWeight: "500" },
   pricingDivider: {
     height: 1,
-    backgroundColor: Colors.borderSubtle,
+    backgroundColor: 'rgba(255,255,255,0.08)',
     marginVertical: spacing.space2,
   },
-  pricingTotalLabel: { ...typeScale.headingSM, color: Colors.textPrimary, fontWeight: "700" },
-  pricingTotalValue: { ...typeScale.headingMD, color: Colors.actionPrimary, fontWeight: "700" },
+  pricingTotalLabel: { ...typeScale.headingSM, color: '#FFFFFF', fontWeight: "700" },
+  pricingTotalValue: { ...typeScale.headingMD, color: '#C62229', fontWeight: "700" },
 
   // Info note
   infoCard: {
     flexDirection: "row",
     alignItems: "flex-start",
     gap: spacing.space2,
-    backgroundColor: Colors.statusInfoBg,
+    backgroundColor: 'rgba(59,130,246,0.10)',
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: Colors.blueBorder,
+    borderColor: 'rgba(59,130,246,0.28)',
     padding: spacing.space3,
   },
   infoText: {
     ...typeScale.bodySM,
-    color: Colors.statusInfo,
+    color: '#3B82F6',
     flex: 1,
     lineHeight: 18,
   },
 
   // Wallet card
   walletCard: {
-    backgroundColor: Colors.statusSuccessBg,
+    backgroundColor: 'rgba(34,197,94,0.12)',
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: Colors.greenBorder,
+    borderColor: 'rgba(34,197,94,0.28)',
     padding: spacing.space4,
   },
   walletCardInsufficient: {
-    backgroundColor: Colors.statusDangerBg,
-    borderColor: Colors.statusDanger,
+    backgroundColor: 'rgba(239,68,68,0.08)',
+    borderColor: '#EF4444',
   },
   walletRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.space2,
   },
-  walletLabel: { ...typeScale.bodyMD, color: Colors.textSecondary, flex: 1 },
+  walletLabel: { ...typeScale.bodyMD, color: '#D1D5DB', flex: 1 },
   walletBalance: { ...typeScale.headingSM, fontWeight: "700" },
   insufficientWrap: {
     flexDirection: "row",
@@ -721,7 +731,7 @@ const styles = StyleSheet.create({
   },
   insufficientText: {
     ...typeScale.bodySM,
-    color: Colors.statusDanger,
+    color: '#EF4444',
     flex: 1,
     lineHeight: 17,
   },
@@ -735,12 +745,12 @@ const styles = StyleSheet.create({
     height: 44,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: Colors.blueBorder,
-    backgroundColor: Colors.statusInfoBg,
+    borderColor: 'rgba(59,130,246,0.28)',
+    backgroundColor: 'rgba(59,130,246,0.10)',
   },
   fundWalletText: {
     ...typeScale.labelMD,
-    color: Colors.statusInfo,
+    color: '#3B82F6',
     fontWeight: "600",
   },
 
@@ -751,7 +761,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.space4,
     paddingTop: spacing.space3,
     borderTopWidth: 1,
-    borderTopColor: Colors.borderSubtle,
+    borderTopColor: 'rgba(255,255,255,0.08)',
   },
   footerCancel: { flex: 1 },
   footerPay:    { flex: 2 },

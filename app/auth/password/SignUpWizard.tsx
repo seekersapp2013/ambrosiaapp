@@ -8,6 +8,7 @@ import { TouchableOpacity } from "react-native";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { hashPin } from "@/utils/pinHash";
+import { useColors } from "@/hooks/useColors";
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -96,6 +97,7 @@ export function SignUpWizard({
   const { signIn } = useAuthActions();
   const toast = useToastController();
   const storeSignupData = useMutation(api.signup.storeSignupData);
+  const C = useColors();
 
   const [submitting, setSubmitting] = useState(false);
   const [currentStep, setCurrentStep] = useState<WizardStep>(1);
@@ -311,16 +313,16 @@ export function SignUpWizard({
   // ── Input shared styles ───────────────────────────────────────────────────────
 
   const inputProps = {
-    backgroundColor: "#0a0a15" as const,
-    borderColor: "#1f1f2e" as const,
+    backgroundColor: C.bgElevated as any,
+    borderColor: C.borderDefault as any,
     borderWidth: 1,
-    color: "#FFFFFF" as const,
-    placeholderTextColor: "#4b5563" as const,
+    color: C.textPrimary as any,
+    placeholderTextColor: C.textDisabled as any,
     height: 48,
     borderRadius: 12,
     fontSize: 14,
     paddingHorizontal: "$4" as const,
-    focusStyle: { borderColor: "#C62229", backgroundColor: "#0f0f1e" },
+    focusStyle: { borderColor: C.actionPrimary, backgroundColor: C.bgSurface },
   };
 
   // ── Render ───────────────────────────────────────────────────────────────────
@@ -330,28 +332,28 @@ export function SignUpWizard({
       {/* Progress Bar */}
       <View marginBottom="$4">
         <View flexDirection="row" justifyContent="space-between" marginBottom="$2">
-          <Text color="#d1d5db" fontSize={13} fontWeight="600">
+          <Text color={C.textSecondary} fontSize={13} fontWeight="600">
             Step {currentStep} of 5
           </Text>
-          <Text color="#9ca3af" fontSize={13}>{stepLabels[currentStep - 1]}</Text>
+          <Text color={C.textMuted} fontSize={13}>{stepLabels[currentStep - 1]}</Text>
         </View>
-        <Progress value={progress} backgroundColor="#1f1f2e" height={6} borderRadius={3}>
-          <Progress.Indicator animation="bouncy" backgroundColor="#C62229" borderRadius={3} />
+        <Progress value={progress} backgroundColor={C.bgElevated} height={6} borderRadius={3}>
+          <Progress.Indicator animation="bouncy" backgroundColor={C.actionPrimary} borderRadius={3} />
         </Progress>
       </View>
 
       {/* ── Step 1: Email + Password + Full Name ── */}
       {currentStep === 1 && (
         <View>
-          <Text color="#FFFFFF" fontSize={20} fontWeight="700" marginBottom="$2">
+          <Text color={C.textPrimary} fontSize={20} fontWeight="700" marginBottom="$2">
             Let's get started
           </Text>
-          <Text color="#9ca3af" fontSize={14} marginBottom="$3">
+          <Text color={C.textMuted} fontSize={14} marginBottom="$3">
             Enter your details to create an account
           </Text>
 
           <View marginBottom="$2.5">
-            <Label color="#d1d5db" marginBottom="$2" fontSize={13} fontWeight="600">Email Address</Label>
+            <Label color={C.textSecondary} marginBottom="$2" fontSize={13} fontWeight="600">Email Address</Label>
             <Input
               {...inputProps}
               autoComplete="email"
@@ -365,7 +367,7 @@ export function SignUpWizard({
           </View>
 
           <View marginBottom="$2.5">
-            <Label color="#d1d5db" marginBottom="$2" fontSize={13} fontWeight="600">Password</Label>
+            <Label color={C.textSecondary} marginBottom="$2" fontSize={13} fontWeight="600">Password</Label>
             <View position="relative">
               <Input
                 {...inputProps}
@@ -380,14 +382,14 @@ export function SignUpWizard({
               />
               <View position="absolute" right={12} top={0} bottom={0} justifyContent="center">
                 <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-                  {showPassword ? <EyeOff size={20} color="#6b7280" /> : <Eye size={20} color="#6b7280" />}
+                  {showPassword ? <EyeOff size={20} color={C.textMuted} /> : <Eye size={20} color={C.textMuted} />}
                 </TouchableOpacity>
               </View>
             </View>
           </View>
 
           <View marginBottom="$2.5">
-            <Label color="#d1d5db" marginBottom="$2" fontSize={13} fontWeight="600">Confirm Password</Label>
+            <Label color={C.textSecondary} marginBottom="$2" fontSize={13} fontWeight="600">Confirm Password</Label>
             <View position="relative">
               <Input
                 {...inputProps}
@@ -402,14 +404,14 @@ export function SignUpWizard({
               />
               <View position="absolute" right={12} top={0} bottom={0} justifyContent="center">
                 <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)}>
-                  {showConfirmPassword ? <EyeOff size={20} color="#6b7280" /> : <Eye size={20} color="#6b7280" />}
+                  {showConfirmPassword ? <EyeOff size={20} color={C.textMuted} /> : <Eye size={20} color={C.textMuted} />}
                 </TouchableOpacity>
               </View>
             </View>
           </View>
 
           <View marginBottom="$2.5">
-            <Label color="#d1d5db" marginBottom="$2" fontSize={13} fontWeight="600">Full Name</Label>
+            <Label color={C.textSecondary} marginBottom="$2" fontSize={13} fontWeight="600">Full Name</Label>
             <Input
               {...inputProps}
               autoComplete="name"
@@ -418,7 +420,7 @@ export function SignUpWizard({
               onChangeText={setName}
               placeholder="Jane Doe"
             />
-            <Text color="#6b7280" fontSize={11} marginTop="$1.5">
+            <Text color={C.textDisabled} fontSize={11} marginTop="$1.5">
               This will be your display name on your profile
             </Text>
           </View>
@@ -428,15 +430,15 @@ export function SignUpWizard({
       {/* ── Step 2: Username + Phone ── */}
       {currentStep === 2 && (
         <View>
-          <Text color="#FFFFFF" fontSize={20} fontWeight="700" marginBottom="$2">
+          <Text color={C.textPrimary} fontSize={20} fontWeight="700" marginBottom="$2">
             Set up your account
           </Text>
-          <Text color="#9ca3af" fontSize={14} marginBottom="$3">
+          <Text color={C.textMuted} fontSize={14} marginBottom="$3">
             Choose a username and add your phone number
           </Text>
 
           <View marginBottom="$3">
-            <Label color="#d1d5db" marginBottom="$2" fontSize={13} fontWeight="600">Username</Label>
+            <Label color={C.textSecondary} marginBottom="$2" fontSize={13} fontWeight="600">Username</Label>
             <View position="relative">
               <Input
                 {...inputProps}
@@ -448,7 +450,7 @@ export function SignUpWizard({
                 borderColor={
                   usernameStatus === "available" ? "#22C55E"
                   : usernameStatus === "taken" ? "#EF4444"
-                  : "#1f1f2e"
+                  : C.borderDefault
                 }
                 placeholder="your_username"
                 paddingRight={48}
@@ -456,7 +458,7 @@ export function SignUpWizard({
               <View position="absolute" right={12} top={0} bottom={0} justifyContent="center">
                 {usernameStatus === "available" && <Check size={18} color="#22C55E" />}
                 {usernameStatus === "taken" && <X size={18} color="#EF4444" />}
-                {usernameStatus === "checking" && <Text color="#6b7280" fontSize={11}>...</Text>}
+                {usernameStatus === "checking" && <Text color={C.textDisabled} fontSize={11}>...</Text>}
               </View>
             </View>
             {usernameStatus === "taken" && (
@@ -468,10 +470,10 @@ export function SignUpWizard({
           </View>
 
           <View marginBottom="$2">
-            <Label color="#d1d5db" marginBottom="$2" fontSize={13} fontWeight="600">Country Code</Label>
+            <Label color={C.textSecondary} marginBottom="$2" fontSize={13} fontWeight="600">Country Code</Label>
             <View
-              backgroundColor="#0a0a15"
-              borderColor="#1f1f2e"
+              backgroundColor={C.bgElevated as any}
+              borderColor={C.borderDefault as any}
               borderWidth={1}
               height={48}
               borderRadius={12}
@@ -481,12 +483,12 @@ export function SignUpWizard({
               gap="$2"
             >
               <Text fontSize={22}>{countryFlag}</Text>
-              <Text color="#FFFFFF" fontSize={14} fontWeight="600">{countryCode}</Text>
+              <Text color={C.textPrimary} fontSize={14} fontWeight="600">{countryCode}</Text>
             </View>
           </View>
 
           <View marginBottom="$3">
-            <Label color="#d1d5db" marginBottom="$2" fontSize={13} fontWeight="600">Phone Number</Label>
+            <Label color={C.textSecondary} marginBottom="$2" fontSize={13} fontWeight="600">Phone Number</Label>
             <Input
               {...inputProps}
               autoComplete="tel"
@@ -502,10 +504,10 @@ export function SignUpWizard({
       {/* ── Step 3: Primary Currency ── */}
       {currentStep === 3 && (
         <View>
-          <Text color="#FFFFFF" fontSize={20} fontWeight="700" marginBottom="$2">
+          <Text color={C.textPrimary} fontSize={20} fontWeight="700" marginBottom="$2">
             Select your currency
           </Text>
-          <Text color="#9ca3af" fontSize={14} marginBottom="$3">
+          <Text color={C.textMuted} fontSize={14} marginBottom="$3">
             Choose your primary currency for transactions
           </Text>
 
@@ -519,8 +521,8 @@ export function SignUpWizard({
                 <View
                   flexDirection="row"
                   alignItems="center"
-                  backgroundColor={primaryCurrency === currency.code ? "rgba(198, 34, 41, 0.12)" : "#0a0a15"}
-                  borderColor={primaryCurrency === currency.code ? "#C62229" : "#1f1f2e"}
+                  backgroundColor={primaryCurrency === currency.code ? C.bgPrimaryMid as any : C.bgElevated as any}
+                  borderColor={primaryCurrency === currency.code ? C.actionPrimary as any : C.borderDefault as any}
                   borderWidth={1}
                   borderRadius={12}
                   paddingHorizontal="$4"
@@ -529,11 +531,11 @@ export function SignUpWizard({
                 >
                   <Text fontSize={24}>{currency.flag}</Text>
                   <View flex={1}>
-                    <Text color="#FFFFFF" fontSize={14} fontWeight="600">{currency.code}</Text>
-                    <Text color="#9ca3af" fontSize={12}>{currency.name}</Text>
+                    <Text color={C.textPrimary} fontSize={14} fontWeight="600">{currency.code}</Text>
+                    <Text color={C.textMuted} fontSize={12}>{currency.name}</Text>
                   </View>
-                  <Text color="#9ca3af" fontSize={14} fontWeight="600">{currency.symbol}</Text>
-                  {primaryCurrency === currency.code && <Check size={18} color="#C62229" />}
+                  <Text color={C.textMuted} fontSize={14} fontWeight="600">{currency.symbol}</Text>
+                  {primaryCurrency === currency.code && <Check size={18} color={C.actionPrimary} />}
                 </View>
               </TouchableOpacity>
             ))}
@@ -544,15 +546,15 @@ export function SignUpWizard({
       {/* ── Step 4: Transaction PIN ── */}
       {currentStep === 4 && (
         <View>
-          <Text color="#FFFFFF" fontSize={20} fontWeight="700" marginBottom="$2">
+          <Text color={C.textPrimary} fontSize={20} fontWeight="700" marginBottom="$2">
             Create Transaction PIN
           </Text>
-          <Text color="#9ca3af" fontSize={14} marginBottom="$3">
+          <Text color={C.textMuted} fontSize={14} marginBottom="$3">
             This 4-digit PIN will be used to authorize transactions
           </Text>
 
           <View marginBottom="$2.5">
-            <Label color="#d1d5db" marginBottom="$2" fontSize={13} fontWeight="600">PIN</Label>
+            <Label color={C.textSecondary} marginBottom="$2" fontSize={13} fontWeight="600">PIN</Label>
             <View position="relative">
               <Input
                 {...inputProps}
@@ -569,14 +571,14 @@ export function SignUpWizard({
               />
               <View position="absolute" right={12} top={0} bottom={0} justifyContent="center">
                 <TouchableOpacity onPress={() => setShowPin(!showPin)}>
-                  {showPin ? <EyeOff size={20} color="#6b7280" /> : <Eye size={20} color="#6b7280" />}
+                  {showPin ? <EyeOff size={20} color={C.textMuted} /> : <Eye size={20} color={C.textMuted} />}
                 </TouchableOpacity>
               </View>
             </View>
           </View>
 
           <View marginBottom="$2.5">
-            <Label color="#d1d5db" marginBottom="$2" fontSize={13} fontWeight="600">Confirm PIN</Label>
+            <Label color={C.textSecondary} marginBottom="$2" fontSize={13} fontWeight="600">Confirm PIN</Label>
             <View position="relative">
               <Input
                 {...inputProps}
@@ -593,7 +595,7 @@ export function SignUpWizard({
               />
               <View position="absolute" right={12} top={0} bottom={0} justifyContent="center">
                 <TouchableOpacity onPress={() => setShowConfirmPin(!showConfirmPin)}>
-                  {showConfirmPin ? <EyeOff size={20} color="#6b7280" /> : <Eye size={20} color="#6b7280" />}
+                  {showConfirmPin ? <EyeOff size={20} color={C.textMuted} /> : <Eye size={20} color={C.textMuted} />}
                 </TouchableOpacity>
               </View>
             </View>
@@ -604,10 +606,10 @@ export function SignUpWizard({
       {/* ── Step 5: Health Interests ── */}
       {currentStep === 5 && (
         <View>
-          <Text color="#FFFFFF" fontSize={20} fontWeight="700" marginBottom="$1">
+          <Text color={C.textPrimary} fontSize={20} fontWeight="700" marginBottom="$1">
             Health Interests
           </Text>
-          <Text color="#9ca3af" fontSize={14} marginBottom="$3">
+          <Text color={C.textMuted} fontSize={14} marginBottom="$3">
             Tell us what you're interested in (select at least one)
           </Text>
 
@@ -624,7 +626,7 @@ export function SignUpWizard({
           </View>
 
           {interests.length > 0 && (
-            <Text color="#9ca3af" fontSize={12} marginBottom="$2">
+            <Text color={C.textMuted} fontSize={12} marginBottom="$2">
               {interests.length} selected
             </Text>
           )}
@@ -634,10 +636,10 @@ export function SignUpWizard({
               <Button
                 key={interest}
                 size="$2"
-                backgroundColor={interests.includes(interest) ? "#C62229" : "rgba(198, 34, 41, 0.08)"}
-                color={interests.includes(interest) ? "#FFFFFF" : "#d1d5db"}
+                backgroundColor={interests.includes(interest) ? C.actionPrimary : C.bgPrimarySubtle}
+                color={interests.includes(interest) ? "#FFFFFF" : C.textSecondary}
                 borderWidth={1}
-                borderColor={interests.includes(interest) ? "#C62229" : "rgba(198, 34, 41, 0.25)"}
+                borderColor={interests.includes(interest) ? C.actionPrimary : C.redBorder}
                 borderRadius={20}
                 paddingHorizontal="$3"
                 paddingVertical="$1.5"
@@ -661,10 +663,10 @@ export function SignUpWizard({
             flex={1}
             height={48}
             borderRadius={12}
-            backgroundColor="rgba(59, 130, 246, 0.08)"
+            backgroundColor={C.blueSurface}
             borderWidth={1}
-            borderColor="rgba(59, 130, 246, 0.3)"
-            color="#d1d5db"
+            borderColor={C.blueBorder}
+            color={C.textSecondary}
             fontSize={15}
             fontWeight="600"
             icon={<ChevronLeft size={18} />}
@@ -680,7 +682,7 @@ export function SignUpWizard({
             flex={1}
             height={48}
             borderRadius={12}
-            backgroundColor="#C62229"
+            backgroundColor={C.actionPrimary}
             color="#FFFFFF"
             fontSize={15}
             fontWeight="600"
@@ -688,7 +690,7 @@ export function SignUpWizard({
             onPress={handleNext}
             disabled={submitting}
             opacity={submitting ? 0.7 : 1}
-            pressStyle={{ backgroundColor: "#73141d", scale: 0.98 }}
+            pressStyle={{ backgroundColor: C.actionPrimaryPressed, scale: 0.98 }}
           >
             {submitting ? "Please wait..." : "Next"}
           </Button>
@@ -697,14 +699,14 @@ export function SignUpWizard({
             flex={1}
             height={48}
             borderRadius={12}
-            backgroundColor="#C62229"
+            backgroundColor={C.actionPrimary}
             color="#FFFFFF"
             fontSize={15}
             fontWeight="600"
             onPress={handleSubmit}
             disabled={submitting}
             opacity={submitting ? 0.7 : 1}
-            pressStyle={{ backgroundColor: "#73141d", scale: 0.98 }}
+            pressStyle={{ backgroundColor: C.actionPrimaryPressed, scale: 0.98 }}
           >
             {submitting ? "Creating account..." : "Create Account"}
           </Button>
@@ -714,7 +716,7 @@ export function SignUpWizard({
       {currentStep === 1 && (
         <Button
           backgroundColor="transparent"
-          color="#9ca3af"
+          color={C.textMuted}
           borderWidth={0}
           marginTop="$2"
           height={40}

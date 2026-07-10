@@ -13,7 +13,7 @@ import {
   type TextStyle,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '@/tokens/colors';
+import { useColors } from '@/hooks/useColors';
 import { radius } from '@/tokens/radius';
 import { typeScale } from '@/tokens/typography';
 import { spacing } from '@/tokens/spacing';
@@ -28,9 +28,10 @@ interface BadgeProps {
 }
 
 export function StandardBadge({ label, style, textStyle }: BadgeProps) {
+  const C = useColors();
   return (
-    <View style={[styles.standardBadge, style]}>
-      <Text style={[styles.standardBadgeText, textStyle]} allowFontScaling={false}>
+    <View style={[styles.standardBadge, { backgroundColor: C.bgPrimaryMid }, style]}>
+      <Text style={[styles.standardBadgeText, { color: C.actionPrimary }, textStyle]} allowFontScaling={false}>
         {label}
       </Text>
     </View>
@@ -47,11 +48,12 @@ interface StatusBadgeProps {
 }
 
 export function StatusBadge({ label, online = true, style }: StatusBadgeProps) {
+  const C = useColors();
   return (
-    <View style={[styles.statusBadge, style]}>
-      <View style={[styles.statusDot, { backgroundColor: online ? Colors.statusSuccess : Colors.textDisabled }]} />
+    <View style={[styles.statusBadge, { backgroundColor: C.statusSuccessBg }, style]}>
+      <View style={[styles.statusDot, { backgroundColor: online ? C.statusSuccess : C.textDisabled }]} />
       <Text
-        style={[styles.statusBadgeText, { color: online ? Colors.statusSuccess : Colors.textDisabled }]}
+        style={[styles.statusBadgeText, { color: online ? C.statusSuccess : C.textDisabled }]}
         allowFontScaling={false}
       >
         {label}
@@ -69,11 +71,12 @@ interface UnreadBadgeProps {
 }
 
 export function UnreadBadge({ count, style }: UnreadBadgeProps) {
+  const C = useColors();
   if (count <= 0) return null;
   const label = count > 99 ? '99+' : String(count);
 
   return (
-    <View style={[styles.unreadBadge, style]}>
+    <View style={[styles.unreadBadge, { backgroundColor: C.actionPrimary }, style]}>
       <Text style={styles.unreadBadgeText} allowFontScaling={false}>
         {label}
       </Text>
@@ -85,9 +88,10 @@ export function UnreadBadge({ count, style }: UnreadBadgeProps) {
 // InfoBadge — experience / info chip (blue)
 // ─────────────────────────────────────────────────────────────────────────────
 export function InfoBadge({ label, style }: BadgeProps) {
+  const C = useColors();
   return (
-    <View style={[styles.infoBadge, style]}>
-      <Text style={styles.infoBadgeText} allowFontScaling={false}>
+    <View style={[styles.infoBadge, { backgroundColor: C.statusInfoBg }, style]}>
+      <Text style={[styles.infoBadgeText, { color: C.statusInfo }]} allowFontScaling={false}>
         {label}
       </Text>
     </View>
@@ -111,6 +115,7 @@ export function RatingStars({
   size = 'list',
   style,
 }: RatingStarsProps) {
+  const C = useColors();
   const starSize = size === 'detail' ? 28 : 20;
 
   return (
@@ -123,7 +128,7 @@ export function RatingStars({
             key={i}
             name={filled ? 'star' : half ? 'star-half' : 'star-outline'}
             size={starSize}
-            color={filled || half ? Colors.statusWarning : Colors.palette.gray37}
+            color={filled || half ? C.statusWarning : C.palette.gray37}
           />
         );
       })}
@@ -135,15 +140,18 @@ export function RatingStars({
 // Dividers — Phase 14
 // ─────────────────────────────────────────────────────────────────────────────
 export function FullDivider({ style }: { style?: StyleProp<ViewStyle> }) {
-  return <View style={[styles.fullDivider, style]} />;
+  const C = useColors();
+  return <View style={[styles.fullDivider, { backgroundColor: C.borderSubtle }, style]} />;
 }
 
 export function InsetDivider({ style }: { style?: StyleProp<ViewStyle> }) {
-  return <View style={[styles.insetDivider, style]} />;
+  const C = useColors();
+  return <View style={[styles.insetDivider, { backgroundColor: C.borderSubtle }, style]} />;
 }
 
 export function SectionDivider({ style }: { style?: StyleProp<ViewStyle> }) {
-  return <View style={[styles.sectionDivider, style]} />;
+  const C = useColors();
+  return <View style={[styles.sectionDivider, { backgroundColor: C.bgElevated }, style]} />;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -151,7 +159,6 @@ export function SectionDivider({ style }: { style?: StyleProp<ViewStyle> }) {
 // ─────────────────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   standardBadge: {
-    backgroundColor: Colors.bgPrimaryMid,
     borderRadius: radius.radiusFull,
     paddingHorizontal: 10,
     paddingVertical: 4,
@@ -159,13 +166,11 @@ const styles = StyleSheet.create({
   standardBadgeText: {
     ...typeScale.caption,
     fontWeight: '600',
-    color: Colors.actionPrimary,
   },
 
   statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.statusSuccessBg,
     borderRadius: radius.radiusFull,
     paddingHorizontal: 8,
     paddingVertical: 3,
@@ -182,7 +187,6 @@ const styles = StyleSheet.create({
   },
 
   unreadBadge: {
-    backgroundColor: Colors.actionPrimary,
     borderRadius: radius.radiusFull,
     minWidth: 18,
     height: 18,
@@ -198,7 +202,6 @@ const styles = StyleSheet.create({
   },
 
   infoBadge: {
-    backgroundColor: Colors.statusInfoBg,
     borderRadius: radius.radiusXS,
     paddingHorizontal: spacing.space2,
     paddingVertical: 3,
@@ -206,7 +209,6 @@ const styles = StyleSheet.create({
   infoBadgeText: {
     ...typeScale.caption,
     fontWeight: '600',
-    color: Colors.statusInfo,
   },
 
   starsRow: {
@@ -216,16 +218,13 @@ const styles = StyleSheet.create({
 
   fullDivider: {
     height: 1,
-    backgroundColor: Colors.borderSubtle,
     marginVertical: 4,
   },
   insetDivider: {
     height: 1,
-    backgroundColor: 'rgba(255,255,255,0.06)',
     marginLeft: 68,
   },
   sectionDivider: {
     height: 8,
-    backgroundColor: Colors.bgElevated,
   },
 });

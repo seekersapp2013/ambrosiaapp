@@ -1,6 +1,7 @@
 /**
  * ModerationHistory — React Native
- * Phase 4: FlatList of moderation actions with filter pills and load-more.
+ * Phase 4 + Light/Dark mode overhaul
+ * FlatList of moderation actions with filter pills and load-more.
  */
 
 import React, { useState } from 'react';
@@ -16,7 +17,7 @@ import { useQuery } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import { Ionicons } from '@expo/vector-icons';
 import { EmptyStateCard } from '@/components/ui/Card';
-import { Colors } from '@/tokens/colors';
+import { useColors } from '@/hooks/useColors';
 import { typeScale } from '@/tokens/typography';
 import { spacing } from '@/tokens/spacing';
 import { radius } from '@/tokens/radius';
@@ -36,17 +37,19 @@ interface ActionStyle {
   color: string;
 }
 
-const ACTION_STYLES: Record<string, ActionStyle> = {
-  APPROVE:         { icon: 'checkmark-circle-outline', color: Colors.statusSuccess },
-  REJECT:          { icon: 'close-circle-outline',     color: Colors.statusDanger  },
-  BAN:             { icon: 'ban-outline',              color: Colors.statusDanger  },
-  UNBAN:           { icon: 'checkmark-done-circle-outline', color: Colors.statusSuccess },
-  ASSIGN_ROLE:     { icon: 'person-add-outline',       color: Colors.statusInfo    },
-  REMOVE_ROLE:     { icon: 'person-remove-outline',    color: Colors.statusWarning },
-  UPDATE_SETTINGS: { icon: 'settings-outline',         color: Colors.palette.purple },
-  CREATE_ROLE:     { icon: 'add-circle-outline',       color: Colors.statusInfo    },
-  DELETE_ROLE:     { icon: 'trash-outline',            color: Colors.statusDanger  },
-};
+function getActionStyles(C: ReturnType<typeof useColors>): Record<string, ActionStyle> {
+  return {
+    APPROVE:         { icon: 'checkmark-circle-outline', color: C.statusSuccess },
+    REJECT:          { icon: 'close-circle-outline',     color: C.statusDanger  },
+    BAN:             { icon: 'ban-outline',              color: C.statusDanger  },
+    UNBAN:           { icon: 'checkmark-done-circle-outline', color: C.statusSuccess },
+    ASSIGN_ROLE:     { icon: 'person-add-outline',       color: C.statusInfo    },
+    REMOVE_ROLE:     { icon: 'person-remove-outline',    color: C.statusWarning },
+    UPDATE_SETTINGS: { icon: 'settings-outline',         color: C.palette.purple },
+    CREATE_ROLE:     { icon: 'add-circle-outline',       color: C.statusInfo    },
+    DELETE_ROLE:     { icon: 'trash-outline',            color: C.statusDanger  },
+  };
+}
 
 const ACTION_LABELS: Record<string, string> = {
   APPROVE:         'Approved',
@@ -65,8 +68,11 @@ function formatDate(ts: number): string {
 }
 
 export function ModerationHistory() {
+  const C = useColors();
   const [selectedFilter, setSelectedFilter] = useState<ActionFilter>('all');
   const [limit, setLimit] = useState(50);
+
+  const ACTION_STYLES = getActionStyles(C);
 
   const history = useQuery(
     api.moderationActions.getModerationHistory,
@@ -78,38 +84,38 @@ export function ModerationHistory() {
   const renderItem = ({ item }: { item: any }) => {
     const style = ACTION_STYLES[item.actionType] ?? {
       icon: 'ellipse-outline' as keyof typeof Ionicons.glyphMap,
-      color: Colors.textMuted,
+      color: C.textMuted,
     };
     const label = ACTION_LABELS[item.actionType] ?? item.actionType;
 
     return (
-      <View style={styles.itemCard}>
+      <View style={[styles.itemCard, { backgroundColor: C.bgElevated, borderColor: C.borderSubtle }]}>
         <View style={[styles.iconWrap, { backgroundColor: `${style.color}18` }]}>
           <Ionicons name={style.icon} size={20} color={style.color} />
         </View>
         <View style={styles.itemBody}>
           <View style={styles.itemTopRow}>
-            <Text style={styles.itemLabel}>{label}</Text>
+            <Text style={[styles.itemLabel, { color: C.textPrimary }]}>{label}</Text>
             {item.performerRoleName ? (
-              <View style={styles.roleBadge}>
-                <Text style={styles.roleBadgeText}>{item.performerRoleName}</Text>
+              <View style={[styles.roleBadge, { backgroundColor: C.isDark ? C.purpleSurface : 'rgba(139,92,246,0.08)' }]}>
+                <Text style={[styles.roleBadgeText, { color: C.palette.purple }]}>{item.performerRoleName}</Text>
               </View>
             ) : null}
           </View>
-          <Text style={styles.itemPerformer}>
+          <Text style={[styles.itemPerformer, { color: C.textMuted }]}>
             By{' '}
-            <Text style={styles.itemPerformerName}>
+            <Text style={[styles.itemPerformerName, { color: C.textPrimary }]}>
               {item.performer?.username
                 ? `@${item.performer.username}`
                 : item.performer?.name ?? 'Unknown'}
             </Text>
           </Text>
           {item.reason ? (
-            <Text style={styles.itemReason} numberOfLines={2}>
+            <Text style={[styles.itemReason, { color: C.textMuted }]} numberOfLines={2}>
               {item.reason}
             </Text>
           ) : null}
-          <Text style={styles.itemDate}>{formatDate(item.createdAt)}</Text>
+          <Text style={[styles.itemDate, { color: C.textDisabled }]}>{formatDate(item.createdAt)}</Text>
         </View>
       </View>
     );
@@ -123,7 +129,7 @@ export function ModerationHistory() {
         accessibilityRole="button"
         accessibilityLabel="Load more history"
       >
-        <Text style={styles.loadMoreText}>Load More</Text>
+        <Text style={[styles.loadMoreText, { color: C.actionPrimary }]}>Load More</Text>
       </TouchableOpacity>
     ) : null;
 
@@ -141,12 +147,16 @@ export function ModerationHistory() {
           const active = selectedFilter === f.id;
           return (
             <TouchableOpacity
-              style={[styles.filterPill, active && styles.filterPillActive]}
+              style={[
+                styles.filterPill,
+                { backgroundColor: C.isDark ? C.bgElevated : C.bgInput, borderColor: C.borderSubtle },
+                active && { backgroundColor: C.actionPrimary, borderColor: C.actionPrimary },
+              ]}
               onPress={() => setSelectedFilter(f.id)}
               accessibilityRole="tab"
               accessibilityState={{ selected: active }}
             >
-              <Text style={[styles.filterPillText, active && styles.filterPillTextActive]}>
+              <Text style={[styles.filterPillText, { color: C.textMuted }, active && styles.filterPillTextActive]}>
                 {f.label}
               </Text>
             </TouchableOpacity>
@@ -157,7 +167,7 @@ export function ModerationHistory() {
       {/* History list */}
       {history === undefined ? (
         <View style={styles.loaderWrap}>
-          <ActivityIndicator color={Colors.actionPrimary} size="large" />
+          <ActivityIndicator color={C.actionPrimary} size="large" />
         </View>
       ) : (
         <FlatList
@@ -181,14 +191,10 @@ export function ModerationHistory() {
 }
 
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-  },
-  filterBarList: {
-    flexGrow: 0,
-    flexShrink: 0,
-    height: 48,
-  },
+  root: { flex: 1 },
+
+  // Filter bar
+  filterBarList: { flexGrow: 0, flexShrink: 0, height: 48 },
   filterBar: {
     paddingHorizontal: spacing.screenPaddingH,
     paddingVertical: spacing.space2,
@@ -199,45 +205,26 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.space3,
     paddingVertical: 6,
     borderRadius: radius.radiusFull,
-    backgroundColor: Colors.bgElevated,
     borderWidth: 1,
-    borderColor: Colors.borderSubtle,
     height: 30,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  filterPillActive: {
-    backgroundColor: Colors.actionPrimary,
-    borderColor: Colors.actionPrimary,
-  },
-  filterPillText: {
-    ...typeScale.labelSM,
-    color: Colors.textMuted,
-    lineHeight: 16,
-  },
-  filterPillTextActive: {
-    color: Colors.textPrimary,
-  },
-  loaderWrap: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  filterPillText: { ...typeScale.labelSM, lineHeight: 16 },
+  filterPillTextActive: { color: '#FFFFFF', fontWeight: '700' },
+
+  loaderWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   listContent: {
     paddingHorizontal: spacing.screenPaddingH,
     paddingBottom: spacing.scrollBottomPadding,
   },
-  emptyState: {
-    marginTop: spacing.space10,
-  },
+  emptyState: { marginTop: spacing.space10 },
 
   // Item card
   itemCard: {
     flexDirection: 'row',
-    backgroundColor: Colors.bgSurface,
     borderRadius: radius.radiusLG,
     borderWidth: 1,
-    borderColor: Colors.borderSubtle,
     padding: spacing.space4,
     marginBottom: spacing.space3,
     gap: spacing.space3,
@@ -251,56 +238,26 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     flexShrink: 0,
   },
-  itemBody: {
-    flex: 1,
-    gap: 4,
-  },
+  itemBody: { flex: 1, gap: 4 },
   itemTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.space2,
     flexWrap: 'wrap',
   },
-  itemLabel: {
-    ...typeScale.headingSM,
-    fontSize: 14,
-    color: Colors.textPrimary,
-  },
+  itemLabel: { ...typeScale.headingSM, fontSize: 14 },
   roleBadge: {
-    backgroundColor: Colors.purpleSurface,
     borderRadius: radius.radiusFull,
     paddingHorizontal: spacing.space2,
     paddingVertical: 2,
   },
-  roleBadgeText: {
-    ...typeScale.caption,
-    color: Colors.palette.purple,
-    fontWeight: '600',
-  },
-  itemPerformer: {
-    ...typeScale.bodySM,
-    color: Colors.textMuted,
-  },
-  itemPerformerName: {
-    color: Colors.textPrimary,
-    fontWeight: '600',
-  },
-  itemReason: {
-    ...typeScale.bodySM,
-    color: Colors.textMuted,
-  },
-  itemDate: {
-    ...typeScale.caption,
-    color: Colors.textDisabled,
-  },
+  roleBadgeText: { ...typeScale.caption, fontWeight: '600' },
+  itemPerformer: { ...typeScale.bodySM },
+  itemPerformerName: { fontWeight: '600' },
+  itemReason: { ...typeScale.bodySM },
+  itemDate: { ...typeScale.caption },
 
   // Load more
-  loadMoreBtn: {
-    alignItems: 'center',
-    paddingVertical: spacing.space4,
-  },
-  loadMoreText: {
-    ...typeScale.labelMD,
-    color: Colors.actionPrimary,
-  },
+  loadMoreBtn: { alignItems: 'center', paddingVertical: spacing.space4 },
+  loadMoreText: { ...typeScale.labelMD, fontWeight: '700' },
 });

@@ -16,6 +16,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Colors } from "@/tokens/colors";
+import { useColors } from "@/hooks/useColors";
 import { typeScale } from "@/tokens/typography";
 import { spacing } from "@/tokens/spacing";
 import { radius } from "@/tokens/radius";
@@ -81,7 +82,7 @@ export default function BookingDetailScreen() {
   if (isLoading) {
     return (
       <AppBackground>
-        <ScreenHeader title="Booking Details" onBack={() => router.back()}/>
+        <ScreenHeader title="Booking Details" onBack={() => router.replace("/(tabs)/booking" as any)}/>
         <View style={styles.loadingWrap}>
           <ActivityIndicator size="large" color={Colors.actionPrimary}/>
         </View>
@@ -92,12 +93,12 @@ export default function BookingDetailScreen() {
   if (!booking) {
     return (
       <AppBackground>
-        <ScreenHeader title="Booking Details" onBack={() => router.back()}/>
+        <ScreenHeader title="Booking Details" onBack={() => router.replace("/(tabs)/booking" as any)}/>
         <MobileCard>
           <View style={styles.loadingWrap}>
             <Ionicons name="alert-circle-outline" size={48} color={Colors.statusDanger}/>
             <Text style={styles.notFoundText} allowFontScaling={false}>Booking not found</Text>
-            <SecondaryButton label="Go Back" onPress={() => router.back()} style={{ marginTop: spacing.space4 }}/>
+            <SecondaryButton label="Go Back" onPress={() => router.replace("/(tabs)/booking" as any)} style={{ marginTop: spacing.space4 }}/>
           </View>
         </MobileCard>
       </AppBackground>
@@ -169,14 +170,14 @@ export default function BookingDetailScreen() {
       if (hasPayment) await refundPayment({ bookingId: bookingId as any });
       await cancelBooking({ bookingId: bookingId as any });
       setShowCancel(false);
-      router.back();
+      router.replace("/(tabs)/booking" as any);
     } catch (err: any) { setActionError(err?.message ?? "Failed to cancel."); }
     finally { setProcessing(false); }
   }
 
   return (
     <AppBackground>
-      <ScreenHeader title="Booking Details" onBack={() => router.back()}/>
+      <ScreenHeader title="Booking Details" onBack={() => router.replace("/(tabs)/booking" as any)}/>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         <MobileCard>

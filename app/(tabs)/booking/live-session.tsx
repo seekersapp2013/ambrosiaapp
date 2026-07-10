@@ -296,7 +296,7 @@ export default function LiveSessionScreen() {
   if (booking === undefined) {
     return (
       <AppBackground>
-        <ScreenHeader title="Session" onBack={() => router.back()} />
+        <ScreenHeader title="Session" onBack={() => router.replace("/(tabs)/booking" as any)} />
         <View style={styles.centerWrap}>
           <ActivityIndicator size="large" color={Colors.actionPrimary} />
         </View>
@@ -307,12 +307,12 @@ export default function LiveSessionScreen() {
   if (!booking) {
     return (
       <AppBackground>
-        <ScreenHeader title="Session" onBack={() => router.back()} />
+        <ScreenHeader title="Session" onBack={() => router.replace("/(tabs)/booking" as any)} />
         <MobileCard>
           <View style={styles.centerWrap}>
             <Ionicons name="alert-circle-outline" size={48} color={Colors.statusDanger} />
             <Text style={styles.errorText} allowFontScaling={false}>Booking not found</Text>
-            <SecondaryButton label="Go Back" onPress={() => router.back()} style={{ marginTop: spacing.space4 }} />
+            <SecondaryButton label="Go Back" onPress={() => router.replace("/(tabs)/booking" as any)} style={{ marginTop: spacing.space4 }} />
           </View>
         </MobileCard>
       </AppBackground>
@@ -374,7 +374,7 @@ export default function LiveSessionScreen() {
   if (view === "ended" || hasEnded) {
     return (
       <AppBackground>
-        <ScreenHeader title="Session Ended" onBack={() => router.back()} />
+        <ScreenHeader title="Session Ended" onBack={() => router.replace("/(tabs)/booking" as any)} />
         <ScrollView
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
@@ -440,7 +440,7 @@ export default function LiveSessionScreen() {
   const b = booking as any;
   return (
     <AppBackground>
-      <ScreenHeader title="Join Session" onBack={() => router.back()} />
+      <ScreenHeader title="Join Session" onBack={() => router.replace("/(tabs)/booking" as any)} />
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}

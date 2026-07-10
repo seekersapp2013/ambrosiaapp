@@ -10,6 +10,10 @@ export const createReferral = mutation({
     title: v.string(),
     healthNote: v.string(),
     suggestedExperts: v.array(v.id("users")),
+    // Optional: link a past session as context for this referral
+    sessionId: v.optional(v.id("bookings")),
+    // How was this referral created — defaults to STANDALONE when not provided
+    referralSource: v.optional(v.string()), // "STANDALONE" | "FROM_BOOKING"
   },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
@@ -60,7 +64,22 @@ export const createReferral = mutation({
       }
     }
 
+    // If a sessionId was provided, validate it belongs to this provider and patient
+    if (args.sessionId) {
+      const session = await ctx.db.get(args.sessionId);
+      if (!session) {
+        throw new Error("Linked session not found");
+      }
+      if (session.providerId !== userId) {
+        throw new Error("You can only link sessions where you are the provider");
+      }
+      if (session.clientId !== args.patientId) {
+        throw new Error("The linked session must be with this patient");
+      }
+    }
+
     const now = Date.now();
+    const source = args.referralSource ?? "STANDALONE";
 
     const referralId = await ctx.db.insert("referrals", {
       referringExpertId: userId,
@@ -69,6 +88,8 @@ export const createReferral = mutation({
       healthNote: args.healthNote.trim(),
       suggestedExperts: args.suggestedExperts,
       status: "PENDING",
+      referralSource: source,
+      sessionId: args.sessionId,
       commissionRate: 0.10,
       commissionPaid: false,
       createdAt: now,
@@ -331,7 +352,24 @@ export const selectExpertFromReferral = mutation({
       updatedAt: now,
     });
 
-    // Notify referring expert and the selected expert
+    // Create the private 3-way referral circle for all three parties
+    try {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.referrals.createReferralCircle,
+        {
+          referralId: args.referralId,
+          referringExpertId: referral.referringExpertId,
+          selectedExpertId: args.selectedExpertId,
+          patientId: referral.patientId,
+          referralTitle: referral.title,
+        }
+      );
+    } catch (err) {
+      console.error("Failed to create referral circle:", err);
+    }
+
+    // Notify referring expert, selected expert, and include circle context
     try {
       await ctx.scheduler.runAfter(
         0,
@@ -774,5 +812,100 @@ export const internalCompleteReferralWithCommission = internalMutation({
       currency: referral.commissionCurrency,
       transactionId: txId,
     };
+  },
+});
+
+// ─── Internal: create the 3-way referral circle ──────────────────────────────
+// Called by selectExpertFromReferral once the patient has chosen their expert.
+// All three participants are added as members immediately; the circle bypasses
+// the moderation approval queue so it is live instantly.
+export const createReferralCircle = internalMutation({
+  args: {
+    referralId: v.id("referrals"),
+    referringExpertId: v.id("users"),
+    selectedExpertId: v.id("users"),
+    patientId: v.id("users"),
+    referralTitle: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const now = Date.now();
+
+    // Build a unique, human-readable name from the referral title
+    const circleName = `Referral: ${args.referralTitle}`;
+    const description =
+      "A private space for the referring provider, selected provider, and patient to communicate and share content.";
+
+    // Generate an invite code in case it's needed for deep-linking later
+    const inviteCode = Math.random().toString(36).substring(2, 10).toUpperCase();
+
+    // Create the circle — PRIVATE, FREE, active immediately (no moderation queue)
+    const circleId = await ctx.db.insert("circles", {
+      name: circleName,
+      description,
+      creatorId: args.referringExpertId,
+      type: "PRIVATE",
+      accessType: "FREE",
+      inviteCode,
+      currentMembers: 3, // all three added below
+      tags: ["referral"],
+      isActive: true,
+      postingPermission: "EVERYONE",
+      // Referral-specific flags
+      isReferralCircle: true,
+      referralId: args.referralId,
+      // Bypass moderation
+      approvalStatus: "NOT_REQUIRED",
+      createdAt: now,
+    });
+
+    // Add all three members in one go
+    const members = [
+      { userId: args.referringExpertId, role: "CREATOR" as const },
+      { userId: args.selectedExpertId,  role: "MEMBER"  as const },
+      { userId: args.patientId,         role: "MEMBER"  as const },
+    ];
+
+    for (const member of members) {
+      await ctx.db.insert("circleMembers", {
+        circleId,
+        userId: member.userId,
+        role: member.role,
+        joinedAt: now,
+        lastActiveAt: now,
+        isActive: true,
+      });
+    }
+
+    // Store the circleId back on the referral record
+    await ctx.db.patch(args.referralId, {
+      circleId,
+      updatedAt: now,
+    });
+
+    return { circleId };
+  },
+});
+
+// Query: get the referral circle for a given referral (used by the detail screen)
+export const getReferralCircle = query({
+  args: { referralId: v.id("referrals") },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+
+    const referral = await ctx.db.get(args.referralId);
+    if (!referral) throw new Error("Referral not found");
+
+    // Only the three parties may access this
+    const hasAccess =
+      referral.patientId === userId ||
+      referral.referringExpertId === userId ||
+      referral.selectedExpertId === userId;
+    if (!hasAccess) throw new Error("Access denied");
+
+    if (!referral.circleId) return null;
+
+    const circle = await ctx.db.get(referral.circleId);
+    return circle ?? null;
   },
 });

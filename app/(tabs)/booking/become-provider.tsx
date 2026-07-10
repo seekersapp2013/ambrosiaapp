@@ -113,7 +113,7 @@ export default function BecomeProviderScreen() {
     <AppBackground>
       <ScreenHeader
         title={headerTitle}
-        onBack={() => router.back()}
+        onBack={() => router.replace("/(tabs)/booking" as any)}
       />
 
       {/* Single screen-level ScrollView — form content renders flat inside MobileCard */}

@@ -3,6 +3,9 @@
  * Phase 6: All card variants with press states (Phase 20)
  * Accessibility: Phase 21
  * Motion: Phase 17 (card press scale 0.97)
+ *
+ * ✅ Phase 0: Fully theme-aware — reads colors from useColors() hook.
+ *    All color values respond to light/dark mode automatically.
  */
 
 import React, { useRef } from 'react';
@@ -18,11 +21,11 @@ import {
   type ImageSourcePropType,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '@/tokens/colors';
+import { useColors } from '@/hooks/useColors';
+import { useThemedStyles } from '@/hooks/useThemedStyles';
 import { radius } from '@/tokens/radius';
 import { typeScale } from '@/tokens/typography';
 import { spacing } from '@/tokens/spacing';
-import { elevation } from '@/tokens/shadows';
 import { duration } from '@/tokens/motion';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -68,15 +71,31 @@ export function BaseCard({
   elevated = false,
 }: BaseCardProps) {
   const { scale, onPressIn, onPressOut } = useCardPress();
+  const C = useColors();
+  const themed = useThemedStyles(C, (colors) => ({
+    card: {
+      backgroundColor: colors.bgSurface,
+      borderRadius: 20,
+      borderWidth: 1,
+      borderColor: colors.isDark ? colors.redBorder : colors.borderDefault,
+      shadowColor: colors.isDark ? '#C62229' : '#000000',
+      shadowOffset: { width: 0, height: colors.isDark ? 20 : 4 },
+      shadowOpacity: colors.isDark ? 0.15 : 0.08,
+      shadowRadius: colors.isDark ? 40 : 16,
+      elevation: colors.isDark ? 8 : 4,
+      padding: spacing.space4,
+      marginBottom: spacing.space3,
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+    },
+    cardPressed: {
+      backgroundColor: colors.bgElevated,
+    },
+  }));
 
   if (!onPress) {
     return (
-      <View
-        style={[
-          styles.card,
-          style,
-        ]}
-      >
+      <View style={[themed.card, style]}>
         {children}
       </View>
     );
@@ -91,8 +110,8 @@ export function BaseCard({
         accessibilityRole="button"
         accessibilityLabel={accessibilityLabel}
         style={({ pressed }) => [
-          styles.card,
-          pressed && styles.cardPressed,
+          themed.card,
+          pressed && themed.cardPressed,
           style,
         ]}
       >
@@ -129,43 +148,44 @@ export function ListCard({
   style,
   accessibilityLabel,
 }: ListCardProps) {
+  const C = useColors();
   const thumbSource =
     typeof thumbnail === 'string' ? { uri: thumbnail } : thumbnail;
 
   return (
     <BaseCard
       onPress={onPress}
-      style={[styles.listCard, style]}
+      style={[staticStyles.listCard, style]}
       accessibilityLabel={accessibilityLabel ?? title}
     >
       {/* Thumbnail */}
-      <View style={styles.listThumb}>
+      <View style={staticStyles.listThumb}>
         {thumbSource ? (
           <Image
             source={thumbSource}
-            style={styles.listThumbImg}
+            style={staticStyles.listThumbImg}
             resizeMode="cover"
             accessible={false}
           />
         ) : (
-          <View style={styles.listThumbPlaceholder}>
-            <Ionicons name={thumbnailFallbackIcon} size={24} color={Colors.iconSecondary} />
+          <View style={[staticStyles.listThumbPlaceholder, { backgroundColor: C.bgElevated }]}>
+            <Ionicons name={thumbnailFallbackIcon} size={24} color={C.iconSecondary} />
           </View>
         )}
       </View>
 
       {/* Content */}
-      <View style={styles.listContent}>
-        <Text style={styles.listTitle} numberOfLines={1} allowFontScaling={true}>
+      <View style={staticStyles.listContent}>
+        <Text style={[staticStyles.listTitle, { color: C.textPrimary }]} numberOfLines={1} allowFontScaling={true}>
           {title}
         </Text>
         {subtitle ? (
-          <Text style={styles.listSubtitle} numberOfLines={1} allowFontScaling={true}>
+          <Text style={[staticStyles.listSubtitle, { color: C.textMuted }]} numberOfLines={1} allowFontScaling={true}>
             {subtitle}
           </Text>
         ) : null}
         {meta ? (
-          <Text style={styles.listMeta} numberOfLines={1} allowFontScaling={true}>
+          <Text style={[staticStyles.listMeta, { color: C.textDisabled }]} numberOfLines={1} allowFontScaling={true}>
             {meta}
           </Text>
         ) : null}
@@ -173,9 +193,9 @@ export function ListCard({
 
       {/* Trailing */}
       {trailing ? (
-        <View style={styles.listTrailing}>{trailing}</View>
+        <View style={staticStyles.listTrailing}>{trailing}</View>
       ) : (
-        <Ionicons name="chevron-forward" size={16} color={Colors.iconDisabled} />
+        <Ionicons name="chevron-forward" size={16} color={C.iconDisabled} />
       )}
     </BaseCard>
   );
@@ -200,7 +220,7 @@ interface SettingsRowProps {
 export function SettingsRow({
   label,
   icon,
-  iconColor = Colors.iconAccent,
+  iconColor,
   trailing,
   showChevron = true,
   onPress,
@@ -209,6 +229,8 @@ export function SettingsRow({
   style,
 }: SettingsRowProps) {
   const { scale, onPressIn, onPressOut } = useCardPress();
+  const C = useColors();
+  const resolvedIconColor = iconColor ?? C.iconAccent;
 
   return (
     <>
@@ -220,16 +242,17 @@ export function SettingsRow({
           accessibilityRole="button"
           accessibilityLabel={label}
           style={({ pressed }) => [
-            styles.settingsRow,
-            pressed && styles.cardPressed,
+            staticStyles.settingsRow,
+            { backgroundColor: C.bgSurface },
+            pressed && { backgroundColor: C.bgElevated },
             style,
           ]}
         >
-          <Ionicons name={icon} size={20} color={iconColor} />
+          <Ionicons name={icon} size={20} color={resolvedIconColor} />
           <Text
             style={[
-              styles.settingsLabel,
-              isDestructive && { color: Colors.textDanger },
+              staticStyles.settingsLabel,
+              { color: isDestructive ? C.textDanger : C.textPrimary },
             ]}
             allowFontScaling={true}
           >
@@ -237,12 +260,14 @@ export function SettingsRow({
           </Text>
           {trailing ?? (
             isDestructive ? null : showChevron ? (
-              <Ionicons name="chevron-forward" size={16} color={Colors.iconDisabled} />
+              <Ionicons name="chevron-forward" size={16} color={C.iconDisabled} />
             ) : null
           )}
         </Pressable>
       </Animated.View>
-      {!isLast ? <View style={styles.settingsDivider} /> : null}
+      {!isLast ? (
+        <View style={[staticStyles.settingsDivider, { backgroundColor: C.borderSubtle }]} />
+      ) : null}
     </>
   );
 }
@@ -271,44 +296,51 @@ export function TransactionCard({
   title,
   subtitle,
   amount,
-  amountColor = Colors.actionPrimary,
+  amountColor,
   status,
-  statusColor = Colors.statusSuccess,
-  statusBg = Colors.statusSuccessBg,
+  statusColor,
+  statusBg,
   icon,
-  iconColor = Colors.actionPrimary,
-  iconBg = Colors.bgPrimaryMid,
+  iconColor,
+  iconBg,
   timestamp,
   onPress,
   style,
 }: TransactionCardProps) {
+  const C = useColors();
+  const resolvedAmountColor = amountColor ?? C.actionPrimary;
+  const resolvedStatusColor = statusColor ?? C.statusSuccess;
+  const resolvedStatusBg = statusBg ?? C.statusSuccessBg;
+  const resolvedIconColor = iconColor ?? C.actionPrimary;
+  const resolvedIconBg = iconBg ?? C.bgPrimaryMid;
+
   return (
-    <BaseCard onPress={onPress} style={[styles.txCard, style]} accessibilityLabel={title}>
-      <View style={[styles.txIconWrap, { backgroundColor: iconBg }]}>
-        <Ionicons name={icon} size={20} color={iconColor} />
+    <BaseCard onPress={onPress} style={[staticStyles.txCard, style]} accessibilityLabel={title}>
+      <View style={[staticStyles.txIconWrap, { backgroundColor: resolvedIconBg }]}>
+        <Ionicons name={icon} size={20} color={resolvedIconColor} />
       </View>
-      <View style={styles.txContent}>
-        <Text style={styles.txTitle} numberOfLines={1} allowFontScaling={true}>
+      <View style={staticStyles.txContent}>
+        <Text style={[staticStyles.txTitle, { color: C.textPrimary }]} numberOfLines={1} allowFontScaling={true}>
           {title}
         </Text>
         {subtitle ? (
-          <Text style={styles.txSubtitle} numberOfLines={1} allowFontScaling={true}>
+          <Text style={[staticStyles.txSubtitle, { color: C.textMuted }]} numberOfLines={1} allowFontScaling={true}>
             {subtitle}
           </Text>
         ) : null}
         {timestamp ? (
-          <Text style={styles.txTimestamp} allowFontScaling={true}>
+          <Text style={[staticStyles.txTimestamp, { color: C.textDisabled }]} allowFontScaling={true}>
             {timestamp}
           </Text>
         ) : null}
       </View>
-      <View style={styles.txRight}>
-        <Text style={[styles.txAmount, { color: amountColor }]} allowFontScaling={false}>
+      <View style={staticStyles.txRight}>
+        <Text style={[staticStyles.txAmount, { color: resolvedAmountColor }]} allowFontScaling={false}>
           {amount}
         </Text>
         {status ? (
-          <View style={[styles.txBadge, { backgroundColor: statusBg }]}>
-            <Text style={[styles.txBadgeText, { color: statusColor }]} allowFontScaling={false}>
+          <View style={[staticStyles.txBadge, { backgroundColor: resolvedStatusBg }]}>
+            <Text style={[staticStyles.txBadgeText, { color: resolvedStatusColor }]} allowFontScaling={false}>
               {status}
             </Text>
           </View>
@@ -337,20 +369,22 @@ export function EmptyStateCard({
   action,
   style,
 }: EmptyStateProps) {
+  const C = useColors();
+
   return (
-    <View style={[styles.emptyContainer, style]}>
-      <View style={styles.emptyIconWrap}>
-        <Ionicons name={icon} size={48} color={Colors.iconSecondary} />
+    <View style={[staticStyles.emptyContainer, style]}>
+      <View style={[staticStyles.emptyIconWrap, { backgroundColor: C.bgElevated }]}>
+        <Ionicons name={icon} size={48} color={C.iconSecondary} />
       </View>
-      <Text style={styles.emptyTitle} allowFontScaling={true}>
+      <Text style={[staticStyles.emptyTitle, { color: C.textPrimary }]} allowFontScaling={true}>
         {title}
       </Text>
       {subtitle ? (
-        <Text style={styles.emptySubtitle} allowFontScaling={true}>
+        <Text style={[staticStyles.emptySubtitle, { color: C.textMuted }]} allowFontScaling={true}>
           {subtitle}
         </Text>
       ) : null}
-      {action ? <View style={styles.emptyAction}>{action}</View> : null}
+      {action ? <View style={staticStyles.emptyAction}>{action}</View> : null}
     </View>
   );
 }
@@ -373,6 +407,7 @@ export function QuickActionCard({
   style,
 }: QuickActionCardProps) {
   const { scale, onPressIn, onPressOut } = useCardPress();
+  const C = useColors();
 
   return (
     <Animated.View style={[{ transform: [{ scale }] }, style]}>
@@ -383,12 +418,29 @@ export function QuickActionCard({
         accessibilityRole="button"
         accessibilityLabel={label}
         style={({ pressed }) => [
-          styles.quickAction,
-          pressed && styles.cardPressed,
+          {
+            backgroundColor: C.bgSurface,
+            borderRadius: 20,
+            borderWidth: 1,
+            borderColor: C.isDark ? C.redBorder : C.borderDefault,
+            shadowColor: C.isDark ? '#C62229' : '#000000',
+            shadowOffset: { width: 0, height: C.isDark ? 20 : 4 },
+            shadowOpacity: C.isDark ? 0.15 : 0.08,
+            shadowRadius: C.isDark ? 40 : 16,
+            elevation: C.isDark ? 8 : 4,
+            paddingVertical: 16,
+            paddingHorizontal: spacing.space2,
+            alignItems: 'center' as const,
+          },
+          pressed && { backgroundColor: C.bgElevated },
         ]}
       >
-        <View style={styles.quickActionIcon}>{icon}</View>
-        <Text style={styles.quickActionLabel} numberOfLines={2} allowFontScaling={false}>
+        <View style={staticStyles.quickActionIcon}>{icon}</View>
+        <Text
+          style={[staticStyles.quickActionLabel, { color: C.textSecondary }]}
+          numberOfLines={2}
+          allowFontScaling={false}
+        >
           {label}
         </Text>
       </Pressable>
@@ -397,29 +449,9 @@ export function QuickActionCard({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Styles
+// Static styles — geometry only, no colors (colors are applied inline via hook)
 // ─────────────────────────────────────────────────────────────────────────────
-const styles = StyleSheet.create({
-  // Base card
-  card: {
-    backgroundColor: 'rgba(10, 10, 21, 0.97)',
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(198, 34, 41, 0.3)',
-    shadowColor: '#C62229',
-    shadowOffset: { width: 0, height: 20 },
-    shadowOpacity: 0.15,
-    shadowRadius: 40,
-    elevation: 8,
-    padding: spacing.space4,
-    marginBottom: spacing.space3,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  cardPressed: {
-    backgroundColor: Colors.bgElevated,
-  },
-
+const staticStyles = StyleSheet.create({
   // List card
   listCard: {
     gap: spacing.space3,
@@ -438,7 +470,6 @@ const styles = StyleSheet.create({
   listThumbPlaceholder: {
     width: '100%',
     height: '100%',
-    backgroundColor: Colors.bgElevated,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -448,15 +479,12 @@ const styles = StyleSheet.create({
   },
   listTitle: {
     ...typeScale.headingSM,
-    color: Colors.textPrimary,
   },
   listSubtitle: {
     ...typeScale.bodySM,
-    color: Colors.textMuted,
   },
   listMeta: {
     ...typeScale.caption,
-    color: Colors.textDisabled,
   },
   listTrailing: {
     alignItems: 'flex-end',
@@ -469,17 +497,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: spacing.space4,
     gap: spacing.space3,
-    backgroundColor: 'rgba(10, 10, 21, 0.97)',
   },
   settingsLabel: {
     ...typeScale.bodyMD,
     fontSize: 15,
-    color: Colors.textPrimary,
     flex: 1,
   },
   settingsDivider: {
     height: 1,
-    backgroundColor: 'rgba(255,255,255,0.06)',
     marginLeft: 48,
   },
 
@@ -504,16 +529,13 @@ const styles = StyleSheet.create({
   txTitle: {
     ...typeScale.headingSM,
     fontSize: 14,
-    color: Colors.textPrimary,
   },
   txSubtitle: {
     ...typeScale.bodySM,
     fontSize: 12,
-    color: Colors.textMuted,
   },
   txTimestamp: {
     ...typeScale.caption,
-    color: Colors.textDisabled,
   },
   txRight: {
     alignItems: 'flex-end',
@@ -547,19 +569,16 @@ const styles = StyleSheet.create({
     width: 120,
     height: 120,
     borderRadius: 60,
-    backgroundColor: Colors.bgElevated,
     alignItems: 'center',
     justifyContent: 'center',
   },
   emptyTitle: {
     ...typeScale.headingMD,
-    color: Colors.textPrimary,
     marginTop: spacing.space6,
     textAlign: 'center',
   },
   emptySubtitle: {
     ...typeScale.bodyMD,
-    color: Colors.textMuted,
     marginTop: spacing.space2,
     textAlign: 'center',
     maxWidth: 260,
@@ -569,20 +588,6 @@ const styles = StyleSheet.create({
   },
 
   // Quick action
-  quickAction: {
-    backgroundColor: 'rgba(10, 10, 21, 0.97)',
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(198, 34, 41, 0.3)',
-    shadowColor: '#C62229',
-    shadowOffset: { width: 0, height: 20 },
-    shadowOpacity: 0.15,
-    shadowRadius: 40,
-    elevation: 8,
-    paddingVertical: 16,
-    paddingHorizontal: spacing.space2,
-    alignItems: 'center',
-  },
   quickActionIcon: {
     width: 40,
     height: 40,
@@ -593,7 +598,6 @@ const styles = StyleSheet.create({
     ...typeScale.caption,
     fontSize: 11,
     fontWeight: '500',
-    color: Colors.textSecondary,
     marginTop: 6,
     textAlign: 'center',
   },

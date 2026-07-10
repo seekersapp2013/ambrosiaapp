@@ -17,6 +17,7 @@ import { useAction, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "@/tokens/colors";
+import { useColors } from "@/hooks/useColors";
 import { typeScale } from "@/tokens/typography";
 import { spacing } from "@/tokens/spacing";
 import { AppBackground } from "@/components/AppBackground";
@@ -32,6 +33,7 @@ import { verifyPin } from "@/utils/pinHash";
 
 export default function WithdrawScreen() {
   const router = useRouter();
+  const C = useColors();
 
   // ── Convex ────────────────────────────────────────────────────────────────
   const walletData = useQuery(
@@ -149,10 +151,10 @@ export default function WithdrawScreen() {
             {/* ── Balance pill ─────────────────────────────────────────── */}
             {walletData !== undefined && (
               <View style={styles.balancePill}>
-                <Ionicons name="wallet-outline" size={14} color={Colors.actionPrimary} />
-                <Text style={styles.balancePillText}>
+                <Ionicons name="wallet-outline" size={14} color={C.actionPrimary} />
+                <Text style={[styles.balancePillText, { color: C.textMuted }]}>
                   NGN Balance:{" "}
-                  <Text style={styles.balancePillAmount}>
+                  <Text style={[styles.balancePillAmount, { color: C.textPrimary }]}>
                     {formatAmount(ngnBalance, "NGN")}
                   </Text>
                 </Text>
@@ -164,9 +166,9 @@ export default function WithdrawScreen() {
               <Ionicons
                 name="information-circle-outline"
                 size={16}
-                color={Colors.statusWarning}
+                color={C.statusWarning}
               />
-              <Text style={styles.infoText}>
+              <Text style={[styles.infoText, { color: C.statusWarning }]}>
                 Withdrawals are processed in Nigerian Naira (NGN) only and typically
                 arrive within 1–3 business days.
               </Text>
@@ -174,7 +176,7 @@ export default function WithdrawScreen() {
 
             {/* ── Amount ───────────────────────────────────────────────── */}
             <BaseCard style={styles.section}>
-              <Text style={styles.sectionTitle}>Amount (₦)</Text>
+              <Text style={[styles.sectionTitle, { color: C.textPrimary }]}>Amount (₦)</Text>
               <AppInput
                 value={amount}
                 onChangeText={(v) => setAmount(v)}
@@ -200,21 +202,21 @@ export default function WithdrawScreen() {
             {/* ── Bank Account Selection ───────────────────────────────── */}
             <BaseCard style={styles.section}>
               <View style={styles.sectionRow}>
-                <Text style={styles.sectionTitle}>Withdraw To</Text>
+                <Text style={[styles.sectionTitle, { color: C.textPrimary }]}>Withdraw To</Text>
                 <TouchableOpacity
                   onPress={() => router.push("/auth/ManageBankAccountsScreen" as any)}
                   style={styles.manageBtn}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 >
-                  <Ionicons name="pencil-outline" size={14} color={Colors.actionPrimary} />
-                  <Text style={styles.manageBtnText}>Manage</Text>
+                  <Ionicons name="pencil-outline" size={14} color={C.actionPrimary} />
+                  <Text style={[styles.manageBtnText, { color: C.actionPrimary }]}>Manage</Text>
                 </TouchableOpacity>
               </View>
 
               {linkedAccounts === undefined ? (
                 <View style={styles.loadingRow}>
-                  <ActivityIndicator size="small" color={Colors.textMuted} />
-                  <Text style={[typeScale.bodySM, { color: Colors.textMuted }]}>
+                  <ActivityIndicator size="small" color={C.textMuted} />
+                  <Text style={[typeScale.bodySM, { color: C.textMuted }]}>
                     Loading accounts...
                   </Text>
                 </View>
@@ -223,9 +225,9 @@ export default function WithdrawScreen() {
                   onPress={() => router.push("/auth/ManageBankAccountsScreen" as any)}
                   style={styles.emptyAccountBtn}
                 >
-                  <Ionicons name="add-circle-outline" size={24} color={Colors.actionPrimary} />
-                  <Text style={styles.emptyAccountTitle}>Link a Bank Account</Text>
-                  <Text style={styles.emptyAccountSub}>
+                  <Ionicons name="add-circle-outline" size={24} color={C.actionPrimary} />
+                  <Text style={[styles.emptyAccountTitle, { color: C.actionPrimary }]}>Link a Bank Account</Text>
+                  <Text style={[styles.emptyAccountSub, { color: C.textMuted }]}>
                     You need to link a bank account before withdrawing
                   </Text>
                 </TouchableOpacity>
@@ -248,12 +250,12 @@ export default function WithdrawScreen() {
                           <Text
                             style={[
                               typeScale.labelMD,
-                              { color: isSelected ? Colors.textPrimary : Colors.textSecondary },
+                              { color: isSelected ? C.textPrimary : C.textSecondary },
                             ]}
                           >
                             {acc.bankName}
                           </Text>
-                          <Text style={[typeScale.caption, { color: Colors.textMuted, marginTop: 2 }]}>
+                          <Text style={[typeScale.caption, { color: C.textMuted, marginTop: 2 }]}>
                             {acc.accountNumber} · {acc.accountName}
                           </Text>
                         </View>
@@ -261,7 +263,7 @@ export default function WithdrawScreen() {
                           <Ionicons
                             name="checkmark-circle"
                             size={20}
-                            color={Colors.actionPrimary}
+                            color={C.actionPrimary}
                           />
                         )}
                       </TouchableOpacity>
@@ -277,17 +279,17 @@ export default function WithdrawScreen() {
                 <Ionicons
                   name="checkmark-circle-outline"
                   size={16}
-                  color={Colors.statusSuccess}
+                  color={C.statusSuccess}
                 />
-                <Text style={styles.summaryText}>
+                <Text style={[styles.summaryText, { color: C.textMuted }]}>
                   Withdrawing{" "}
-                  <Text style={styles.summaryHighlight}>
+                  <Text style={[styles.summaryHighlight, { color: C.textPrimary }]}>
                     {formatAmount(parsedAmount, "NGN")}
                   </Text>{" "}
                   to{" "}
-                  <Text style={styles.summaryHighlight}>{selectedAccount.bankName}</Text>.
+                  <Text style={[styles.summaryHighlight, { color: C.textPrimary }]}>{selectedAccount.bankName}</Text>.
                   Remaining balance:{" "}
-                  <Text style={styles.summaryHighlight}>
+                  <Text style={[styles.summaryHighlight, { color: C.textPrimary }]}>
                     {formatAmount(ngnBalance - parsedAmount, "NGN")}
                   </Text>
                   .
@@ -308,7 +310,7 @@ export default function WithdrawScreen() {
                 onPress={handlePressWithdraw}
                 disabled={!canProceed}
                 loading={isProcessing}
-                color={Colors.actionPrimary}
+                color={C.actionPrimary}
                 icon={<Ionicons name="cash-outline" size={20} color="#FFFFFF" />}
               />
             </View>
@@ -328,10 +330,10 @@ export default function WithdrawScreen() {
             {/* Header */}
             <View style={styles.pinSheetHeader}>
               <View style={styles.pinIconWrap}>
-                <Ionicons name="lock-closed" size={24} color={Colors.actionPrimary} />
+                <Ionicons name="lock-closed" size={24} color={C.actionPrimary} />
               </View>
-              <Text style={styles.pinTitle}>Confirm Withdrawal</Text>
-              <Text style={styles.pinSubtitle}>
+              <Text style={[styles.pinTitle, { color: C.textPrimary }]}>Confirm Withdrawal</Text>
+              <Text style={[styles.pinSubtitle, { color: C.textMuted }]}>
                 Enter your 4-digit transaction PIN to authorise this withdrawal
               </Text>
             </View>
@@ -352,12 +354,12 @@ export default function WithdrawScreen() {
                 <Ionicons
                   name={pinValid ? "checkmark-circle" : "close-circle"}
                   size={16}
-                  color={pinValid ? Colors.statusSuccess : Colors.statusDanger}
+                  color={pinValid ? C.statusSuccess : C.statusDanger}
                 />
                 <Text
                   style={[
                     styles.pinStatusText,
-                    { color: pinValid ? Colors.statusSuccess : Colors.statusDanger },
+                    { color: pinValid ? C.statusSuccess : C.statusDanger },
                   ]}
                 >
                   {pinValid ? "PIN correct" : "Incorrect PIN — try again"}
@@ -371,7 +373,7 @@ export default function WithdrawScreen() {
                 onPress={handleCancelPin}
                 style={styles.pinCancelBtn}
               >
-                <Text style={styles.pinCancelText}>Cancel</Text>
+                <Text style={[styles.pinCancelText, { color: C.textSecondary }]}>Cancel</Text>
               </TouchableOpacity>
               <PrimaryButton
                 label="Confirm"
@@ -392,6 +394,7 @@ export default function WithdrawScreen() {
 
 function BankLogo({ slug, size = 36 }: { slug?: string; size?: number }) {
   const [failed, setFailed] = useState(false);
+  const C = useColors();
   if (!slug || failed) {
     return (
       <View
@@ -399,12 +402,12 @@ function BankLogo({ slug, size = 36 }: { slug?: string; size?: number }) {
           width: size,
           height: size,
           borderRadius: size / 4,
-          backgroundColor: Colors.bgElevated,
+          backgroundColor: C.bgElevated,
           justifyContent: "center",
           alignItems: "center",
         }}
       >
-        <Ionicons name="business-outline" size={size * 0.55} color={Colors.textMuted} />
+        <Ionicons name="business-outline" size={size * 0.55} color={C.textMuted} />
       </View>
     );
   }

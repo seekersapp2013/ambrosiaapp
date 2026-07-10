@@ -19,7 +19,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { Colors } from '@/tokens/colors';
+import { useColors } from '@/hooks/useColors';
 import { typeScale } from '@/tokens/typography';
 import { spacing } from '@/tokens/spacing';
 import { elevation } from '@/tokens/shadows';
@@ -48,6 +48,12 @@ export function ScreenHeader({
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const history = useNavigationHistory();
+  const C = useColors();
+
+  // Screen headers always use dark surface in light mode for contrast
+  const headerBg = C.isDark ? C.bgBase : '#0F0F1E';
+  const headerTextColor = C.isDark ? C.textPrimary : '#FFFFFF';
+  const headerIconColor = C.isDark ? C.iconPrimary : '#D1D5DB';
 
   // Determine the back handler:
   // 1. Use the explicitly provided onBack if given.
@@ -58,7 +64,7 @@ export function ScreenHeader({
     <View
       style={[
         styles.header,
-        { paddingTop: insets.top + 8, minHeight: 56 + insets.top },
+        { paddingTop: insets.top + 8, minHeight: 56 + insets.top, backgroundColor: headerBg },
         !transparent && elevation.elevation1,
         transparent && styles.transparent,
         { zIndex: zIndex.header },
@@ -69,7 +75,7 @@ export function ScreenHeader({
       <View style={styles.side}>
         <IconButton
           icon={
-            <Ionicons name="chevron-back" size={24} color={Colors.iconPrimary} />
+            <Ionicons name="chevron-back" size={24} color={headerIconColor} />
           }
           onPress={handleBack}
           accessibilityLabel="Go back"
@@ -79,7 +85,7 @@ export function ScreenHeader({
 
       {/* Center — title */}
       {title ? (
-        <Text style={styles.title} numberOfLines={1} allowFontScaling={false}>
+        <Text style={[styles.title, { color: headerTextColor }]} numberOfLines={1} allowFontScaling={false}>
           {title}
         </Text>
       ) : (
@@ -104,11 +110,12 @@ interface ProgressBarProps {
 }
 
 export function WizardProgressBar({ step, total, style }: ProgressBarProps) {
+  const C = useColors();
   const pct = Math.min(step / total, 1);
 
   return (
-    <View style={[styles.progressTrack, style]}>
-      <View style={[styles.progressFill, { width: `${pct * 100}%` }]} />
+    <View style={[styles.progressTrack, { backgroundColor: C.isDark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.08)' }, style]}>
+      <View style={[styles.progressFill, { width: `${pct * 100}%`, backgroundColor: C.actionPrimary }]} />
     </View>
   );
 }
@@ -119,7 +126,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingBottom: 10,
     paddingHorizontal: spacing.screenPaddingH,
-    backgroundColor: Colors.bgBase,
   },
   transparent: {
     backgroundColor: 'transparent',
@@ -140,7 +146,6 @@ const styles = StyleSheet.create({
     flex: 1,
     ...typeScale.headingMD,
     fontWeight: '700',
-    color: Colors.textPrimary,
     textAlign: 'center',
   },
   titlePlaceholder: {
@@ -149,7 +154,6 @@ const styles = StyleSheet.create({
   // Progress bar
   progressTrack: {
     height: 4,
-    backgroundColor: 'rgba(255,255,255,0.10)',
     borderRadius: 999,
     marginHorizontal: spacing.screenPaddingH,
     marginBottom: spacing.space6,
@@ -157,7 +161,6 @@ const styles = StyleSheet.create({
   },
   progressFill: {
     height: 4,
-    backgroundColor: Colors.actionPrimary,
     borderRadius: 999,
   },
 });

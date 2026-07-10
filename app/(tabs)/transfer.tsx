@@ -9,6 +9,7 @@ import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "@/tokens/colors";
+import { useColors } from "@/hooks/useColors";
 import { typeScale } from "@/tokens/typography";
 import { spacing } from "@/tokens/spacing";
 import { AppBackground } from "@/components/AppBackground";
@@ -28,6 +29,7 @@ type SearchedUser = {
 };
 
 export default function TransferScreen() {
+  const C = useColors();
   const router = useRouter();
 
   // ── State ─────────────────────────────────────────────────────────────────
@@ -142,11 +144,11 @@ export default function TransferScreen() {
             />
           {/* Balance pill */}
           {walletBalance !== undefined && (
-            <View style={styles.balancePill}>
-              <Ionicons name="wallet-outline" size={14} color={Colors.statusInfo} />
-              <Text style={styles.balancePillText}>
+            <View style={[styles.balancePill, { backgroundColor: C.statusInfoBg, borderColor: C.palette.blue }]}>
+              <Ionicons name="wallet-outline" size={14} color={C.statusInfo} />
+              <Text style={[styles.balancePillText, { color: C.textMuted }]}>
                 Available:{" "}
-                <Text style={styles.balancePillAmount}>
+                <Text style={[styles.balancePillAmount, { color: C.textPrimary }]}>
                   {formatAmount(currentBalance, selectedCurrency)}
                 </Text>
               </Text>
@@ -155,21 +157,21 @@ export default function TransferScreen() {
 
           {/* Recipient search */}
           <BaseCard style={styles.section}>
-            <Text style={styles.sectionTitle}>Search & Select Recipient</Text>
-            <Text style={styles.fieldLabel}>
-              Search by username or name <Text style={styles.required}>*</Text>
+            <Text style={[styles.sectionTitle, { color: C.textPrimary }]}>Search & Select Recipient</Text>
+            <Text style={[styles.fieldLabel, { color: C.textMuted }]}>
+              Search by username or name <Text style={[styles.required, { color: C.statusInfo }]}>*</Text>
             </Text>
 
-            <View style={[styles.searchRow, selectedUser ? styles.searchRowSelected : null]}>
+            <View style={[styles.searchRow, { borderColor: C.borderDefault, backgroundColor: C.bgSurface }, selectedUser ? { borderColor: C.palette.blue, backgroundColor: C.statusInfoBg } : null]}>
               <Ionicons
                 name={selectedUser ? "person-circle-outline" : "search-outline"}
                 size={18}
-                color={selectedUser ? Colors.statusInfo : Colors.textMuted}
+                color={selectedUser ? C.statusInfo : C.textMuted}
                 style={{ marginRight: spacing.space2 }}
               />
               <TextInput
                 ref={searchInputRef}
-                style={styles.searchInline}
+                style={[styles.searchInline, { color: C.textPrimary }]}
                 value={searchQuery}
                 onChangeText={(v) => {
                   setSearchQuery(v);
@@ -177,7 +179,7 @@ export default function TransferScreen() {
                   setMessage(null);
                 }}
                 placeholder="Search by username or name..."
-                placeholderTextColor={Colors.textDisabled}
+                placeholderTextColor={C.textDisabled}
                 autoCapitalize="none"
                 autoCorrect={false}
                 editable={!isProcessing}
@@ -187,14 +189,14 @@ export default function TransferScreen() {
                   onPress={handleClearUser}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 >
-                  <Ionicons name="close-circle" size={18} color={Colors.textMuted} />
+                  <Ionicons name="close-circle" size={18} color={C.textMuted} />
                 </TouchableOpacity>
               )}
             </View>
 
             {/* Search results dropdown */}
             {showDropdown && (
-              <View style={styles.dropdownList}>
+              <View style={[styles.dropdownList, { backgroundColor: C.bgElevated, borderColor: C.borderDefault }]}>
                 {(searchResults as any[]).slice(0, 8).map((user: any) => (
                   <TouchableOpacity
                     key={user._id ?? user.username}
@@ -214,10 +216,10 @@ export default function TransferScreen() {
                       </Text>
                     </View>
                     <View style={styles.userInfo}>
-                      <Text style={styles.userUsername}>@{user.username}</Text>
-                      {user.name ? <Text style={styles.userName}>{user.name}</Text> : null}
+                      <Text style={[styles.userUsername, { color: C.textPrimary }]}>@{user.username}</Text>
+                      {user.name ? <Text style={[styles.userName, { color: C.textMuted }]}>{user.name}</Text> : null}
                     </View>
-                    <Ionicons name="chevron-forward" size={14} color={Colors.textDisabled} />
+                    <Ionicons name="chevron-forward" size={14} color={C.textDisabled} />
                   </TouchableOpacity>
                 ))}
               </View>
@@ -240,35 +242,35 @@ export default function TransferScreen() {
                   </Text>
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.userUsername}>@{selectedUser.username}</Text>
-                  {selectedUser.name ? <Text style={styles.userName}>{selectedUser.name}</Text> : null}
+                  <Text style={[styles.userUsername, { color: C.textPrimary }]}>@{selectedUser.username}</Text>
+                  {selectedUser.name ? <Text style={[styles.userName, { color: C.textMuted }]}>{selectedUser.name}</Text> : null}
                 </View>
-                <Ionicons name="checkmark-circle" size={18} color={Colors.statusSuccess} />
+                <Ionicons name="checkmark-circle" size={18} color={C.statusSuccess} />
               </View>
             )}
           </BaseCard>
 
           {/* Currency */}
           <BaseCard style={styles.section}>
-            <Text style={styles.sectionTitle}>Currency</Text>
+            <Text style={[styles.sectionTitle, { color: C.textPrimary }]}>Currency</Text>
             <TouchableOpacity
-              style={styles.dropdownBtn}
+              style={[styles.dropdownBtn, { borderColor: C.borderDefault, backgroundColor: C.bgSurface }]}
               onPress={() => setCurrencyDropdownOpen((v) => !v)}
               activeOpacity={0.85}
               disabled={isProcessing}
             >
-              <Text style={styles.dropdownBtnText}>
+              <Text style={[styles.dropdownBtnText, { color: C.textSecondary }]}>
                 {CURRENCY_SYMBOLS[selectedCurrency]}{"  "}{selectedCurrency} — {CURRENCY_LABELS[selectedCurrency]}
               </Text>
               <Ionicons
                 name={currencyDropdownOpen ? "chevron-up" : "chevron-down"}
                 size={16}
-                color={Colors.textMuted}
+                color={C.textMuted}
               />
             </TouchableOpacity>
 
             {currencyDropdownOpen && (
-              <View style={styles.dropdownList}>
+              <View style={[styles.dropdownList, { backgroundColor: C.bgElevated, borderColor: C.borderDefault }]}>
                 {CURRENCIES.map((c) => (
                   <TouchableOpacity
                     key={c}
@@ -276,13 +278,13 @@ export default function TransferScreen() {
                     onPress={() => { setSelectedCurrency(c); setCurrencyDropdownOpen(false); }}
                     activeOpacity={0.8}
                   >
-                    <Text style={styles.dropdownItemSymbol}>{CURRENCY_SYMBOLS[c]}</Text>
+                    <Text style={[styles.dropdownItemSymbol, { color: C.textPrimary }]}>{CURRENCY_SYMBOLS[c]}</Text>
                     <View style={styles.dropdownItemInfo}>
-                      <Text style={styles.dropdownItemCode}>{c}</Text>
-                      <Text style={styles.dropdownItemName}>{CURRENCY_LABELS[c]}</Text>
+                      <Text style={[styles.dropdownItemCode, { color: C.textPrimary }]}>{c}</Text>
+                      <Text style={[styles.dropdownItemName, { color: C.textMuted }]}>{CURRENCY_LABELS[c]}</Text>
                     </View>
                     {selectedCurrency === c && (
-                      <Ionicons name="checkmark" size={16} color={Colors.statusInfo} />
+                      <Ionicons name="checkmark" size={16} color={C.statusInfo} />
                     )}
                   </TouchableOpacity>
                 ))}
@@ -292,7 +294,7 @@ export default function TransferScreen() {
 
           {/* Amount */}
           <BaseCard style={styles.section}>
-            <Text style={styles.sectionTitle}>
+            <Text style={[styles.sectionTitle, { color: C.textPrimary }]}>
               Amount ({CURRENCY_SYMBOLS[selectedCurrency]})
             </Text>
             <AppInput
@@ -312,16 +314,20 @@ export default function TransferScreen() {
           {message && (
             <View style={[
               styles.messageCard,
-              message.isError ? styles.messageError : styles.messageSuccess,
+              message.isError
+                ? [styles.messageError, { backgroundColor: C.statusDangerBg, borderColor: C.palette.error }]
+                : [styles.messageSuccess, { backgroundColor: C.statusSuccessBg, borderColor: C.palette.green }],
             ]}>
               <Ionicons
                 name={message.isError ? "alert-circle-outline" : "checkmark-circle-outline"}
                 size={16}
-                color={message.isError ? Colors.statusDanger : Colors.statusSuccess}
+                color={message.isError ? C.statusDanger : C.statusSuccess}
               />
               <Text style={[
                 styles.messageText,
-                message.isError ? styles.messageTextError : styles.messageTextSuccess,
+                message.isError
+                  ? [styles.messageTextError, { color: C.statusDanger }]
+                  : [styles.messageTextSuccess, { color: C.statusSuccess }],
               ]}>
                 {message.text}
               </Text>
@@ -335,7 +341,7 @@ export default function TransferScreen() {
               onPress={handleTransfer}
               disabled={!isValid}
               loading={isProcessing}
-              color={Colors.statusInfo}
+              color={C.statusInfo}
               icon={<Ionicons name="swap-horizontal" size={20} color="#FFFFFF" />}
             />
           </View>

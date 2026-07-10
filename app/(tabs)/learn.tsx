@@ -34,7 +34,7 @@ import { ContentCard } from "@/components/stream/ContentCard";
 import { EmptyState } from "@/components/stream/EmptyState";
 import { LoadingSpinner } from "@/components/stream/LoadingSpinner";
 import { ContentPaywallSheet } from "@/components/ContentPaywallSheet";
-import { Colors } from "@/constants/Colors";
+import { useColors } from "@/hooks/useColors";
 import { useNavigationHistory } from "@/context/NavigationHistoryContext";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -59,6 +59,7 @@ interface FeedModeToggleProps {
 }
 
 function FeedModeToggle({ mode, onChange }: FeedModeToggleProps) {
+  const C = useColors();
   const slideAnim = React.useRef(new Animated.Value(mode === "ai" ? 1 : 0)).current;
 
   useEffect(() => {
@@ -76,12 +77,15 @@ function FeedModeToggle({ mode, onChange }: FeedModeToggleProps) {
   });
 
   return (
-    <View style={toggleStyles.track} accessibilityRole="switch" accessibilityLabel="Feed mode toggle">
+    <View style={[toggleStyles.track, {
+      backgroundColor: C.isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.06)",
+      borderColor: C.isDark ? "rgba(255,255,255,0.10)" : "rgba(0,0,0,0.08)",
+    }]} accessibilityRole="switch" accessibilityLabel="Feed mode toggle">
       <Animated.View
         style={[
           toggleStyles.pill,
           { transform: [{ translateX: pillTranslate }] },
-          mode === "ai" ? toggleStyles.pillAI : toggleStyles.pillForYou,
+          mode === "ai" ? { backgroundColor: C.blue } : { backgroundColor: C.primary },
         ]}
       />
       <TouchableOpacity
@@ -92,8 +96,8 @@ function FeedModeToggle({ mode, onChange }: FeedModeToggleProps) {
         accessibilityLabel="For You feed"
         accessibilityState={{ selected: mode === "for_you" }}
       >
-        <Ionicons name="newspaper-outline" size={13} color={mode === "for_you" ? "#fff" : Colors.textMuted} />
-        <Text style={[toggleStyles.label, mode === "for_you" && toggleStyles.labelActive]}>For You</Text>
+        <Ionicons name="newspaper-outline" size={13} color={mode === "for_you" ? "#fff" : C.textMuted} />
+        <Text style={[toggleStyles.label, { color: C.textMuted }, mode === "for_you" && toggleStyles.labelActive]}>For You</Text>
       </TouchableOpacity>
       <TouchableOpacity
         style={toggleStyles.option}
@@ -103,8 +107,8 @@ function FeedModeToggle({ mode, onChange }: FeedModeToggleProps) {
         accessibilityLabel="AI curated feed"
         accessibilityState={{ selected: mode === "ai" }}
       >
-        <Ionicons name="sparkles-outline" size={13} color={mode === "ai" ? "#fff" : Colors.textMuted} />
-        <Text style={[toggleStyles.label, mode === "ai" && toggleStyles.labelActive]}>AI</Text>
+        <Ionicons name="sparkles-outline" size={13} color={mode === "ai" ? "#fff" : C.textMuted} />
+        <Text style={[toggleStyles.label, { color: C.textMuted }, mode === "ai" && toggleStyles.labelActive]}>AI</Text>
       </TouchableOpacity>
     </View>
   );
@@ -114,6 +118,7 @@ function FeedModeToggle({ mode, onChange }: FeedModeToggleProps) {
 export default function LearnScreen() {
   const router = useRouter();
   const history = useNavigationHistory();
+  const C = useColors();
   const [viewMode, setViewMode] = useState<ViewMode>("all");
   const [feedMode, setFeedMode] = useState<FeedMode>("for_you");
   const [showManageSheet, setShowManageSheet] = useState(false);
@@ -311,45 +316,45 @@ export default function LearnScreen() {
           <TopNav />
 
           {/* ── Creation Bar ── */}
-          <View style={styles.creationBar}>
+          <View style={[styles.creationBar, { borderBottomColor: C.borderSubtle, backgroundColor: C.bgSurface }]}>
             <CreationCircle
               icon="create-outline"
               label="Article"
-              color={Colors.primary}
+              color={C.primary}
               onPress={() => { history.push("/(tabs)/learn"); router.push("/(tabs)/write-article" as any); }}
             />
             <CreationCircle
               icon="videocam-outline"
               label="Pulse"
-              color={Colors.palette.purple}
+              color={C.palette.purple}
               onPress={() => { history.push("/(tabs)/learn"); router.push("/(tabs)/write-reel" as any); }}
             />
             <CreationCircle
               icon="school-outline"
               label="Course"
-              color={Colors.palette.blue}
+              color={C.palette.blue}
               onPress={() => { history.push("/(tabs)/learn"); router.push("/(tabs)/create-course" as any); }}
             />
             <CreationCircle
               icon="settings-outline"
               label="Manage"
-              color={Colors.palette.green}
+              color={C.palette.green}
               onPress={() => setShowManageSheet(true)}
             />
           </View>
 
           {/* ── View Mode Strip ── */}
-          <View style={styles.viewModeStrip}>
+          <View style={[styles.viewModeStrip, { borderBottomColor: C.borderSubtle, backgroundColor: C.bgSurface }]}>
             {(["all", "my-courses", "enrolled"] as ViewMode[]).map((mode) => (
               <TouchableOpacity
                 key={mode}
-                style={[styles.viewModeTab, viewMode === mode && styles.viewModeTabActive]}
+                style={[styles.viewModeTab, { backgroundColor: C.bgElevated }, viewMode === mode && { backgroundColor: C.redSurface, borderWidth: 1, borderColor: C.redBorder }]}
                 onPress={() => setViewMode(mode)}
                 activeOpacity={0.75}
                 accessibilityRole="tab"
                 accessibilityState={{ selected: viewMode === mode }}
               >
-                <Text style={[styles.viewModeText, viewMode === mode && styles.viewModeTextActive]}>
+                <Text style={[styles.viewModeText, { color: C.textMuted }, viewMode === mode && { color: C.primary, fontWeight: "700" }]}>
                   {mode === "all" ? "All Content" : mode === "my-courses" ? "My Courses" : "Enrolled"}
                 </Text>
               </TouchableOpacity>
@@ -358,7 +363,7 @@ export default function LearnScreen() {
 
           {/* ── For You / AI toggle — only on "all" tab ── */}
           {viewMode === "all" && (
-            <View style={styles.toggleRow}>
+            <View style={[styles.toggleRow, { borderBottomColor: C.borderSubtle, backgroundColor: C.bgSurface }]}>
               <FeedModeToggle mode={feedMode} onChange={setFeedMode} />
               {/* DEBUG tap zone — dev only */}
               {__DEV__ && (
@@ -367,7 +372,7 @@ export default function LearnScreen() {
                   style={styles.debugTrigger}
                   accessibilityLabel="Toggle debug panel"
                 >
-                  <Ionicons name="bug-outline" size={15} color={Colors.textMuted} />
+                  <Ionicons name="bug-outline" size={15} color={C.textMuted} />
                 </TouchableOpacity>
               )}
             </View>
@@ -528,11 +533,11 @@ export default function LearnScreen() {
             feedMode === "ai" && aiUnavailable && !aiIsPersonalised ? (
               /* AI unavailable error state */
               <View style={styles.aiUnavailableContainer}>
-                <Ionicons name="cloud-offline-outline" size={48} color={Colors.textMuted} style={{ marginBottom: 16 }} />
-                <Text style={styles.aiUnavailableTitle}>AI is currently not available</Text>
-                <Text style={styles.aiUnavailableSubtitle}>Please try again later</Text>
+                <Ionicons name="cloud-offline-outline" size={48} color={C.textMuted} style={{ marginBottom: 16 }} />
+                <Text style={[styles.aiUnavailableTitle, { color: C.textPrimary }]}>AI is currently not available</Text>
+                <Text style={[styles.aiUnavailableSubtitle, { color: C.textMuted }]}>Please try again later</Text>
                 <TouchableOpacity
-                  style={styles.aiRetryButton}
+                  style={[styles.aiRetryButton, { backgroundColor: C.blue }]}
                   onPress={() => {
                     if (!currentUser?._id) return;
                     hasTriggeredGeneration.current = false;
@@ -566,13 +571,13 @@ export default function LearnScreen() {
                 ListHeaderComponent={
                   feedMode === "ai" && aiIsPersonalised ? (
                     <View style={styles.aiBadgeRow}>
-                      <Ionicons name="sparkles" size={13} color={Colors.blue} />
-                      <Text style={styles.aiBadgeText}>Ranked for you</Text>
+                      <Ionicons name="sparkles" size={13} color={C.blue} />
+                      <Text style={[styles.aiBadgeText, { color: C.blue }]}>Ranked for you</Text>
                     </View>
                   ) : feedMode === "ai" && isGeneratingAI ? (
                     <View style={styles.aiBadgeRow}>
-                      <Ionicons name="sparkles-outline" size={13} color={Colors.textMuted} />
-                      <Text style={[styles.aiBadgeText, { color: Colors.textMuted }]}>Ranking your feed…</Text>
+                      <Ionicons name="sparkles-outline" size={13} color={C.textMuted} />
+                      <Text style={[styles.aiBadgeText, { color: C.textMuted }]}>Ranking your feed…</Text>
                     </View>
                   ) : null
                 }
@@ -660,6 +665,7 @@ interface CreationCircleProps {
 }
 
 function CreationCircle({ icon, label, color, onPress }: CreationCircleProps) {
+  const C = useColors();
   return (
     <TouchableOpacity
       style={styles.creationItem}
@@ -671,7 +677,7 @@ function CreationCircle({ icon, label, color, onPress }: CreationCircleProps) {
       <View style={[styles.creationCircle, { backgroundColor: color }]}>
         <Ionicons name={icon} size={24} color="#fff" />
       </View>
-      <Text style={styles.creationLabel}>{label}</Text>
+      <Text style={[styles.creationLabel, { color: C.textSecondary }]}>{label}</Text>
     </TouchableOpacity>
   );
 }
@@ -696,6 +702,7 @@ function ManageCoursesSheet({
   cardLeft = 0,
   cardRight = 0,
 }: ManageCoursesSheetProps) {
+  const C = useColors();
   return (
     <Modal
       visible={visible}
@@ -708,33 +715,33 @@ function ManageCoursesSheet({
         activeOpacity={1}
         onPress={onClose}
       />
-      <View style={[styles.sheet, { left: cardLeft, right: cardRight }]}>
+      <View style={[styles.sheet, { left: cardLeft, right: cardRight, backgroundColor: C.surface, borderColor: C.redBorder }]}>
         {/* Sheet handle */}
-        <View style={styles.sheetHandle} />
+        <View style={[styles.sheetHandle, { backgroundColor: C.borderDefault }]} />
 
-        <View style={styles.sheetHeader}>
-          <Text style={styles.sheetTitle}>My Courses</Text>
+        <View style={[styles.sheetHeader, { borderBottomColor: C.borderSubtle }]}>
+          <Text style={[styles.sheetTitle, { color: C.textPrimary }]}>My Courses</Text>
           <TouchableOpacity
             onPress={onClose}
             accessibilityRole="button"
             accessibilityLabel="Close"
           >
-            <Ionicons name="close" size={22} color={Colors.textMuted} />
+            <Ionicons name="close" size={22} color={C.textMuted} />
           </TouchableOpacity>
         </View>
 
         {/* Create Course row */}
         <TouchableOpacity
-          style={styles.createCourseRow}
+          style={[styles.createCourseRow, { borderBottomColor: C.borderSubtle }]}
           onPress={onCreateCourse}
           activeOpacity={0.8}
           accessibilityRole="button"
           accessibilityLabel="Create new course"
         >
-          <View style={styles.createCourseIcon}>
-            <Ionicons name="add" size={20} color={Colors.palette.blue} />
+          <View style={[styles.createCourseIcon, { backgroundColor: C.blueSurface, borderColor: C.blueBorder }]}>
+            <Ionicons name="add" size={20} color={C.palette.blue} />
           </View>
-          <Text style={styles.createCourseText}>+ Create New Course</Text>
+          <Text style={[styles.createCourseText, { color: C.palette.blue }]}>+ Create New Course</Text>
         </TouchableOpacity>
 
         {/* Course list */}
@@ -745,50 +752,50 @@ function ManageCoursesSheet({
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
             <View style={styles.sheetEmpty}>
-              <Text style={styles.sheetEmptyText}>No courses yet. Create your first one!</Text>
+              <Text style={[styles.sheetEmptyText, { color: C.textMuted }]}>No courses yet. Create your first one!</Text>
             </View>
           }
           renderItem={({ item: course }) => (
             <TouchableOpacity
-              style={styles.courseRow}
+              style={[styles.courseRow, { borderBottomColor: C.borderSubtle }]}
               onPress={() => onCoursePress(course._id)}
               activeOpacity={0.8}
               accessibilityRole="button"
               accessibilityLabel={`Edit course: ${course.title}`}
             >
               <View style={styles.courseRowInfo}>
-                <Text style={styles.courseRowTitle} numberOfLines={1}>
+                <Text style={[styles.courseRowTitle, { color: C.textPrimary }]} numberOfLines={1}>
                   {course.title}
                 </Text>
                 <View style={styles.courseRowMeta}>
                   <View
                     style={[
                       styles.statusBadge,
-                      course.isPublished ? styles.publishedBadge : styles.draftBadge,
+                      course.isPublished
+                        ? { backgroundColor: C.statusSuccessBg, borderWidth: 1, borderColor: C.greenBorder }
+                        : { backgroundColor: C.bgElevated, borderWidth: 1, borderColor: C.borderDefault },
                     ]}
                   >
                     <Text
                       style={[
                         styles.statusBadgeText,
-                        course.isPublished
-                          ? styles.publishedBadgeText
-                          : styles.draftBadgeText,
+                        { color: course.isPublished ? C.statusSuccess : C.textMuted },
                       ]}
                     >
                       {course.isPublished ? "Published" : "Draft"}
                     </Text>
                   </View>
-                  <Text style={styles.courseRowStat}>
+                  <Text style={[styles.courseRowStat, { color: C.textMuted }]}>
                     {course.contentCount ?? 0} items
                   </Text>
                   {(course.enrollmentCount ?? 0) > 0 && (
-                    <Text style={styles.courseRowStat}>
+                    <Text style={[styles.courseRowStat, { color: C.textMuted }]}>
                       {course.enrollmentCount} enrolled
                     </Text>
                   )}
                 </View>
               </View>
-              <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
+              <Ionicons name="chevron-forward" size={16} color={C.textMuted} />
             </TouchableOpacity>
           )}
         />
@@ -805,9 +812,7 @@ const toggleStyles = StyleSheet.create({
     height: TOGGLE_HEIGHT,
     width: PILL_WIDTH * 2 + 8,
     borderRadius: TOGGLE_HEIGHT / 2,
-    backgroundColor: "rgba(255,255,255,0.07)",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.10)",
     paddingHorizontal: 2,
     overflow: "hidden",
     position: "relative",
@@ -819,8 +824,6 @@ const toggleStyles = StyleSheet.create({
     height: TOGGLE_HEIGHT - 4,
     borderRadius: (TOGGLE_HEIGHT - 4) / 2,
   },
-  pillForYou: { backgroundColor: Colors.primary },
-  pillAI:     { backgroundColor: Colors.blue },
   option: {
     width: PILL_WIDTH,
     height: TOGGLE_HEIGHT,
@@ -833,7 +836,6 @@ const toggleStyles = StyleSheet.create({
   label: {
     fontSize: 12,
     fontWeight: "600",
-    color: Colors.textMuted,
     letterSpacing: 0.2,
   },
   labelActive: { color: "#fff" },
@@ -857,13 +859,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.redBorder,
-    backgroundColor: Colors.surface,
   },
   headerTitle: {
     fontSize: 22,
     fontWeight: "700",
-    color: Colors.textPrimary,
   },
 
   // Creation bar
@@ -873,8 +872,6 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     paddingHorizontal: 12,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.borderSubtle,
-    backgroundColor: Colors.bgSurface,
   },
   creationItem: {
     alignItems: "center",
@@ -894,7 +891,6 @@ const styles = StyleSheet.create({
   creationLabel: {
     fontSize: 11,
     fontWeight: "500",
-    color: Colors.textSecondary,
   },
 
   // View mode strip
@@ -904,29 +900,16 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     gap: 8,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.borderSubtle,
-    backgroundColor: Colors.bgSurface,
   },
   viewModeTab: {
     flex: 1,
     paddingVertical: 7,
     borderRadius: 8,
     alignItems: "center",
-    backgroundColor: Colors.bgElevated,
-  },
-  viewModeTabActive: {
-    backgroundColor: Colors.redSurface,
-    borderWidth: 1,
-    borderColor: Colors.redBorder,
   },
   viewModeText: {
     fontSize: 12,
     fontWeight: "500",
-    color: Colors.textMuted,
-  },
-  viewModeTextActive: {
-    color: Colors.primary,
-    fontWeight: "700",
   },
 
   // Feed list
@@ -943,8 +926,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.borderSubtle,
-    backgroundColor: Colors.bgSurface,
   },
 
   // AI badge row
@@ -959,7 +940,6 @@ const styles = StyleSheet.create({
   aiBadgeText: {
     fontSize: 11,
     fontWeight: "600",
-    color: Colors.blue,
     letterSpacing: 0.3,
   },
 
@@ -975,20 +955,17 @@ const styles = StyleSheet.create({
   aiUnavailableTitle: {
     fontSize: 16,
     fontWeight: "700",
-    color: Colors.textPrimary,
     textAlign: "center",
     marginBottom: 6,
   },
   aiUnavailableSubtitle: {
     fontSize: 13,
-    color: Colors.textMuted,
     textAlign: "center",
     marginBottom: 20,
   },
   aiRetryButton: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: Colors.blue,
     borderRadius: 20,
     paddingVertical: 10,
     paddingHorizontal: 20,
@@ -1035,8 +1012,8 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255,255,255,0.1)",
   },
   debugTabBtnActive: {
-    backgroundColor: Colors.blue,
-    borderColor: Colors.blue,
+    backgroundColor: "#3B82F6",
+    borderColor: "#3B82F6",
   },
   debugTabLabel: {
     fontSize: 10,
@@ -1066,7 +1043,7 @@ const styles = StyleSheet.create({
   },
   debugButton: {
     marginTop: 8,
-    backgroundColor: Colors.blue,
+    backgroundColor: "#3B82F6",
     borderRadius: 6,
     paddingVertical: 7,
     paddingHorizontal: 12,
@@ -1113,11 +1090,9 @@ const styles = StyleSheet.create({
   sheet: {
     position: "absolute",
     bottom: 0,
-    backgroundColor: Colors.surface,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     borderTopWidth: 1,
-    borderColor: Colors.redBorder,
     paddingBottom: 40,
     maxHeight: "75%",
   },
@@ -1125,7 +1100,6 @@ const styles = StyleSheet.create({
     width: 40,
     height: 4,
     borderRadius: 2,
-    backgroundColor: Colors.borderDefault,
     alignSelf: "center",
     marginTop: 12,
     marginBottom: 8,
@@ -1137,12 +1111,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.borderSubtle,
   },
   sheetTitle: {
     fontSize: 18,
     fontWeight: "700",
-    color: Colors.textPrimary,
   },
   sheetList: {
     flex: 1,
@@ -1154,7 +1126,6 @@ const styles = StyleSheet.create({
   },
   sheetEmptyText: {
     fontSize: 14,
-    color: Colors.textMuted,
     textAlign: "center",
   },
 
@@ -1166,22 +1137,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.borderSubtle,
   },
   createCourseIcon: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: Colors.blueSurface,
     borderWidth: 1,
-    borderColor: Colors.blueBorder,
     alignItems: "center",
     justifyContent: "center",
   },
   createCourseText: {
     fontSize: 15,
     fontWeight: "600",
-    color: Colors.palette.blue,
   },
 
   // Course row in sheet
@@ -1190,7 +1157,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.borderSubtle,
     gap: 10,
   },
   courseRowInfo: {
@@ -1200,7 +1166,6 @@ const styles = StyleSheet.create({
   courseRowTitle: {
     fontSize: 14,
     fontWeight: "600",
-    color: Colors.textPrimary,
   },
   courseRowMeta: {
     flexDirection: "row",
@@ -1212,24 +1177,11 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     borderRadius: 20,
   },
-  publishedBadge: {
-    backgroundColor: Colors.statusSuccessBg,
-    borderWidth: 1,
-    borderColor: Colors.greenBorder,
-  },
-  draftBadge: {
-    backgroundColor: Colors.bgElevated,
-    borderWidth: 1,
-    borderColor: Colors.borderDefault,
-  },
   statusBadgeText: {
     fontSize: 10,
     fontWeight: "700",
   },
-  publishedBadgeText: { color: Colors.statusSuccess },
-  draftBadgeText: { color: Colors.textMuted },
   courseRowStat: {
     fontSize: 11,
-    color: Colors.textMuted,
   },
 });

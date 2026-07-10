@@ -16,6 +16,7 @@ import { useAuthActions } from "@convex-dev/auth/react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Colors } from "@/tokens/colors";
+import { useColors } from "@/hooks/useColors";
 import { spacing } from "@/tokens/spacing";
 import { radius } from "@/tokens/radius";
 import { typeScale } from "@/tokens/typography";
@@ -344,6 +345,7 @@ const styles = StyleSheet.create({
 
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function ProfileTab() {
+  const C = useColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { signOut } = useAuthActions();
@@ -530,7 +532,7 @@ export default function ProfileTab() {
   if (profile === null) {
     return (
       <AppBackground style={styles.centered}>
-        <Text style={styles.mutedText}>No profile found. Please sign in again.</Text>
+        <Text style={[styles.mutedText, { color: C.textMuted }]}>No profile found. Please sign in again.</Text>
       </AppBackground>
     );
   }
@@ -538,36 +540,36 @@ export default function ProfileTab() {
   // ── Tab renderers ─────────────────────────────────────────────────────────
   const renderPosts = () => {
     if (myArticles === undefined)
-      return <ActivityIndicator color={Colors.actionPrimary} style={{ marginTop: 32 }} />;
+      return <ActivityIndicator color={C.actionPrimary} style={{ marginTop: 32 }} />;
     if (!myArticles.length)
       return <EmptyStateCard icon="document-text-outline" title="No posts yet" subtitle="Your published articles will appear here." style={styles.emptyPad} />;
     return (
       <View style={styles.listGap}>
         {(myArticles as any[]).map((article) => (
-          <View key={article._id} style={styles.postCard}>
+          <View key={article._id} style={[styles.postCard, { backgroundColor: C.bgSurface, borderColor: C.borderSubtle }]}>
             {article.coverImage
               ? <Image source={{ uri: article.coverImage }} style={styles.postThumb} resizeMode="cover" accessible={false} />
-              : <View style={[styles.postThumb, styles.postThumbPlaceholder]}><Ionicons name="document-text-outline" size={22} color={Colors.iconSecondary} /></View>
+              : <View style={[styles.postThumb, styles.postThumbPlaceholder, { backgroundColor: C.bgElevated }]}><Ionicons name="document-text-outline" size={22} color={C.iconSecondary} /></View>
             }
             <View style={styles.postInfo}>
               <View style={styles.postTitleRow}>
-                <Text style={styles.postTitle} numberOfLines={2} allowFontScaling={true}>{article.title}</Text>
+                <Text style={[styles.postTitle, { color: C.textPrimary }]} numberOfLines={2} allowFontScaling={true}>{article.title}</Text>
                 <Pressable onPress={() => handleDeleteArticle(article._id)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityRole="button" accessibilityLabel="Delete article">
-                  <Ionicons name="trash-outline" size={15} color={Colors.statusDanger} />
+                  <Ionicons name="trash-outline" size={15} color={C.statusDanger} />
                 </Pressable>
               </View>
               {article.tags?.length > 0 && (
                 <View style={styles.tagRow}>
                   {(article.tags as string[]).slice(0, 2).map((tag: string) => (
-                    <View key={tag} style={styles.tagChip}>
-                      <Text style={styles.tagChipText} allowFontScaling={false}>{tag}</Text>
+                    <View key={tag} style={[styles.tagChip, { backgroundColor: C.statusInfoBg }]}>
+                      <Text style={[styles.tagChipText, { color: C.statusInfo }]} allowFontScaling={false}>{tag}</Text>
                     </View>
                   ))}
                 </View>
               )}
               <View style={styles.postMeta}>
-                <Ionicons name="eye-outline" size={12} color={Colors.iconDisabled} />
-                <Text style={styles.postMetaText} allowFontScaling={false}>{article.views ?? 0} views</Text>
+                <Ionicons name="eye-outline" size={12} color={C.iconDisabled} />
+                <Text style={[styles.postMetaText, { color: C.textDisabled }]} allowFontScaling={false}>{article.views ?? 0} views</Text>
               </View>
             </View>
           </View>
@@ -578,28 +580,28 @@ export default function ProfileTab() {
 
   const renderBookmarks = () => {
     if (bookmarks === undefined)
-      return <ActivityIndicator color={Colors.actionPrimary} style={{ marginTop: 32 }} />;
+      return <ActivityIndicator color={C.actionPrimary} style={{ marginTop: 32 }} />;
     if (!bookmarks.length)
       return <EmptyStateCard icon="bookmark-outline" title="No bookmarks yet" subtitle="Articles and reels you save will appear here." style={styles.emptyPad} />;
     return (
       <View style={styles.listGap}>
         {(bookmarks as any[]).map((bm) => (
-          <View key={bm._id} style={styles.bookmarkCard}>
+          <View key={bm._id} style={[styles.bookmarkCard, { backgroundColor: C.bgSurface, borderColor: C.borderSubtle }]}>
             <View style={styles.bookmarkBadge}>
               <Ionicons
                 name={bm.type === "reel" ? "play-circle-outline" : "document-text-outline"}
                 size={11}
-                color={bm.type === "reel" ? Colors.palette.primaryCoral : Colors.statusInfo}
+                color={bm.type === "reel" ? Colors.palette.primaryCoral : C.statusInfo}
               />
-              <Text style={[styles.bookmarkBadgeText, { color: bm.type === "reel" ? Colors.palette.primaryCoral : Colors.statusInfo }]} allowFontScaling={false}>
+              <Text style={[styles.bookmarkBadgeText, { color: bm.type === "reel" ? Colors.palette.primaryCoral : C.statusInfo }]} allowFontScaling={false}>
                 {bm.type === "reel" ? "Reel" : "Article"}
               </Text>
             </View>
-            <Text style={styles.bookmarkTitle} numberOfLines={2} allowFontScaling={true}>
+            <Text style={[styles.bookmarkTitle, { color: C.textPrimary }]} numberOfLines={2} allowFontScaling={true}>
               {bm.content?.title || bm.content?.caption || "Untitled"}
             </Text>
             {(bm.content?.author?.name || bm.content?.author?.username) ? (
-              <Text style={styles.bookmarkAuthor} allowFontScaling={true}>
+              <Text style={[styles.bookmarkAuthor, { color: C.textMuted }]} allowFontScaling={true}>
                 by {bm.content.author.name || `@${bm.content.author.username}`}
               </Text>
             ) : null}
@@ -611,34 +613,34 @@ export default function ProfileTab() {
 
   const renderInterests = () => {
     if (comprehensiveInterests === undefined)
-      return <ActivityIndicator color={Colors.actionPrimary} style={{ marginTop: 32 }} />;
+      return <ActivityIndicator color={C.actionPrimary} style={{ marginTop: 32 }} />;
     const si = (comprehensiveInterests.dynamicInterests as any)?.socialInteractions;
     const ci = (comprehensiveInterests.dynamicInterests as any)?.contentInteractions;
     const bi = (comprehensiveInterests.dynamicInterests as any)?.bookingInteractions;
     const ni = (comprehensiveInterests.dynamicInterests as any)?.notificationInteractions;
     const sg = comprehensiveInterests.socialGraph as any;
     const stats = [
-      { label: "Health Topics",     value: comprehensiveInterests.staticInterests?.length ?? 0, icon: "heart-outline" as const,       color: Colors.actionPrimary },
-      { label: "Following",         value: si?.followingCount ?? 0,                              icon: "person-add-outline" as const,   color: Colors.statusInfo },
+      { label: "Health Topics",     value: comprehensiveInterests.staticInterests?.length ?? 0, icon: "heart-outline" as const,       color: C.actionPrimary },
+      { label: "Following",         value: si?.followingCount ?? 0,                              icon: "person-add-outline" as const,   color: C.statusInfo },
       { label: "Followers",         value: si?.followersCount ?? 0,                              icon: "people-outline" as const,       color: Colors.palette.purple },
-      { label: "Content Interests", value: ci?.topContentInterests?.length ?? 0,                 icon: "newspaper-outline" as const,    color: Colors.statusWarning },
-      { label: "Bookings & Events", value: (bi?.clientBookingsCount ?? 0) + (bi?.providerBookingsCount ?? 0), icon: "calendar-outline" as const, color: Colors.statusSuccess },
+      { label: "Content Interests", value: ci?.topContentInterests?.length ?? 0,                 icon: "newspaper-outline" as const,    color: C.statusWarning },
+      { label: "Bookings & Events", value: (bi?.clientBookingsCount ?? 0) + (bi?.providerBookingsCount ?? 0), icon: "calendar-outline" as const, color: C.statusSuccess },
       { label: "Social Network",    value: sg?.mutualConnections ?? 0,                           icon: "git-network-outline" as const,  color: Colors.palette.primaryCoral },
-      { label: "Engagement",        value: ni?.clickedCount ?? 0,                                icon: "trending-up-outline" as const,  color: Colors.textGold },
+      { label: "Engagement",        value: ni?.clickedCount ?? 0,                                icon: "trending-up-outline" as const,  color: C.textGold },
     ];
     return (
       <View style={styles.interestsWrap}>
-        <Text style={styles.sectionLabel} allowFontScaling={false}>Activity Overview</Text>
+        <Text style={[styles.sectionLabel, { color: C.textMuted }]} allowFontScaling={false}>Activity Overview</Text>
         <View style={styles.statsGrid}>
           {stats.map((s) => (
-            <View key={s.label} style={styles.statCard}>
+            <View key={s.label} style={[styles.statCard, { backgroundColor: C.bgSurface, borderColor: C.borderSubtle }]}>
               <Ionicons name={s.icon} size={18} color={s.color} />
               <Text style={[styles.statCardValue, { color: s.color }]} allowFontScaling={false}>{s.value}</Text>
-              <Text style={styles.statCardLabel} allowFontScaling={true}>{s.label}</Text>
+              <Text style={[styles.statCardLabel, { color: C.textMuted }]} allowFontScaling={true}>{s.label}</Text>
             </View>
           ))}
         </View>
-        <Text style={styles.interestsFooter} allowFontScaling={true}>
+        <Text style={[styles.interestsFooter, { color: C.textDisabled }]} allowFontScaling={true}>
           Your interests update automatically based on your activity, helping us surface better content and connections.
         </Text>
       </View>
@@ -652,27 +654,27 @@ export default function ProfileTab() {
     emptySub: string,
   ) => {
     if (list === undefined)
-      return <ActivityIndicator color={Colors.actionPrimary} style={{ marginTop: 32 }} />;
+      return <ActivityIndicator color={C.actionPrimary} style={{ marginTop: 32 }} />;
     if (!list.length)
       return <EmptyStateCard icon={emptyIcon} title={emptyTitle} subtitle={emptySub} style={styles.emptyPad} />;
     return (
       <View style={styles.listGap}>
         {list.map((f) => (
-          <View key={f._id} style={styles.followRow}>
-            <View style={styles.followAvatar}>
+          <View key={f._id} style={[styles.followRow, { borderBottomColor: C.borderSubtle }]}>
+            <View style={[styles.followAvatar, { backgroundColor: C.bgElevated, borderColor: C.borderSubtle }]}>
               {f.profile?.avatar
                 ? <Image source={{ uri: f.profile.avatar }} style={styles.followAvatarImg} accessible={false} />
-                : <Ionicons name="person" size={20} color={Colors.iconSecondary} />}
+                : <Ionicons name="person" size={20} color={C.iconSecondary} />}
             </View>
             <View style={styles.followInfo}>
-              <Text style={styles.followName} numberOfLines={1} allowFontScaling={true}>
+              <Text style={[styles.followName, { color: C.textPrimary }]} numberOfLines={1} allowFontScaling={true}>
                 {f.user?.name || f.profile?.name || "Unknown"}
               </Text>
               {f.profile?.username
-                ? <Text style={styles.followUsername} allowFontScaling={true}>@{f.profile.username}</Text>
+                ? <Text style={[styles.followUsername, { color: C.textMuted }]} allowFontScaling={true}>@{f.profile.username}</Text>
                 : null}
               {f.createdAt
-                ? <Text style={styles.followTime} allowFontScaling={false}>{timeAgo(f.createdAt)}</Text>
+                ? <Text style={[styles.followTime, { color: C.textDisabled }]} allowFontScaling={false}>{timeAgo(f.createdAt)}</Text>
                 : null}
             </View>
           </View>
@@ -698,8 +700,8 @@ export default function ProfileTab() {
   const roleColor = isPrimaryAdmin
     ? Colors.palette.purple
     : isAdmin
-    ? Colors.statusInfo
-    : Colors.statusSuccess;
+    ? C.statusInfo
+    : C.statusSuccess;
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
@@ -714,7 +716,7 @@ export default function ProfileTab() {
         <TopNav hideProfile />
 
         {/* HERO */}
-        <View style={[styles.hero, { paddingTop: 16 }]}>
+        <View style={[styles.hero, { paddingTop: 16, backgroundColor: C.bgBase }]}>
           <TouchableOpacity
             style={styles.avatarWrap}
             onPress={handlePickImage}
@@ -724,50 +726,50 @@ export default function ProfileTab() {
             accessibilityLabel="Change profile picture"
           >
             {profilePictureUrl
-              ? <Image source={{ uri: profilePictureUrl }} style={styles.avatar} accessible={false} />
-              : <View style={styles.avatarPlaceholder}><Ionicons name="person" size={40} color={Colors.iconSecondary} /></View>
+              ? <Image source={{ uri: profilePictureUrl }} style={[styles.avatar, { borderColor: C.actionPrimary }]} accessible={false} />
+              : <View style={[styles.avatarPlaceholder, { backgroundColor: C.bgElevated, borderColor: C.borderSubtle }]}><Ionicons name="person" size={40} color={C.iconSecondary} /></View>
             }
-            <View style={styles.cameraOverlay}>
+            <View style={[styles.cameraOverlay, { backgroundColor: C.actionPrimary, borderColor: C.bgBase }]}>
               {isUploadingImage
                 ? <ActivityIndicator size="small" color="#FFFFFF" />
                 : <Ionicons name="camera" size={13} color="#FFFFFF" />}
             </View>
           </TouchableOpacity>
 
-          <Text style={styles.heroName} numberOfLines={1} allowFontScaling={false}>
+          <Text style={[styles.heroName, { color: C.textPrimary }]} numberOfLines={1} allowFontScaling={false}>
             {profile.name || profile.username || "No name"}
           </Text>
 
           <View style={styles.heroMeta}>
             {profile.username
-              ? <Text style={styles.heroUsername} allowFontScaling={false}>@{profile.username}</Text>
+              ? <Text style={[styles.heroUsername, { color: C.textMuted }]} allowFontScaling={false}>@{profile.username}</Text>
               : null}
             {myRoles && myRoles.length > 0
               ? <View style={[styles.rolePill, { backgroundColor: roleColor + "22", borderColor: roleColor + "55" }]}>
                   <Ionicons name="shield-checkmark" size={9} color={roleColor} />
                   <Text style={[styles.rolePillText, { color: roleColor }]} allowFontScaling={false}>{roleName}</Text>
                 </View>
-              : <View style={styles.rolePillUser}>
-                  <Text style={styles.rolePillUserText} allowFontScaling={false}>Member</Text>
+              : <View style={[styles.rolePillUser, { backgroundColor: C.bgElevated }]}>
+                  <Text style={[styles.rolePillUserText, { color: C.textMuted }]} allowFontScaling={false}>Member</Text>
                 </View>
             }
           </View>
 
           {mySubscription?.jobTitle
-            ? <View style={styles.jobBadge}>
-                <Ionicons name="briefcase-outline" size={11} color={Colors.textGold} />
-                <Text style={styles.jobBadgeText} allowFontScaling={false}>{mySubscription.jobTitle}</Text>
+            ? <View style={[styles.jobBadge, { backgroundColor: C.bgElevated, borderColor: C.goldBorder }]}>
+                <Ionicons name="briefcase-outline" size={11} color={C.textGold} />
+                <Text style={[styles.jobBadgeText, { color: C.textGold }]} allowFontScaling={false}>{mySubscription.jobTitle}</Text>
               </View>
             : null}
 
           {profile.detectedCountry
             ? <View style={styles.locationRow}>
-                <Ionicons name="location-outline" size={13} color={Colors.iconAccent} />
-                <Text style={styles.locationText} allowFontScaling={false}>{profile.detectedCountry}</Text>
+                <Ionicons name="location-outline" size={13} color={C.iconAccent} />
+                <Text style={[styles.locationText, { color: C.textMuted }]} allowFontScaling={false}>{profile.detectedCountry}</Text>
               </View>
             : null}
 
-          <View style={[styles.statsRow, elevation.elevation1]}>
+          <View style={[styles.statsRow, elevation.elevation1, { backgroundColor: C.bgSurface, borderColor: C.borderSubtle }]}>
             {[
               { value: profile.stats?.articles ?? 0,  label: "Posts" },
               { value: profile.stats?.followers ?? 0, label: "Followers" },
@@ -775,10 +777,10 @@ export default function ProfileTab() {
             ].map((s, i, arr) => (
               <React.Fragment key={s.label}>
                 <View style={styles.statItem}>
-                  <Text style={styles.statValue} allowFontScaling={false}>{s.value}</Text>
-                  <Text style={styles.statLabel} allowFontScaling={false}>{s.label}</Text>
+                  <Text style={[styles.statValue, { color: C.textPrimary }]} allowFontScaling={false}>{s.value}</Text>
+                  <Text style={[styles.statLabel, { color: C.textMuted }]} allowFontScaling={false}>{s.label}</Text>
                 </View>
-                {i < arr.length - 1 && <View style={styles.statDivider} />}
+                {i < arr.length - 1 && <View style={[styles.statDivider, { backgroundColor: C.borderSubtle }]} />}
               </React.Fragment>
             ))}
           </View>
@@ -786,12 +788,12 @@ export default function ProfileTab() {
           <View style={styles.heroActions}>
             <SecondaryButton label="Edit Profile" onPress={() => setIsEditing(true)} style={styles.heroBtn} />
             <IconButton
-              icon={<Ionicons name="share-social-outline" size={18} color={Colors.iconPrimary} />}
+              icon={<Ionicons name="share-social-outline" size={18} color={C.iconPrimary} />}
               onPress={handleShareProfile}
               accessibilityLabel="Share profile"
             />
             <IconButton
-              icon={<Ionicons name="notifications-outline" size={18} color={Colors.statusInfo} />}
+              icon={<Ionicons name="notifications-outline" size={18} color={C.statusInfo} />}
               onPress={() => (router.push as any)("/(tabs)/notification")}
               accessibilityLabel="Notifications"
             />
@@ -802,13 +804,13 @@ export default function ProfileTab() {
         {(profile.bio || (profile.interests && profile.interests.length > 0))
           ? <View style={styles.bioSection}>
               {profile.bio
-                ? <Text style={styles.bioText} allowFontScaling={true}>{profile.bio}</Text>
+                ? <Text style={[styles.bioText, { color: C.textSecondary }]} allowFontScaling={true}>{profile.bio}</Text>
                 : null}
               {profile.interests && profile.interests.length > 0
                 ? <View style={styles.chipsRow}>
                     {(showInterestsExpanded ? profile.interests : profile.interests.slice(0, 4)).map((interest) => (
-                      <View key={interest} style={styles.chip}>
-                        <Text style={styles.chipText} allowFontScaling={false}>{interest}</Text>
+                      <View key={interest} style={[styles.chip, { backgroundColor: C.bgPrimarySubtle, borderColor: C.borderFilled }]}>
+                        <Text style={[styles.chipText, { color: C.actionPrimary }]} allowFontScaling={false}>{interest}</Text>
                       </View>
                     ))}
                     {profile.interests.length > 4 && (
@@ -827,7 +829,7 @@ export default function ProfileTab() {
         {/* EDIT FORM */}
         {isEditing && (
           <View style={styles.editSection}>
-            <Text style={styles.editSectionTitle} allowFontScaling={false}>Edit Profile</Text>
+            <Text style={[styles.editSectionTitle, { color: C.textPrimary }]} allowFontScaling={false}>Edit Profile</Text>
             <AppInput
               label="Display Name"
               value={displayName}
@@ -843,7 +845,7 @@ export default function ProfileTab() {
               maxLength={200}
               accessibilityLabel="Bio"
             />
-            <Text style={styles.fieldLabel} allowFontScaling={false}>Interests</Text>
+            <Text style={[styles.fieldLabel, { color: C.textSecondary }]} allowFontScaling={false}>Interests</Text>
             <View style={styles.interestGrid}>
               {INTEREST_OPTIONS.map((interest) => {
                 const selected = interests.includes(interest);
@@ -854,9 +856,9 @@ export default function ProfileTab() {
                     accessibilityRole="checkbox"
                     accessibilityLabel={interest}
                     accessibilityState={{ checked: selected }}
-                    style={[styles.interestTag, selected && styles.interestTagSelected]}
+                    style={[styles.interestTag, { backgroundColor: C.bgElevated, borderColor: C.borderDefault }, selected && [styles.interestTagSelected, { backgroundColor: C.actionPrimary, borderColor: C.actionPrimary }]]}
                   >
-                    <Text style={[styles.interestTagText, selected && styles.interestTagTextSelected]} allowFontScaling={false}>
+                    <Text style={[styles.interestTagText, { color: C.textMuted }, selected && styles.interestTagTextSelected]} allowFontScaling={false}>
                       {interest}
                     </Text>
                   </Pressable>
@@ -876,7 +878,7 @@ export default function ProfileTab() {
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
-              style={styles.tabBar}
+              style={[styles.tabBar, { borderTopColor: C.borderSubtle, borderBottomColor: C.borderSubtle }]}
               contentContainerStyle={styles.tabBarContent}
             >
               {TABS.map((tab) => {
@@ -888,14 +890,14 @@ export default function ProfileTab() {
                     accessibilityRole="tab"
                     accessibilityLabel={tab.label}
                     accessibilityState={{ selected: active }}
-                    style={[styles.tabItem, active && styles.tabItemActive]}
+                    style={[styles.tabItem, active && [styles.tabItemActive, { borderBottomColor: C.actionPrimary }]]}
                   >
                     <Ionicons
                       name={active ? tab.activeIcon : tab.icon}
                       size={20}
-                      color={active ? Colors.iconAccent : Colors.iconDisabled}
+                      color={active ? C.iconAccent : C.iconDisabled}
                     />
-                    <Text style={[styles.tabLabel, active && styles.tabLabelActive]} allowFontScaling={false}>
+                    <Text style={[styles.tabLabel, { color: C.iconDisabled }, active && [styles.tabLabelActive, { color: C.iconAccent }]]} allowFontScaling={false}>
                       {tab.label}
                     </Text>
                   </Pressable>
@@ -909,23 +911,23 @@ export default function ProfileTab() {
 
             {/* SETTINGS MENU */}
             <View style={styles.menuSection}>
-              <Text style={styles.sectionLabel} allowFontScaling={false}>Account</Text>
-              <View style={styles.menuGroup}>
-                <SettingsRow icon="create-outline"       label="Edit Profile"  iconColor={Colors.iconAccent}   onPress={() => setIsEditing(true)} />
-                <SettingsRow icon="settings-outline"     label="Settings"      iconColor={Colors.iconAccent}   onPress={() => router.push("/auth/password/ChangePassword")} />
-                <SettingsRow icon="notifications-outline" label="Notifications" iconColor={Colors.statusInfo}   onPress={() => (router.push as any)("/(tabs)/notification")} />
-                <SettingsRow icon="share-social-outline" label="Share Profile" iconColor={Colors.statusInfo}   onPress={handleShareProfile} isLast />
+              <Text style={[styles.sectionLabel, { color: C.textMuted }]} allowFontScaling={false}>Account</Text>
+              <View style={[styles.menuGroup, { backgroundColor: C.bgElevated, borderColor: C.borderSubtle }]}>
+                <SettingsRow icon="create-outline"       label="Edit Profile"  iconColor={C.iconAccent}   onPress={() => setIsEditing(true)} />
+                <SettingsRow icon="settings-outline"     label="Settings"      iconColor={C.iconAccent}   onPress={() => router.push("/auth/password/ChangePassword")} />
+                <SettingsRow icon="notifications-outline" label="Notifications" iconColor={C.statusInfo}   onPress={() => (router.push as any)("/(tabs)/notification")} />
+                <SettingsRow icon="share-social-outline" label="Share Profile" iconColor={C.statusInfo}   onPress={handleShareProfile} isLast />
               </View>
 
               {(needsSetup || isModerator) && (
                 <>
-                  <Text style={[styles.sectionLabel, { marginTop: 16 }]} allowFontScaling={false}>Moderation</Text>
-                  <View style={styles.menuGroup}>
+                  <Text style={[styles.sectionLabel, { marginTop: 16, color: C.textMuted }]} allowFontScaling={false}>Moderation</Text>
+                  <View style={[styles.menuGroup, { backgroundColor: C.bgElevated, borderColor: C.borderSubtle }]}>
                     {needsSetup
                       ? <SettingsRow
                           icon="construct-outline"
                           label="Setup Moderation"
-                          iconColor={Colors.statusWarning}
+                          iconColor={C.statusWarning}
                           onPress={() => Alert.alert("Moderation Setup", "Navigate to the moderation setup screen to initialize the system.")}
                           isLast={!isModerator}
                         />
@@ -943,11 +945,11 @@ export default function ProfileTab() {
                 </>
               )}
 
-              <View style={[styles.menuGroup, { marginTop: 16 }]}>
+              <View style={[styles.menuGroup, { marginTop: 16, backgroundColor: C.bgElevated, borderColor: C.borderSubtle }]}>
                 <SettingsRow
                   icon="log-out-outline"
                   label="Sign Out"
-                  iconColor={Colors.statusDanger}
+                  iconColor={C.statusDanger}
                   isDestructive
                   showChevron={false}
                   onPress={() => setShowSignOutSheet(true)}
@@ -982,14 +984,14 @@ export default function ProfileTab() {
         body="Enter your 4-digit transaction PIN to continue."
       >
         <TextInput
-          style={styles.pinInput}
+          style={[styles.pinInput, { backgroundColor: C.bgElevated, borderColor: C.borderDefault, color: C.textPrimary }]}
           value={pinInput}
           onChangeText={(t) => setPinInput(t.replace(/\D/g, "").slice(0, 4))}
           keyboardType="number-pad"
           maxLength={4}
           secureTextEntry
           placeholder="••••"
-          placeholderTextColor={Colors.textDisabled}
+          placeholderTextColor={C.textDisabled}
           autoFocus
           accessibilityLabel="PIN input"
         />

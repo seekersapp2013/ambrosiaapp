@@ -17,7 +17,7 @@ import {
   type ViewStyle,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '@/tokens/colors';
+import { useColors } from '@/hooks/useColors';
 import { radius } from '@/tokens/radius';
 import { typeScale } from '@/tokens/typography';
 import { spacing } from '@/tokens/spacing';
@@ -36,29 +36,31 @@ interface BaseInputProps extends Omit<TextInputProps, 'style'> {
   containerStyle?: StyleProp<ViewStyle>;
   trailingIcon?: React.ReactNode;
   leadingIcon?: React.ReactNode;
+  /** Force dark-mode colors (for inputs rendered on dark surfaces like BottomSheet) */
+  forceDark?: boolean;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Helpers — derive border/bg from state
+// Helpers — derive border/bg from state (now takes color set as parameter)
 // ─────────────────────────────────────────────────────────────────────────────
-function getBorderColor(state: InputState): string {
+function getBorderColor(state: InputState, C: ReturnType<typeof useColors>): string {
   switch (state) {
-    case 'focused':  return Colors.borderFocus;
-    case 'filled':   return Colors.borderFilled;
-    case 'error':    return Colors.borderError;
+    case 'focused':  return C.borderFocus;
+    case 'filled':   return C.borderFilled;
+    case 'error':    return C.borderError;
     case 'disabled':
-    case 'readonly': return Colors.borderSubtle;
-    default:         return Colors.borderDefault;
+    case 'readonly': return C.borderSubtle;
+    default:         return C.borderDefault;
   }
 }
 
-function getBgColor(state: InputState): string {
+function getBgColor(state: InputState, C: ReturnType<typeof useColors>): string {
   switch (state) {
-    case 'focused':  return Colors.bgPrimarySubtle;
-    case 'error':    return Colors.bgErrorSubtle;
+    case 'focused':  return C.bgPrimarySubtle;
+    case 'error':    return C.bgErrorSubtle;
     case 'disabled':
-    case 'readonly': return Colors.bgElevated;
-    default:         return Colors.bgSurface;
+    case 'readonly': return C.bgElevated;
+    default:         return C.bgInput ?? C.bgSurface;
   }
 }
 
@@ -81,11 +83,20 @@ export const AppInput = forwardRef<TextInput, BaseInputProps>(function AppInput(
     onBlur,
     accessibilityLabel,
     accessibilityHint,
+    forceDark,
     ...rest
   },
   ref,
 ) {
   const [focused, setFocused] = useState(false);
+  const C = useColors();
+
+  // When forceDark is true, use dark-mode colors regardless of active theme
+  const inputBg = forceDark ? '#171730' : undefined;
+  const inputBorder = forceDark ? 'rgba(255,255,255,0.12)' : undefined;
+  const inputText = forceDark ? '#FFFFFF' : C.textPrimary;
+  const inputLabel = forceDark ? '#9CA3AF' : C.textSecondary;
+  const inputPlaceholder = forceDark ? '#6B7280' : C.textDisabled;
 
   // Derive state: explicit prop wins, otherwise infer
   const state: InputState =
@@ -96,8 +107,8 @@ export const AppInput = forwardRef<TextInput, BaseInputProps>(function AppInput(
      value ? 'filled' :
      'default');
 
-  const borderColor = getBorderColor(state);
-  const bgColor = getBgColor(state);
+  const borderColor = inputBorder ?? getBorderColor(state, C);
+  const bgColor = inputBg ?? getBgColor(state, C);
 
   const handleFocus = (e: any) => {
     setFocused(true);
@@ -111,7 +122,7 @@ export const AppInput = forwardRef<TextInput, BaseInputProps>(function AppInput(
   return (
     <View style={[styles.inputContainer, containerStyle]}>
       {label ? (
-        <Text style={styles.inputLabel} allowFontScaling={true}>
+        <Text style={[styles.inputLabel, { color: inputLabel }]} allowFontScaling={true}>
           {label}
         </Text>
       ) : null}
@@ -130,6 +141,7 @@ export const AppInput = forwardRef<TextInput, BaseInputProps>(function AppInput(
           ref={ref}
           style={[
             styles.inputField,
+            { color: inputText },
             leadingIcon ? styles.inputFieldWithLeading : null,
             trailingIcon ? styles.inputFieldWithTrailing : null,
           ]}
@@ -137,8 +149,8 @@ export const AppInput = forwardRef<TextInput, BaseInputProps>(function AppInput(
           editable={editable && state !== 'readonly'}
           onFocus={handleFocus}
           onBlur={handleBlur}
-          placeholderTextColor={Colors.textDisabled}
-          selectionColor={Colors.actionPrimary}
+          placeholderTextColor={inputPlaceholder}
+          selectionColor={C.actionPrimary}
           accessibilityLabel={accessibilityLabel ?? label}
           accessibilityHint={accessibilityHint}
           accessibilityState={{ disabled: state === 'disabled' }}
@@ -148,15 +160,15 @@ export const AppInput = forwardRef<TextInput, BaseInputProps>(function AppInput(
         {/* Auto trailing icon based on state */}
         {state === 'filled' && !trailingIcon ? (
           <View style={styles.trailingIconWrap}>
-            <Ionicons name="checkmark-circle" size={20} color={Colors.statusSuccess} />
+            <Ionicons name="checkmark-circle" size={20} color={C.statusSuccess} />
           </View>
         ) : state === 'error' && !trailingIcon ? (
           <View style={styles.trailingIconWrap}>
-            <Ionicons name="close-circle" size={20} color={Colors.statusDanger} />
+            <Ionicons name="close-circle" size={20} color={C.statusDanger} />
           </View>
         ) : state === 'readonly' && !trailingIcon ? (
           <View style={styles.trailingIconWrap}>
-            <Ionicons name="lock-closed" size={16} color={Colors.iconSecondary} />
+            <Ionicons name="lock-closed" size={16} color={C.iconSecondary} />
           </View>
         ) : trailingIcon ? (
           <View style={styles.trailingIconWrap}>{trailingIcon}</View>
@@ -164,11 +176,11 @@ export const AppInput = forwardRef<TextInput, BaseInputProps>(function AppInput(
       </View>
 
       {error ? (
-        <Text style={styles.errorText} allowFontScaling={true}>
+        <Text style={[styles.errorText, { color: C.statusDanger }]} allowFontScaling={true}>
           {error}
         </Text>
       ) : hint ? (
-        <Text style={styles.hintText} allowFontScaling={true}>
+        <Text style={[styles.hintText, { color: C.textMuted }]} allowFontScaling={true}>
           {hint}
         </Text>
       ) : null}
@@ -184,6 +196,7 @@ export const PasswordInput = forwardRef<TextInput, BaseInputProps>(function Pass
   ref,
 ) {
   const [visible, setVisible] = useState(false);
+  const C = useColors();
 
   return (
     <AppInput
@@ -199,7 +212,7 @@ export const PasswordInput = forwardRef<TextInput, BaseInputProps>(function Pass
           <Ionicons
             name={visible ? 'eye-off-outline' : 'eye-outline'}
             size={20}
-            color={Colors.iconSecondary}
+            color={C.iconSecondary}
           />
         </Pressable>
       }
@@ -217,13 +230,15 @@ interface SearchInputProps extends Omit<TextInputProps, 'style'> {
 }
 
 export function SearchInput({ containerStyle, ...rest }: SearchInputProps) {
+  const C = useColors();
+
   return (
-    <View style={[styles.searchContainer, containerStyle]}>
-      <Ionicons name="search-outline" size={18} color={Colors.iconSecondary} />
+    <View style={[styles.searchContainer, { backgroundColor: C.bgElevated }, containerStyle]}>
+      <Ionicons name="search-outline" size={18} color={C.iconSecondary} />
       <TextInput
-        style={styles.searchField}
-        placeholderTextColor={Colors.textDisabled}
-        selectionColor={Colors.actionPrimary}
+        style={[styles.searchField, { color: C.textPrimary }]}
+        placeholderTextColor={C.textDisabled}
+        selectionColor={C.actionPrimary}
         accessibilityRole="search"
         {...rest}
       />
@@ -240,6 +255,8 @@ interface TextareaProps extends Omit<TextInputProps, 'style' | 'multiline'> {
   error?: string;
   maxLength?: number;
   containerStyle?: StyleProp<ViewStyle>;
+  /** Force dark-mode colors (for textareas rendered on dark surfaces) */
+  forceDark?: boolean;
 }
 
 export function TextareaInput({
@@ -250,15 +267,24 @@ export function TextareaInput({
   value,
   accessibilityLabel,
   accessibilityHint,
+  forceDark,
   ...rest
 }: TextareaProps) {
   const [focused, setFocused] = useState(false);
+  const C = useColors();
   const charCount = value?.length ?? 0;
+
+  const tBg = forceDark ? '#171730' : C.bgSurface;
+  const tBorder = forceDark ? 'rgba(255,255,255,0.12)' : (focused ? C.borderFocus : error ? C.borderError : C.borderDefault);
+  const tText = forceDark ? '#FFFFFF' : C.textPrimary;
+  const tLabel = forceDark ? '#9CA3AF' : C.textSecondary;
+  const tPlaceholder = forceDark ? '#6B7280' : C.textDisabled;
+  const tCount = forceDark ? '#6B7280' : C.textDisabled;
 
   return (
     <View style={[styles.inputContainer, containerStyle]}>
       {label ? (
-        <Text style={styles.inputLabel} allowFontScaling={true}>
+        <Text style={[styles.inputLabel, { color: tLabel }]} allowFontScaling={true}>
           {label}
         </Text>
       ) : null}
@@ -266,32 +292,35 @@ export function TextareaInput({
       <View
         style={[
           styles.textareaRow,
-          { borderColor: focused ? Colors.borderFocus : error ? Colors.borderError : Colors.borderDefault },
+          {
+            borderColor: forceDark ? tBorder : (focused ? C.borderFocus : error ? C.borderError : C.borderDefault),
+            backgroundColor: tBg,
+          },
         ]}
       >
         <TextInput
-          style={styles.textareaField}
+          style={[styles.textareaField, { color: tText }]}
           multiline
           textAlignVertical="top"
           value={value}
           maxLength={maxLength}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
-          placeholderTextColor={Colors.textDisabled}
-          selectionColor={Colors.actionPrimary}
+          placeholderTextColor={tPlaceholder}
+          selectionColor={C.actionPrimary}
           accessibilityLabel={accessibilityLabel ?? label}
           accessibilityHint={accessibilityHint}
           {...rest}
         />
         {maxLength ? (
-          <Text style={styles.charCount} allowFontScaling={false}>
+          <Text style={[styles.charCount, { color: tCount }]} allowFontScaling={false}>
             {charCount}/{maxLength}
           </Text>
         ) : null}
       </View>
 
       {error ? (
-        <Text style={styles.errorText} allowFontScaling={true}>
+        <Text style={[styles.errorText, { color: C.statusDanger }]} allowFontScaling={true}>
           {error}
         </Text>
       ) : null}
@@ -321,6 +350,7 @@ export function OTPInput({
   containerStyle,
 }: OTPInputProps) {
   const inputRef = useRef<TextInput>(null);
+  const C = useColors();
   const scales = useRef(
     Array.from({ length }, () => new Animated.Value(1)),
   ).current;
@@ -421,11 +451,11 @@ export function OTPInput({
       {Array.from({ length }).map((_, idx) => {
         const boxState = getBoxState(idx);
         const borderColor = success
-          ? Colors.statusSuccess
-          : getBorderColor(boxState);
+          ? C.statusSuccess
+          : getBorderColor(boxState, C);
         const bgColor = success
-          ? Colors.statusSuccessBg
-          : getBgColor(boxState);
+          ? C.statusSuccessBg
+          : getBgColor(boxState, C);
         const isMasked = maskedIndices.has(idx) && idx < value.length;
         return (
           <Animated.View
@@ -439,8 +469,9 @@ export function OTPInput({
             >
               <Text style={[
                 styles.otpDigit,
-                error && { color: Colors.statusDanger },
-                success && { color: Colors.statusSuccess },
+                { color: C.textPrimary },
+                error && { color: C.statusDanger },
+                success && { color: C.statusSuccess },
                 isMasked && styles.otpBullet,
               ]}>
                 {isMasked ? '●' : (value[idx] ?? '')}
@@ -464,7 +495,6 @@ const styles = StyleSheet.create({
   inputLabel: {
     ...typeScale.bodySM,
     fontWeight: '600',
-    color: Colors.textSecondary,
     marginBottom: spacing.space2,
   },
   inputRow: {
@@ -479,7 +509,6 @@ const styles = StyleSheet.create({
   inputField: {
     flex: 1,
     ...typeScale.bodyMD,
-    color: Colors.textPrimary,
     height: '100%',
   },
   inputFieldWithLeading: {
@@ -496,12 +525,10 @@ const styles = StyleSheet.create({
   },
   errorText: {
     ...typeScale.caption,
-    color: Colors.statusDanger,
     marginTop: 4,
   },
   hintText: {
     ...typeScale.caption,
-    color: Colors.textMuted,
     marginTop: 4,
   },
 
@@ -509,7 +536,6 @@ const styles = StyleSheet.create({
   searchContainer: {
     height: 48,
     borderRadius: radius.radiusFull,
-    backgroundColor: Colors.bgElevated,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: spacing.space4,
@@ -518,26 +544,22 @@ const styles = StyleSheet.create({
   searchField: {
     flex: 1,
     ...typeScale.bodyMD,
-    color: Colors.textPrimary,
   },
 
   // Textarea
   textareaRow: {
     borderRadius: radius.radiusMD,
     borderWidth: 1.5,
-    backgroundColor: Colors.bgSurface,
     paddingHorizontal: spacing.space4,
     paddingVertical: 14,
     minHeight: 120,
   },
   textareaField: {
     ...typeScale.bodyMD,
-    color: Colors.textPrimary,
     minHeight: 80,
   },
   charCount: {
     ...typeScale.caption,
-    color: Colors.textDisabled,
     textAlign: 'right',
     marginTop: 4,
   },
@@ -565,7 +587,6 @@ const styles = StyleSheet.create({
   otpDigit: {
     fontSize: 28,
     fontWeight: '700',
-    color: Colors.textPrimary,
     textAlign: 'center',
   },
   otpBullet: {

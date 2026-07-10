@@ -24,7 +24,7 @@ import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { Ionicons } from "@expo/vector-icons";
-import { Colors } from "@/tokens/colors";
+import { useColors } from "@/hooks/useColors";
 import { typeScale } from "@/tokens/typography";
 import { spacing } from "@/tokens/spacing";
 import { ArticleCommentsSheet } from "@/components/ArticleCommentsSheet";
@@ -48,6 +48,7 @@ export function ArticleEngagementBar({
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [clapLoading, setClapLoading]   = useState(false);
   const [shareLoading, setShareLoading] = useState(false);
+  const C = useColors();
 
   // For free articles: require a read record before engagement is unlocked
   const hasReadResult = useQuery(
@@ -123,33 +124,37 @@ export function ArticleEngagementBar({
     ? "Checking access…"
     : "Read the article to engage";
 
+  // Engagement bar is always on dark surface — use light icons/text
+  const engIcon = C.isDark ? C.iconSecondary : '#9CA3AF';
+  const engText = C.isDark ? C.textMuted : '#9CA3AF';
+
   return (
     <View style={styles.wrapper}>
       {/* Lock tooltip */}
       {locked && (
-        <View style={styles.lockTooltip}>
-          <Ionicons name="lock-closed" size={10} color={Colors.statusWarning} />
-          <Text style={styles.lockTooltipText} allowFontScaling={false}>
+        <View style={[styles.lockTooltip, { backgroundColor: C.amberSurface, borderColor: C.amberBorder }]}>
+          <Ionicons name="lock-closed" size={10} color={C.statusWarning} />
+          <Text style={[styles.lockTooltipText, { color: C.statusWarning }]} allowFontScaling={false}>
             {lockReason}
           </Text>
         </View>
       )}
 
       {/* Bar — style-level pointerEvents for web compatibility */}
-      <View style={[styles.container, locked && styles.containerLocked]}>
+      <View style={[styles.container, { borderTopColor: C.isDark ? C.borderSubtle : 'rgba(255,255,255,0.08)', backgroundColor: C.isDark ? C.bgSurface : '#0F0F1E' }, locked && styles.containerLocked]}>
 
         {/* Clap */}
         <Btn onPress={handleClap} label={`Clap (${myClaps ?? 0})`}>
           {clapLoading ? (
-            <ActivityIndicator size="small" color={Colors.actionPrimary} />
+            <ActivityIndicator size="small" color={C.actionPrimary} />
           ) : (
             <Ionicons
               name="hand-left-outline"
               size={22}
-              color={(myClaps ?? 0) > 0 ? Colors.actionPrimary : Colors.iconSecondary}
+              color={(myClaps ?? 0) > 0 ? C.actionPrimary : engIcon}
             />
           )}
-          <Text style={[styles.btnLabel, (myClaps ?? 0) > 0 && styles.btnLabelActive]}
+          <Text style={[styles.btnLabel, { color: engText }, (myClaps ?? 0) > 0 && { color: C.actionPrimary }]}
             allowFontScaling={false}>
             {totalClaps ?? 0}
           </Text>
@@ -160,9 +165,9 @@ export function ArticleEngagementBar({
           <Ionicons
             name={isLiked ? "heart" : "heart-outline"}
             size={22}
-            color={isLiked ? "#FF3B5C" : Colors.iconSecondary}
+            color={isLiked ? "#FF3B5C" : engIcon}
           />
-          <Text style={[styles.btnLabel, isLiked && { color: "#FF3B5C" }]}
+          <Text style={[styles.btnLabel, { color: engText }, isLiked && { color: "#FF3B5C" }]}
             allowFontScaling={false}>
             Like
           </Text>
@@ -170,8 +175,8 @@ export function ArticleEngagementBar({
 
         {/* Comment */}
         <Btn onPress={() => setCommentsOpen(true)} label="Comments">
-          <Ionicons name="chatbubble-ellipses-outline" size={22} color={Colors.iconSecondary} />
-          <Text style={styles.btnLabel} allowFontScaling={false}>
+          <Ionicons name="chatbubble-ellipses-outline" size={22} color={engIcon} />
+          <Text style={[styles.btnLabel, { color: engText }]} allowFontScaling={false}>
             {commentCount !== undefined ? commentCount.length : "–"}
           </Text>
         </Btn>
@@ -181,9 +186,9 @@ export function ArticleEngagementBar({
           <Ionicons
             name={isBookmarked ? "bookmark" : "bookmark-outline"}
             size={22}
-            color={isBookmarked ? Colors.actionPrimary : Colors.iconSecondary}
+            color={isBookmarked ? C.actionPrimary : engIcon}
           />
-          <Text style={[styles.btnLabel, isBookmarked && styles.btnLabelActive]}
+          <Text style={[styles.btnLabel, { color: engText }, isBookmarked && { color: C.actionPrimary }]}
             allowFontScaling={false}>
             Save
           </Text>
@@ -198,11 +203,11 @@ export function ArticleEngagementBar({
           accessibilityLabel="Share"
         >
           {shareLoading ? (
-            <ActivityIndicator size="small" color={Colors.iconSecondary} />
+            <ActivityIndicator size="small" color={engIcon} />
           ) : (
-            <Ionicons name="share-social-outline" size={22} color={Colors.iconSecondary} />
+            <Ionicons name="share-social-outline" size={22} color={engIcon} />
           )}
-          <Text style={styles.btnLabel} allowFontScaling={false}>Share</Text>
+          <Text style={[styles.btnLabel, { color: engText }]} allowFontScaling={false}>Share</Text>
         </TouchableOpacity>
 
       </View>
@@ -227,35 +232,30 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 4,
     alignSelf: "center",
-    backgroundColor: Colors.amberSurface,
     borderRadius: 999,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderWidth: 1,
-    borderColor: Colors.amberBorder,
     marginBottom: 2,
   },
   lockTooltipText: {
     fontSize: 10,
     fontWeight: "700",
-    color: Colors.statusWarning,
   },
 
   container: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-around",
-    paddingVertical: spacing.space3,
+    paddingVertical: spacing.space4,
     paddingHorizontal: spacing.space2,
     borderTopWidth: 1,
-    borderTopColor: Colors.borderSubtle,
-    backgroundColor: Colors.bgSurface,
-    marginBottom: spacing.space4,
-    borderRadius: 12,
+    marginBottom: 0,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
   },
   containerLocked: {
     opacity: 0.35,
-    // style-level pointerEvents — the only way to block clicks on web
     pointerEvents: "none" as any,
   },
 
@@ -267,10 +267,6 @@ const styles = StyleSheet.create({
   },
   btnLabel: {
     ...typeScale.caption,
-    color: Colors.textMuted,
     fontWeight: "500",
-  },
-  btnLabelActive: {
-    color: Colors.actionPrimary,
   },
 });

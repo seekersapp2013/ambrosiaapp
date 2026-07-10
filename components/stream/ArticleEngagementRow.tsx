@@ -26,7 +26,7 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { Ionicons } from "@expo/vector-icons";
-import { Colors } from "@/constants/Colors";
+import { useColors } from "@/hooks/useColors";
 import { ArticleCommentsSheet } from "@/components/ArticleCommentsSheet";
 
 interface ArticleEngagementRowProps {
@@ -44,6 +44,7 @@ export function ArticleEngagementRow({
 }: ArticleEngagementRowProps) {
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [clapLoading, setClapLoading]   = useState(false);
+  const C = useColors();
 
   const id = articleId as Id<"articles">;
 
@@ -126,23 +127,34 @@ export function ArticleEngagementRow({
         </TouchableOpacity>
       );
 
+  // Engagement row always sits on a dark surface — use light text/icons
+  const engMuted = C.isDark ? C.textMuted : '#9CA3AF';
+  const engBorder = C.isDark ? C.borderSubtle : 'rgba(255,255,255,0.08)';
+
   return (
     <View style={styles.wrapper}>
       {/* Row — style-level pointerEvents works on both native and web */}
-      <View style={[styles.row, locked && styles.rowLocked]}>
+      <View style={[
+        styles.row,
+        locked && styles.rowLocked,
+        {
+          borderTopColor:  engBorder,
+          backgroundColor: C.bgEngagement ?? C.bgSurface,
+        },
+      ]}>
 
         {/* Clap */}
         <Btn onPress={handleClap} accessibilityLabel="Clap">
           {clapLoading ? (
-            <ActivityIndicator size="small" color={Colors.primary} />
+            <ActivityIndicator size="small" color={C.actionPrimary} />
           ) : (
             <Ionicons
               name="hand-left-outline"
               size={16}
-              color={(myClaps ?? 0) > 0 ? Colors.primary : Colors.textMuted}
+              color={(myClaps ?? 0) > 0 ? C.actionPrimary : engMuted}
             />
           )}
-          <Text style={[styles.count, (myClaps ?? 0) > 0 && styles.countActive]}>
+          <Text style={[styles.count, { color: engMuted }, (myClaps ?? 0) > 0 && { color: C.actionPrimary }]}>
             {totalClaps ?? 0}
           </Text>
         </Btn>
@@ -152,15 +164,15 @@ export function ArticleEngagementRow({
           <Ionicons
             name={isLiked ? "heart" : "heart-outline"}
             size={16}
-            color={isLiked ? "#FF3B5C" : Colors.textMuted}
+            color={isLiked ? "#FF3B5C" : engMuted}
           />
-          <Text style={[styles.count, isLiked && { color: "#FF3B5C" }]}>Like</Text>
+          <Text style={[styles.count, { color: engMuted }, isLiked && { color: "#FF3B5C" }]}>Like</Text>
         </Btn>
 
         {/* Comment */}
         <Btn onPress={handleComment} accessibilityLabel="Comment">
-          <Ionicons name="chatbubble-outline" size={16} color={Colors.textMuted} />
-          <Text style={styles.count}>
+          <Ionicons name="chatbubble-outline" size={16} color={engMuted} />
+          <Text style={[styles.count, { color: engMuted }]}>
             {comments !== undefined ? comments.length : "–"}
           </Text>
         </Btn>
@@ -170,9 +182,9 @@ export function ArticleEngagementRow({
           <Ionicons
             name={isBookmarked ? "bookmark" : "bookmark-outline"}
             size={16}
-            color={isBookmarked ? Colors.primary : Colors.textMuted}
+            color={isBookmarked ? C.actionPrimary : engMuted}
           />
-          <Text style={[styles.count, isBookmarked && styles.countActive]}>Save</Text>
+          <Text style={[styles.count, { color: engMuted }, isBookmarked && { color: C.actionPrimary }]}>Save</Text>
         </Btn>
 
         {/* Share — always available regardless of lock */}
@@ -183,8 +195,8 @@ export function ArticleEngagementRow({
           accessibilityRole="button"
           accessibilityLabel="Share"
         >
-          <Ionicons name="share-social-outline" size={16} color={Colors.textMuted} />
-          <Text style={styles.count}>Share</Text>
+          <Ionicons name="share-social-outline" size={16} color={engMuted} />
+          <Text style={[styles.count, { color: engMuted }]}>Share</Text>
         </TouchableOpacity>
 
       </View>
@@ -203,39 +215,19 @@ export function ArticleEngagementRow({
 
 const styles = StyleSheet.create({
   wrapper: {},
-  lockTooltip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 3,
-    alignSelf: "flex-start",
-    marginHorizontal: 10,
-    marginTop: 6,
-    marginBottom: 2,
-    backgroundColor: Colors.amberSurface,
-    borderRadius: 999,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderWidth: 1,
-    borderColor: Colors.amberBorder,
-  },
-  lockTooltipText: {
-    fontSize: 9,
-    fontWeight: "700",
-    color: Colors.statusWarning,
-  },
   row: {
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 10,
-    paddingVertical: 10,
+    paddingVertical: 12,
     borderTopWidth: 1,
-    borderTopColor: Colors.borderSubtle,
     gap: 4,
     flexWrap: "wrap",
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
   },
   rowLocked: {
     opacity: 0.35,
-    // style-level pointerEvents — works on web unlike the prop
     pointerEvents: "none" as any,
   },
   btn: {
@@ -248,10 +240,6 @@ const styles = StyleSheet.create({
   },
   count: {
     fontSize: 11,
-    color: Colors.textMuted,
     fontWeight: "500",
-  },
-  countActive: {
-    color: Colors.primary,
   },
 });

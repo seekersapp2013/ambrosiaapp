@@ -160,12 +160,18 @@ export default function ReferralDetailScreen() {
   );
   const me = useQuery(api.profiles.getMyProfile, {});
 
+  // Fetch the referral circle once the referral is loaded and has a circleId
+  const referralCircle = useQuery(
+    api.referrals.getReferralCircle,
+    referralId ? { referralId: referralId as any } : "skip"
+  );
+
   const isLoading = referral === undefined || me === undefined;
 
   if (isLoading) {
     return (
       <AppBackground>
-        <ScreenHeader title="Referral Detail" onBack={() => router.back()} />
+        <ScreenHeader title="Referral Detail" onBack={() => router.replace("/(tabs)/booking" as any)} />
         <View style={styles.centeredWrap}>
           <ActivityIndicator size="large" color={Colors.actionPrimary} />
         </View>
@@ -176,7 +182,7 @@ export default function ReferralDetailScreen() {
   if (!referral) {
     return (
       <AppBackground>
-        <ScreenHeader title="Referral Detail" onBack={() => router.back()} />
+        <ScreenHeader title="Referral Detail" onBack={() => router.replace("/(tabs)/booking" as any)} />
         <MobileCard>
           <View style={styles.centeredWrap}>
             <Ionicons name="alert-circle-outline" size={48} color={Colors.statusDanger} />
@@ -185,7 +191,7 @@ export default function ReferralDetailScreen() {
             </Text>
             <SecondaryButton
               label="Go Back"
-              onPress={() => router.back()}
+              onPress={() => router.replace("/(tabs)/booking" as any)}
               style={{ marginTop: spacing.space4 }}
             />
           </View>
@@ -204,6 +210,9 @@ export default function ReferralDetailScreen() {
   const isReferringExpert = referral.referringExpert?.id === (me as any)?.userId;
   const isSelectedExpert  = referral.selectedExpert?.id  === (me as any)?.userId;
 
+  // Circle is ready once it exists (created after patient selects an expert)
+  const circleReady = !!referralCircle?._id;
+
   const canBook =
     isPatient &&
     status === "ACCEPTED" &&
@@ -212,7 +221,7 @@ export default function ReferralDetailScreen() {
 
   return (
     <AppBackground>
-      <ScreenHeader title="Referral Detail" onBack={() => router.back()} />
+      <ScreenHeader title="Referral Detail" onBack={() => router.replace("/(tabs)/booking" as any)} />
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scroll}
@@ -345,6 +354,82 @@ export default function ReferralDetailScreen() {
                   Commission will be calculated once the patient books a session.
                 </Text>
               )}
+            </View>
+          )}
+
+          {/* ── Private Circle CTA (ACCEPTED or COMPLETED) ────── */}
+          {circleReady && (status === "ACCEPTED" || status === "COMPLETED") && (
+            <View style={styles.section}>
+              <SectionTitle title="Private Circle" />
+              <TouchableOpacity
+                style={styles.circleCard}
+                onPress={() =>
+                  router.push({
+                    pathname: "/(tabs)/circle-chat",
+                    params: { circleId: referralCircle!._id },
+                  } as any)
+                }
+                activeOpacity={0.82}
+                accessibilityRole="button"
+                accessibilityLabel="Open referral circle chat"
+              >
+                {/* Icon */}
+                <View style={styles.circleCardIcon}>
+                  <Ionicons name="git-network-outline" size={22} color={Colors.statusWarning} />
+                </View>
+
+                {/* Info */}
+                <View style={styles.circleCardInfo}>
+                  <Text style={styles.circleCardName} numberOfLines={1} allowFontScaling={false}>
+                    {referralCircle!.name}
+                  </Text>
+                  <Text style={styles.circleCardSub} allowFontScaling={false}>
+                    Private · {referralCircle!.currentMembers} members · Free
+                  </Text>
+                </View>
+
+                {/* Open chat chevron */}
+                <View style={styles.circleCardAction}>
+                  <Text style={styles.circleCardActionText} allowFontScaling={false}>Open Chat</Text>
+                  <Ionicons name="chevron-forward" size={14} color={Colors.actionPrimary} />
+                </View>
+              </TouchableOpacity>
+
+              {/* Context blurb for each role */}
+              {isPatient && (
+                <View style={styles.circleTip}>
+                  <Ionicons name="information-circle-outline" size={13} color={Colors.statusInfo} />
+                  <Text style={styles.circleTipText} allowFontScaling={false}>
+                    Both your providers are in this circle. Use it to share updates and ask questions.
+                  </Text>
+                </View>
+              )}
+              {isReferringExpert && (
+                <View style={styles.circleTip}>
+                  <Ionicons name="information-circle-outline" size={13} color={Colors.statusInfo} />
+                  <Text style={styles.circleTipText} allowFontScaling={false}>
+                    Share notes or resources with your patient and the selected provider here.
+                  </Text>
+                </View>
+              )}
+              {isSelectedExpert && (
+                <View style={styles.circleTip}>
+                  <Ionicons name="information-circle-outline" size={13} color={Colors.statusInfo} />
+                  <Text style={styles.circleTipText} allowFontScaling={false}>
+                    Collaborate with the referring provider and communicate with your patient here.
+                  </Text>
+                </View>
+              )}
+            </View>
+          )}
+
+          {/* Circle pending notice (status ACCEPTED but circle not yet created) */}
+          {!circleReady && status === "ACCEPTED" && (
+            <View style={styles.circlePendingBanner}>
+              <ActivityIndicator size="small" color={Colors.statusWarning} />
+              <Text style={styles.circlePendingText} allowFontScaling={false}>
+                Private circle is being set up…
+              </Text>
             </View>
           )}
 
@@ -606,4 +691,76 @@ const styles = StyleSheet.create({
     marginTop: spacing.space2,
   },
   bookedBannerText: { ...typeScale.bodySM, color: Colors.statusSuccess, flex: 1 },
+
+  // ── Private Circle ─────────────────────────────────────────────────────────
+  circleCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.space3,
+    backgroundColor: Colors.amberSurface,
+    borderRadius: radius.radiusMD,
+    borderWidth: 1,
+    borderColor: Colors.amberBorder,
+    padding: spacing.space3,
+  },
+  circleCardIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "rgba(245,158,11,0.15)",
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  circleCardInfo: { flex: 1, gap: 3 },
+  circleCardName: {
+    ...typeScale.labelSM,
+    color: Colors.textPrimary,
+    fontWeight: "700",
+  },
+  circleCardSub: {
+    ...typeScale.caption,
+    color: Colors.textMuted,
+  },
+  circleCardAction: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    flexShrink: 0,
+  },
+  circleCardActionText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: Colors.actionPrimary,
+  },
+  // Contextual tip below the circle card
+  circleTip: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: spacing.space2,
+    backgroundColor: Colors.statusInfoBg,
+    borderRadius: radius.radiusSM,
+    padding: spacing.space2,
+  },
+  circleTipText: {
+    ...typeScale.caption,
+    color: Colors.statusInfo,
+    flex: 1,
+    lineHeight: 16,
+  },
+  // Shown briefly while the circle is being created asynchronously
+  circlePendingBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.space2,
+    backgroundColor: Colors.statusWarningBg,
+    borderRadius: radius.radiusMD,
+    padding: spacing.space3,
+    marginBottom: spacing.space4,
+  },
+  circlePendingText: {
+    ...typeScale.bodySM,
+    color: Colors.statusWarning,
+    flex: 1,
+  },
 });

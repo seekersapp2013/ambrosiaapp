@@ -7,7 +7,7 @@
 import React, { useState, useMemo } from "react";
 import {
   View, Text, TouchableOpacity, StyleSheet,
-  FlatList, ActivityIndicator, Image,
+  ScrollView, ActivityIndicator, Image,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -208,123 +208,133 @@ export default function MySessionsScreen() {
   if (mySubscription !== undefined && !isProvider) {
     return (
       <AppBackground>
-        <ScreenHeader title="My Sessions" onBack={() => router.back()}/>
-        <MobileCard>
-          <EmptyStateCard icon="ribbon-outline" title="Provider account required"
-            subtitle="Set up your provider profile to receive and manage booking requests."
-            action={
-              <PrimaryButton label="Become a Provider"
-                onPress={() => router.push("/(tabs)/booking/become-provider" as any)}
-                icon={<Ionicons name="ribbon-outline" size={18} color="#FFF"/>}
-                style={{ marginTop: spacing.space3 }}/>
-            }/>
-        </MobileCard>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
+        >
+          <MobileCard>
+            <ScreenHeader title="My Sessions" onBack={() => router.replace("/(tabs)/booking" as any)}/>
+            <EmptyStateCard icon="ribbon-outline" title="Provider account required"
+              subtitle="Set up your provider profile to receive and manage booking requests."
+              action={
+                <PrimaryButton label="Become a Provider"
+                  onPress={() => router.push("/(tabs)/booking/become-provider" as any)}
+                  icon={<Ionicons name="ribbon-outline" size={18} color="#FFF"/>}
+                  style={{ marginTop: spacing.space3 }}/>
+              }/>
+          </MobileCard>
+        </ScrollView>
       </AppBackground>
     );
   }
 
   return (
     <AppBackground>
-      <ScreenHeader title="My Sessions" onBack={() => router.back()}
-        trailing={
-          <View style={styles.headerTrailing}>
-            {pendingCount > 0 && (
-              <View style={styles.pendingBadge}>
-                <Text style={styles.pendingBadgeText} allowFontScaling={false}>{pendingCount}</Text>
-              </View>
-            )}
-            <TouchableOpacity
-              onPress={() => router.push("/(tabs)/booking/settings" as any)}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              accessibilityRole="button"
-              accessibilityLabel="Provider settings"
-            >
-              <Ionicons name="settings-outline" size={22} color={Colors.iconPrimary} />
-            </TouchableOpacity>
-          </View>
-        }
-      />
-
-      <FlatList
-        data={filtered}
-        keyExtractor={item => item._id}
+      <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.listContent}
-        ListHeaderComponent={
-          <MobileCard>
-            {/* Summary strip */}
-            {!isLoading && (
-              <View style={styles.summaryStrip}>
-                {[
-                  { label: "Pending",   count: (providerBookings??[]).filter(b=>b.status==="PENDING").length,   color: Colors.statusWarning },
-                  { label: "Confirmed", count: (providerBookings??[]).filter(b=>b.status==="CONFIRMED").length, color: Colors.statusSuccess },
-                  { label: "Completed", count: (providerBookings??[]).filter(b=>b.status==="COMPLETED").length, color: Colors.statusInfo    },
-                  { label: "Total",     count: (providerBookings??[]).length,                                   color: Colors.textPrimary   },
-                ].map(item => (
-                  <View key={item.label} style={styles.summaryItem}>
-                    <Text style={[styles.summaryCount, { color: item.color }]} allowFontScaling={false}>
-                      {item.count}
-                    </Text>
-                    <Text style={styles.summaryLabel} allowFontScaling={false}>{item.label}</Text>
+        contentContainerStyle={styles.scrollContent}
+      >
+        <MobileCard>
+          <ScreenHeader
+            title="My Sessions"
+            onBack={() => router.replace("/(tabs)/booking" as any)}
+            trailing={
+              <View style={styles.headerTrailing}>
+                {pendingCount > 0 && (
+                  <View style={styles.pendingBadge}>
+                    <Text style={styles.pendingBadgeText} allowFontScaling={false}>{pendingCount}</Text>
                   </View>
-                ))}
+                )}
+                <TouchableOpacity
+                  onPress={() => router.push("/(tabs)/booking/settings" as any)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Provider settings"
+                >
+                  <Ionicons name="settings-outline" size={22} color={Colors.iconPrimary} />
+                </TouchableOpacity>
               </View>
-            )}
+            }
+          />
+          {/* Summary strip */}
+          {!isLoading && (
+            <View style={styles.summaryStrip}>
+              {[
+                { label: "Pending",   count: (providerBookings??[]).filter(b=>b.status==="PENDING").length,   color: Colors.statusWarning },
+                { label: "Confirmed", count: (providerBookings??[]).filter(b=>b.status==="CONFIRMED").length, color: Colors.statusSuccess },
+                { label: "Completed", count: (providerBookings??[]).filter(b=>b.status==="COMPLETED").length, color: Colors.statusInfo    },
+                { label: "Total",     count: (providerBookings??[]).length,                                   color: Colors.textPrimary   },
+              ].map(item => (
+                <View key={item.label} style={styles.summaryItem}>
+                  <Text style={[styles.summaryCount, { color: item.color }]} allowFontScaling={false}>
+                    {item.count}
+                  </Text>
+                  <Text style={styles.summaryLabel} allowFontScaling={false}>{item.label}</Text>
+                </View>
+              ))}
+            </View>
+          )}
 
-            {/* Pending alert banner */}
-            {pendingCount > 0 && (
-              <View style={styles.pendingBanner}>
-                <Ionicons name="alert-circle-outline" size={16} color={Colors.statusWarning}/>
-                <Text style={styles.pendingBannerText} allowFontScaling={false}>
-                  {pendingCount} booking request{pendingCount > 1 ? "s" : ""} awaiting your response
-                </Text>
-              </View>
-            )}
+          {/* Pending alert banner */}
+          {pendingCount > 0 && (
+            <View style={styles.pendingBanner}>
+              <Ionicons name="alert-circle-outline" size={16} color={Colors.statusWarning}/>
+              <Text style={styles.pendingBannerText} allowFontScaling={false}>
+                {pendingCount} booking request{pendingCount > 1 ? "s" : ""} awaiting your response
+              </Text>
+            </View>
+          )}
 
-            {/* Filter chips */}
-            <FlatList
-              data={FILTERS} keyExtractor={i => i.key} horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.filterList}
-              renderItem={({ item }) => {
-                const active = filter === item.key;
-                return (
-                  <TouchableOpacity
-                    style={[styles.filterChip, active && styles.filterChipActive]}
-                    onPress={() => setFilter(item.key)} activeOpacity={0.8}
-                    accessibilityRole="button" accessibilityState={{ selected: active }}>
-                    <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}
-                      allowFontScaling={false}>{item.label}</Text>
-                  </TouchableOpacity>
-                );
-              }}
-            />
+          {/* Filter chips */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.filterList}
+          >
+            {FILTERS.map(item => {
+              const active = filter === item.key;
+              return (
+                <TouchableOpacity
+                  key={item.key}
+                  style={[styles.filterChip, active && styles.filterChipActive]}
+                  onPress={() => setFilter(item.key)} activeOpacity={0.8}
+                  accessibilityRole="button" accessibilityState={{ selected: active }}>
+                  <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}
+                    allowFontScaling={false}>{item.label}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
 
-            {isLoading && (
-              <View style={styles.loadingWrap}>
-                <ActivityIndicator color={Colors.actionPrimary}/>
-              </View>
-            )}
-            {!isLoading && filtered.length === 0 && (
-              <EmptyStateCard icon="calendar-outline"
-                title={filter === "ALL" ? "No sessions yet" : `No ${filter.toLowerCase()} sessions`}
-                subtitle={filter === "PENDING" ? "New booking requests will appear here." : "Sessions will appear here as clients book with you."}
-                style={{ paddingVertical: spacing.space8 }}/>
-            )}
-          </MobileCard>
-        }
-        renderItem={({ item }) => (
-          <View style={styles.cardPad}>
-            <SessionCard
-              booking={item}
-              onView={() => router.push(`/(tabs)/booking/booking-detail?bookingId=${item._id}` as any)}
-              onConfirm={() => { setConfirmTarget(item); setActionError(""); }}
-              onDecline={() => { setDeclineTarget(item); setActionError(""); }}
-            />
-          </View>
-        )}
-        ListFooterComponent={<View style={{ height: spacing.scrollBottomPadding }}/>}
-      />
+          {isLoading && (
+            <View style={styles.loadingWrap}>
+              <ActivityIndicator color={Colors.actionPrimary}/>
+            </View>
+          )}
+
+          {!isLoading && filtered.length === 0 && (
+            <EmptyStateCard icon="calendar-outline"
+              title={filter === "ALL" ? "No sessions yet" : `No ${filter.toLowerCase()} sessions`}
+              subtitle={filter === "PENDING" ? "New booking requests will appear here." : "Sessions will appear here as clients book with you."}
+              style={{ paddingVertical: spacing.space8 }}/>
+          )}
+
+          {/* Session cards */}
+          {!isLoading && filtered.length > 0 && (
+            <View style={styles.cardList}>
+              {filtered.map(item => (
+                <SessionCard
+                  key={item._id}
+                  booking={item}
+                  onView={() => router.push(`/(tabs)/booking/booking-detail?bookingId=${item._id}` as any)}
+                  onConfirm={() => { setConfirmTarget(item); setActionError(""); }}
+                  onDecline={() => { setDeclineTarget(item); setActionError(""); }}
+                />
+              ))}
+            </View>
+          )}
+        </MobileCard>
+      </ScrollView>
 
       {/* ── Confirm dialog ─────────────────────────────────────── */}
       <BottomSheet visible={!!confirmTarget} onClose={() => setConfirmTarget(null)}
@@ -394,7 +404,8 @@ export default function MySessionsScreen() {
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  listContent: { paddingBottom: 0 },
+  scrollContent: { paddingBottom: spacing.scrollBottomPadding },
+  cardList: { paddingHorizontal: spacing.space4, paddingTop: spacing.space3, gap: spacing.space3 },
 
   // Session card
   card: { backgroundColor: Colors.bgElevated, borderRadius: radius.radiusMD, borderWidth: 1, borderColor: Colors.borderSubtle, padding: spacing.space4 },
@@ -442,7 +453,6 @@ const styles = StyleSheet.create({
   filterChipTextActive: { color: Colors.actionPrimary, fontWeight: "600" },
 
   loadingWrap: { paddingVertical: spacing.space10, alignItems: "center" },
-  cardPad: { paddingHorizontal: spacing.space4, paddingTop: spacing.space3 },
 
   // Dialogs
   dialogBody: { paddingTop: spacing.space2, gap: spacing.space3 },

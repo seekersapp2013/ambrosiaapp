@@ -128,7 +128,7 @@ export default function ProvidersScreen() {
     <AppBackground>
       <ScreenHeader
         title="Find Providers"
-        onBack={() => router.back()}
+        onBack={() => router.replace("/(tabs)/booking" as any)}
         trailing={
           <TouchableOpacity
             onPress={() => setFiltersVisible(true)}

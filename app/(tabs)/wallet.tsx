@@ -6,7 +6,7 @@ import {
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Ionicons } from "@expo/vector-icons";
-import { Colors } from "@/tokens/colors";
+import { useColors } from "@/hooks/useColors";
 import { typeScale } from "@/tokens/typography";
 import { spacing } from "@/tokens/spacing";
 import { AppBackground } from "@/components/AppBackground";
@@ -33,16 +33,7 @@ function formatDate(ts: number): string {
 }
 
 // ── Transaction type → design token mapping ───────────────────────────────────
-const TX_COLOR: Record<string, string> = {
-  deposit:    Colors.statusSuccess,
-  withdrawal: Colors.actionPrimary,
-  transfer:   Colors.statusInfo,
-};
-const TX_ICON_BG: Record<string, string> = {
-  deposit:    Colors.statusSuccessBg,
-  withdrawal: Colors.bgPrimaryMid,
-  transfer:   Colors.statusInfoBg,
-};
+// These are used dynamically via useColors() in the component
 const TX_ICON: Record<string, "arrow-down" | "arrow-up" | "swap-horizontal"> = {
   deposit:    "arrow-down",
   withdrawal: "arrow-up",
@@ -52,11 +43,28 @@ const TX_ICON: Record<string, "arrow-down" | "arrow-up" | "swap-horizontal"> = {
 export default function WalletScreen() {
   const router = useRouter();
   const history = useNavigationHistory();
+  const C = useColors();
   const walletData = useQuery((api as any)["wallets/getWalletBalance"].getWalletBalance, {});
   const transactions = useQuery(
     (api as any)["wallets/getTransactionHistory"].getTransactionHistory,
     { limit: 50 },
   );
+
+  // Theme-aware transaction color maps
+  const TX_COLOR: Record<string, string> = {
+    deposit:    C.statusSuccess,
+    withdrawal: C.actionPrimary,
+    transfer:   C.statusInfo,
+  };
+  const TX_ICON_BG: Record<string, string> = {
+    deposit:    C.statusSuccessBg,
+    withdrawal: C.bgPrimaryMid,
+    transfer:   C.statusInfoBg,
+  };
+
+  // Theme-aware tile background
+  const tileBg = C.isDark ? TILE_BG : C.bgElevated;
+  const tileBorder = C.isDark ? TILE_BORDER : C.borderDefault;
 
   const [selectedCurrency, setSelectedCurrency] = useState<Currency | null>(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -86,38 +94,38 @@ export default function WalletScreen() {
 
         {/* Currency dropdown */}
         <View style={styles.dropdownWrap}>
-          <Text style={styles.dropdownLabel}>Select Currency to View</Text>
+          <Text style={[styles.dropdownLabel, { color: C.isDark ? C.textMuted : '#9CA3AF' }]}>Select Currency to View</Text>
           <TouchableOpacity
-            style={styles.dropdownBtn}
+            style={[styles.dropdownBtn, { backgroundColor: C.isDark ? C.bgElevated : '#171730', borderColor: C.isDark ? C.borderDefault : 'rgba(255,255,255,0.12)' }]}
             onPress={() => setDropdownOpen((v) => !v)}
             activeOpacity={0.85}
           >
-            <Text style={styles.dropdownBtnText}>
+            <Text style={[styles.dropdownBtnText, { color: C.isDark ? C.textSecondary : '#D1D5DB' }]}>
               {CURRENCY_SYMBOLS[activeCurrency]}{"  "}{activeCurrency} — {CURRENCY_LABELS[activeCurrency]}
             </Text>
             <Ionicons
               name={dropdownOpen ? "chevron-up" : "chevron-down"}
               size={16}
-              color={Colors.textMuted}
+              color={C.isDark ? C.textMuted : '#9CA3AF'}
             />
           </TouchableOpacity>
 
           {dropdownOpen && (
-            <View style={styles.dropdownList}>
+            <View style={[styles.dropdownList, { backgroundColor: C.isDark ? C.bgElevated : '#171730', borderColor: C.isDark ? C.borderDefault : 'rgba(255,255,255,0.12)' }]}>
               {CURRENCIES.map((c) => (
                 <TouchableOpacity
                   key={c}
-                  style={[styles.dropdownItem, activeCurrency === c && styles.dropdownItemActive]}
+                  style={[styles.dropdownItem, { borderBottomColor: C.isDark ? C.borderSubtle : 'rgba(255,255,255,0.08)' }, activeCurrency === c && { backgroundColor: C.bgPrimarySubtle }]}
                   onPress={() => { setSelectedCurrency(c); setDropdownOpen(false); }}
                   activeOpacity={0.8}
                 >
-                  <Text style={styles.dropdownItemSymbol}>{CURRENCY_SYMBOLS[c]}</Text>
+                  <Text style={[styles.dropdownItemSymbol, { color: C.isDark ? C.textPrimary : '#FFFFFF' }]}>{CURRENCY_SYMBOLS[c]}</Text>
                   <View style={styles.dropdownItemInfo}>
-                    <Text style={styles.dropdownItemCode}>{c}</Text>
-                    <Text style={styles.dropdownItemName}>{CURRENCY_LABELS[c]}</Text>
+                    <Text style={[styles.dropdownItemCode, { color: C.isDark ? C.textPrimary : '#FFFFFF' }]}>{c}</Text>
+                    <Text style={[styles.dropdownItemName, { color: C.isDark ? C.textMuted : '#9CA3AF' }]}>{CURRENCY_LABELS[c]}</Text>
                   </View>
                   {activeCurrency === c && (
-                    <Ionicons name="checkmark" size={16} color={Colors.actionPrimary} />
+                    <Ionicons name="checkmark" size={16} color={C.actionPrimary} />
                   )}
                 </TouchableOpacity>
               ))}
@@ -126,11 +134,11 @@ export default function WalletScreen() {
         </View>
 
         {/* Balance card */}
-        <View style={styles.balanceCard}>
-          <Text style={styles.balanceCardLabel}>Current Balance</Text>
-          <View style={styles.balanceTile}>
-            <Text style={styles.tileCurrencyName}>{CURRENCY_LABELS[activeCurrency]}</Text>
-            <Text style={styles.tileAmount}>
+        <View style={[styles.balanceCard, { backgroundColor: C.isDark ? C.bgElevated : '#0F0F1E', borderColor: C.isDark ? C.borderSubtle : 'rgba(198,34,41,0.30)' }]}>
+          <Text style={[styles.balanceCardLabel, { color: C.isDark ? C.textMuted : '#9CA3AF' }]}>Current Balance</Text>
+          <View style={[styles.balanceTile, { backgroundColor: C.isDark ? tileBg : '#171730', borderColor: C.isDark ? tileBorder : 'rgba(255,255,255,0.08)' }]}>
+            <Text style={[styles.tileCurrencyName, { color: C.isDark ? C.textMuted : '#9CA3AF' }]}>{CURRENCY_LABELS[activeCurrency]}</Text>
+            <Text style={[styles.tileAmount, { color: C.isDark ? C.textPrimary : '#FFFFFF' }]}>
               {CURRENCY_SYMBOLS[activeCurrency]}
               {(balances?.[activeCurrency] ?? 0).toLocaleString("en-US", {
                 minimumFractionDigits: 2, maximumFractionDigits: 2,
@@ -147,7 +155,7 @@ export default function WalletScreen() {
               history.push("/(tabs)/wallet");
               router.push("/(tabs)/deposit");
             }}
-            color={Colors.statusSuccess}
+            color={C.statusSuccess}
             icon={<Ionicons name="add-circle-outline" size={20} color="#FFFFFF" />}
           />
         </View>
@@ -161,7 +169,7 @@ export default function WalletScreen() {
               router.push("/(tabs)/transfer");
             }}
             style={styles.btnHalf}
-            color={Colors.statusInfo}
+            color={C.statusInfo}
             icon={<Ionicons name="swap-horizontal" size={18} color="#FFFFFF" />}
           />
           <PrimaryButton
@@ -171,7 +179,7 @@ export default function WalletScreen() {
               router.push("/(tabs)/withdraw");
             }}
             style={styles.btnHalf}
-            color={Colors.actionPrimary}
+            color={C.actionPrimary}
             icon={<Ionicons name="cash-outline" size={18} color="#FFFFFF" />}
           />
         </View>
@@ -179,12 +187,12 @@ export default function WalletScreen() {
         {/* Recent Transactions */}
         <View style={styles.txSection}>
           <View style={styles.txHeader}>
-            <Ionicons name="time-outline" size={16} color={Colors.actionPrimary} />
-            <Text style={styles.txHeaderText}>Recent Transactions</Text>
+            <Ionicons name="time-outline" size={16} color={C.actionPrimary} />
+            <Text style={[styles.txHeaderText, { color: C.textPrimary }]}>Recent Transactions</Text>
           </View>
 
           {transactions === undefined ? (
-            <ActivityIndicator color={Colors.actionPrimary} style={{ marginTop: 24 }} />
+            <ActivityIndicator color={C.actionPrimary} style={{ marginTop: 24 }} />
           ) : (transactions as any[]).length === 0 ? (
             <EmptyStateCard
               icon="receipt-outline"
@@ -193,8 +201,8 @@ export default function WalletScreen() {
             />
           ) : (
             (transactions as any[]).map((tx) => {
-              const txColor = TX_COLOR[tx.type] ?? Colors.textMuted;
-              const txBg    = TX_ICON_BG[tx.type] ?? Colors.bgElevated;
+              const txColor = TX_COLOR[tx.type] ?? C.textMuted;
+              const txBg    = TX_ICON_BG[tx.type] ?? C.bgElevated;
               const txIcon  = TX_ICON[tx.type] ?? "swap-horizontal";
               const sign    = tx.type === "deposit" ? "+" : "-";
               const counterparty = tx.isIncoming
@@ -213,8 +221,8 @@ export default function WalletScreen() {
                   amount={`${sign}${formatAmount(tx.amount, tx.currency)}`}
                   amountColor={txColor}
                   status={tx.status.charAt(0).toUpperCase() + tx.status.slice(1)}
-                  statusColor={tx.status === "completed" ? Colors.statusSuccess : Colors.statusWarning}
-                  statusBg={tx.status === "completed" ? Colors.statusSuccessBg : Colors.statusWarningBg}
+                  statusColor={tx.status === "completed" ? C.statusSuccess : C.statusWarning}
+                  statusBg={tx.status === "completed" ? C.statusSuccessBg : C.statusWarningBg}
                 />
               );
             })
@@ -239,25 +247,21 @@ const styles = StyleSheet.create({
   },
   dropdownLabel: {
     ...typeScale.caption,
-    color: Colors.textMuted,
     fontWeight: "500",
     marginBottom: 6,
   },
   dropdownBtn: {
     flexDirection: "row", alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: Colors.bgElevated,
-    borderWidth: 1.5, borderColor: Colors.borderDefault,
+    borderWidth: 1.5,
     borderRadius: 12, paddingHorizontal: spacing.space4, paddingVertical: 12,
   },
   dropdownBtnText: {
     ...typeScale.labelMD,
-    color: Colors.textSecondary,
   },
   dropdownList: {
     position: "absolute", top: 72, left: 0, right: 0,
-    backgroundColor: Colors.bgElevated,
-    borderWidth: 1, borderColor: Colors.borderDefault,
+    borderWidth: 1,
     borderRadius: 12, overflow: "hidden",
     zIndex: 100,
     shadowColor: "#000", shadowOffset: { width: 0, height: 4 },
@@ -266,16 +270,15 @@ const styles = StyleSheet.create({
   dropdownItem: {
     flexDirection: "row", alignItems: "center", gap: spacing.space3,
     paddingHorizontal: spacing.space4, paddingVertical: 12,
-    borderBottomWidth: 1, borderBottomColor: Colors.borderSubtle,
+    borderBottomWidth: 1,
   },
-  dropdownItemActive: { backgroundColor: Colors.bgPrimarySubtle },
   dropdownItemSymbol: {
     ...typeScale.headingSM,
-    color: Colors.textPrimary, width: 24, textAlign: "center",
+    width: 24, textAlign: "center",
   },
   dropdownItemInfo: { flex: 1 },
-  dropdownItemCode: { ...typeScale.labelMD, color: Colors.textPrimary },
-  dropdownItemName: { ...typeScale.caption, color: Colors.textMuted, marginTop: 1 },
+  dropdownItemCode: { ...typeScale.labelMD },
+  dropdownItemName: { ...typeScale.caption, marginTop: 1 },
 
   // Title
   titleBlock: {
@@ -284,38 +287,34 @@ const styles = StyleSheet.create({
   },
   pageTitle: {
     ...typeScale.headingXL,
-    color: Colors.textPrimary,
   },
   pageSubtitle: {
     ...typeScale.bodyMD,
-    color: Colors.textMuted, marginTop: 4,
+    marginTop: 4,
   },
 
   // Balance card
   balanceCard: {
     marginHorizontal: spacing.space4, marginBottom: spacing.space5,
-    backgroundColor: Colors.bgElevated,
     borderRadius: 20,
-    borderWidth: 1, borderColor: Colors.borderSubtle,
+    borderWidth: 1,
     padding: spacing.space4, gap: 10,
   },
   balanceCardLabel: {
     ...typeScale.bodySM,
-    color: Colors.textMuted, fontWeight: "500", marginBottom: 4,
+    fontWeight: "500", marginBottom: 4,
   },
   balanceTile: {
-    backgroundColor: TILE_BG,
     borderRadius: 12,
-    borderWidth: 1, borderColor: TILE_BORDER,
+    borderWidth: 1,
     paddingHorizontal: spacing.space4, paddingVertical: 14,
   },
   tileCurrencyName: {
     ...typeScale.bodySM,
-    color: Colors.textMuted, fontWeight: "500", marginBottom: 6,
+    fontWeight: "500", marginBottom: 6,
   },
   tileAmount: {
     ...typeScale.displayLarge,
-    color: Colors.textPrimary,
   },
 
   // Buttons
@@ -336,6 +335,5 @@ const styles = StyleSheet.create({
   },
   txHeaderText: {
     ...typeScale.headingSM,
-    color: Colors.textPrimary,
   },
 });

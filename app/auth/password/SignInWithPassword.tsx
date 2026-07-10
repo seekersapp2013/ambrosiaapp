@@ -5,7 +5,7 @@ import { Form, Label, Input, Button, View } from "tamagui";
 import { SignUpWizard } from "./SignUpWizard";
 import { Eye, EyeOff } from "@tamagui/lucide-icons";
 import { TouchableOpacity } from "react-native";
-import { Colors } from "@/constants/Colors";
+import { useColors } from "@/hooks/useColors";
 
 export function SignInWithPassword({
   provider,
@@ -22,16 +22,24 @@ export function SignInWithPassword({
 }) {
   const { signIn } = useAuthActions();
   const [internalFlow, setInternalFlow] = useState<"signIn" | "signUp">("signIn");
-  const flow = externalFlow ?? internalFlow;
+  const flow    = externalFlow ?? internalFlow;
   const setFlow = (newFlow: "signIn" | "signUp") => {
     setInternalFlow(newFlow);
     onFlowChange?.(newFlow);
   };
-  const toast = useToastController();
+
+  const toast        = useToastController();
   const [submitting, setSubmitting] = useState(false);
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [email,      setEmail]      = useState("");
+  const [password,   setPassword]   = useState("");
   const [showPassword, setShowPassword] = useState(false);
+
+  const C = useColors();
+
+  // Input background: dark-mode uses bgBase; light-mode uses flat bgInput
+  const inputBg     = C.bgInput;
+  const inputBorder = C.borderDefault;
+  const focusStyle  = { borderColor: C.borderFocus, backgroundColor: C.bgSurface };
 
   const handleSubmit = () => {
     setSubmitting(true);
@@ -57,7 +65,7 @@ export function SignInWithPassword({
   return (
     <Form onSubmit={handleSubmit}>
       <View marginBottom="$4">
-        <Label color={Colors.textSecondary} marginBottom="$2" fontSize={14} fontWeight="600">
+        <Label color={C.textSecondary} marginBottom="$2" fontSize={14} fontWeight="600">
           Email
         </Label>
         <Input
@@ -65,22 +73,22 @@ export function SignInWithPassword({
           autoCapitalize="none"
           value={email}
           onChangeText={setEmail}
-          backgroundColor={Colors.background}
-          borderColor={Colors.borderSubtle}
+          backgroundColor={inputBg as any}
+          borderColor={inputBorder as any}
           borderWidth={1}
-          color={Colors.textPrimary}
-          placeholderTextColor={Colors.textFaint}
+          color={C.textPrimary as any}
+          placeholderTextColor={C.textDisabled as any}
           placeholder="you@example.com"
           height={52}
           borderRadius={12}
           fontSize={15}
           paddingHorizontal="$4"
-          focusStyle={{ borderColor: Colors.primary, backgroundColor: Colors.surface }}
+          focusStyle={focusStyle}
         />
       </View>
 
       <View marginBottom="$5">
-        <Label color={Colors.textSecondary} marginBottom="$2" fontSize={14} fontWeight="600">
+        <Label color={C.textSecondary} marginBottom="$2" fontSize={14} fontWeight="600">
           Password
         </Label>
         <View position="relative">
@@ -90,26 +98,25 @@ export function SignInWithPassword({
             value={password}
             onChangeText={setPassword}
             secureTextEntry={!showPassword}
-            backgroundColor={Colors.background}
-            borderColor={Colors.borderSubtle}
+            backgroundColor={inputBg as any}
+            borderColor={inputBorder as any}
             borderWidth={1}
-            color={Colors.textPrimary}
-            placeholderTextColor={Colors.textFaint}
+            color={C.textPrimary as any}
+            placeholderTextColor={C.textDisabled as any}
             placeholder="Enter your password"
             height={52}
             borderRadius={12}
             fontSize={15}
             paddingHorizontal="$4"
             paddingRight={48}
-            focusStyle={{ borderColor: Colors.primary, backgroundColor: Colors.surface }}
+            focusStyle={focusStyle}
           />
           <View position="absolute" right={12} top={0} bottom={0} justifyContent="center">
             <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-              {showPassword ? (
-                <EyeOff size={20} color={Colors.textDim} />
-              ) : (
-                <Eye size={20} color={Colors.textDim} />
-              )}
+              {showPassword
+                ? <EyeOff size={20} color={C.textMuted} />
+                : <Eye    size={20} color={C.textMuted} />
+              }
             </TouchableOpacity>
           </View>
         </View>
@@ -117,10 +124,10 @@ export function SignInWithPassword({
 
       <Form.Trigger asChild>
         <Button
-          backgroundColor={Colors.primary}
-          color={Colors.textPrimary}
-          hoverStyle={{ backgroundColor: Colors.primaryDeep }}
-          pressStyle={{ backgroundColor: Colors.primaryCrimson, scale: 0.98 }}
+          backgroundColor={C.actionPrimary}
+          color="#FFFFFF"
+          hoverStyle={{ backgroundColor: C.actionPrimaryPressed }}
+          pressStyle={{ backgroundColor: C.actionPrimaryPressed, scale: 0.98 }}
           disabled={submitting}
           opacity={submitting ? 0.6 : 1}
           height={52}
@@ -135,16 +142,16 @@ export function SignInWithPassword({
       </Form.Trigger>
 
       <Button
-        backgroundColor={Colors.blueSurface}
-        color={Colors.textSecondary}
+        backgroundColor={C.blueSurface}
+        color={C.textSecondary}
         borderWidth={1}
-        borderColor={Colors.blueBorder}
+        borderColor={C.blueBorder}
         height={52}
         borderRadius={12}
         fontSize={15}
         fontWeight="600"
-        hoverStyle={{ backgroundColor: Colors.blueSurfaceMid }}
-        pressStyle={{ backgroundColor: Colors.blueSurface, scale: 0.98 }}
+        hoverStyle={{ backgroundColor: C.blueSurfaceMid }}
+        pressStyle={{ backgroundColor: C.blueSurface, scale: 0.98 }}
         onPress={() => setFlow("signUp")}
       >
         Create new account
@@ -153,7 +160,7 @@ export function SignInWithPassword({
       {handlePasswordReset ? (
         <Button
           backgroundColor="transparent"
-          color={Colors.primary}
+          color={C.actionPrimary}
           borderWidth={0}
           marginTop="$3"
           height={44}

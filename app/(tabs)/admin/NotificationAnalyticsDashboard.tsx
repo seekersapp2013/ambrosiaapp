@@ -18,12 +18,11 @@ import { api } from "@/convex/_generated/api";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { useColors } from "@/hooks/useColors";
 import { Colors } from "@/tokens/colors";
 import { typeScale } from "@/tokens/typography";
 import { spacing } from "@/tokens/spacing";
 import { radius } from "@/tokens/radius";
-import { AppBackground } from "@/components/AppBackground";
-import { MobileCard } from "@/components/MobileCard";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type TimeRange = "day" | "week" | "month";
@@ -428,6 +427,7 @@ function HealthTab({ health }: { health: any }) {
 export function NotificationAnalyticsDashboard({
   onBack,
 }: NotificationAnalyticsDashboardProps) {
+  const C = useColors();
   const insets = useSafeAreaInsets();
   const [timeRange, setTimeRange] = useState<TimeRange>("week");
   const [activeTab, setActiveTab] = useState<ActiveTab>("overview");
@@ -444,19 +444,19 @@ export function NotificationAnalyticsDashboard({
     engagementDashboard === undefined;
 
   return (
-    <AppBackground style={styles.root}>
-      <MobileCard style={styles.card}>
+    <View style={styles.root}>
+      <View style={styles.card}>
         {/* ── Header ── */}
-        <View style={[styles.header, { paddingTop: insets.top + spacing.space3 }]}>
+        <View style={[styles.header, { paddingTop: insets.top + spacing.space3, borderBottomColor: C.borderSubtle }]}>
           <TouchableOpacity
             onPress={onBack}
             style={styles.headerBtn}
             accessibilityRole="button"
             accessibilityLabel="Go back"
           >
-            <Ionicons name="arrow-back" size={22} color={Colors.textPrimary} />
+            <Ionicons name="arrow-back" size={22} color={C.textPrimary} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle} allowFontScaling={false}>
+          <Text style={[styles.headerTitle, { color: C.textPrimary }]} allowFontScaling={false}>
             Notification Analytics
           </Text>
           {/* Time range */}
@@ -465,13 +465,13 @@ export function NotificationAnalyticsDashboard({
               <TouchableOpacity
                 key={r.id}
                 onPress={() => setTimeRange(r.id)}
-                style={[styles.timeBtn, timeRange === r.id && styles.timeBtnActive]}
+                style={[styles.timeBtn, { backgroundColor: C.isDark ? C.bgElevated : C.bgInput, borderColor: C.borderSubtle }, timeRange === r.id && { backgroundColor: C.actionPrimary, borderColor: C.actionPrimary }]}
                 accessibilityRole="button"
                 accessibilityLabel={r.label}
                 accessibilityState={{ selected: timeRange === r.id }}
               >
                 <Text
-                  style={[styles.timeBtnText, timeRange === r.id && styles.timeBtnTextActive]}
+                  style={[styles.timeBtnText, { color: C.textMuted }, timeRange === r.id && styles.timeBtnTextActive]}
                   allowFontScaling={false}
                 >
                   {r.label}
@@ -482,7 +482,7 @@ export function NotificationAnalyticsDashboard({
         </View>
 
         {/* ── Tab bar ── */}
-        <View style={styles.tabBar}>
+        <View style={[styles.tabBar, { borderBottomColor: C.borderSubtle }]}>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -492,7 +492,7 @@ export function NotificationAnalyticsDashboard({
               <TouchableOpacity
                 key={tab.id}
                 onPress={() => setActiveTab(tab.id)}
-                style={[styles.tabItem, activeTab === tab.id && styles.tabItemActive]}
+                style={[styles.tabItem, { backgroundColor: C.isDark ? C.bgElevated : C.bgInput, borderColor: C.borderSubtle }, activeTab === tab.id && { backgroundColor: C.bgPrimarySubtle, borderColor: C.borderFilled }]}
                 accessibilityRole="button"
                 accessibilityLabel={tab.label}
                 accessibilityState={{ selected: activeTab === tab.id }}
@@ -500,10 +500,10 @@ export function NotificationAnalyticsDashboard({
                 <Ionicons
                   name={tab.icon}
                   size={14}
-                  color={activeTab === tab.id ? Colors.actionPrimary : Colors.iconSecondary}
+                  color={activeTab === tab.id ? C.actionPrimary : C.iconSecondary}
                 />
                 <Text
-                  style={[styles.tabLabel, activeTab === tab.id && styles.tabLabelActive]}
+                  style={[styles.tabLabel, { color: C.iconSecondary }, activeTab === tab.id && { color: C.actionPrimary }]}
                   allowFontScaling={false}
                 >
                   {tab.label}
@@ -516,14 +516,15 @@ export function NotificationAnalyticsDashboard({
         {/* ── Content ── */}
         {isLoading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator color={Colors.actionPrimary} size="large" />
-            <Text style={styles.loadingText}>Loading analytics…</Text>
+            <ActivityIndicator color={C.actionPrimary} size="large" />
+            <Text style={[styles.loadingText, { color: C.textMuted }]}>Loading analytics…</Text>
           </View>
         ) : (
           <ScrollView
             style={styles.content}
             contentContainerStyle={{ paddingBottom: insets.bottom + spacing.scrollBottomPadding }}
             showsVerticalScrollIndicator={false}
+            nestedScrollEnabled={true}
           >
             {activeTab === "overview" && (
               <OverviewTab delivery={deliveryAnalytics} funnel={funnelAnalytics} />
@@ -539,18 +540,18 @@ export function NotificationAnalyticsDashboard({
             )}
             {activeTab === "performance" && !performanceMetrics && (
               <View style={styles.loadingContainer}>
-                <ActivityIndicator color={Colors.actionPrimary} />
+                <ActivityIndicator color={C.actionPrimary} />
               </View>
             )}
             {activeTab === "health" && !systemHealth && (
               <View style={styles.loadingContainer}>
-                <ActivityIndicator color={Colors.actionPrimary} />
+                <ActivityIndicator color={C.actionPrimary} />
               </View>
             )}
           </ScrollView>
         )}
-      </MobileCard>
-    </AppBackground>
+      </View>
+    </View>
   );
 }
 

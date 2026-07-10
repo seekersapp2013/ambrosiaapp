@@ -4,9 +4,11 @@
  * This file is a compatibility shim.
  * All color values now live in tokens/colors.ts.
  *
- * Existing imports of `Colors` from this path continue to work unchanged:
- *   import { Colors } from '@/constants/Colors';
+ * ⚠️  DEPRECATED: Use `useColors()` hook in components instead.
+ * Existing imports of `Colors` from this path continue to work unchanged
+ * but always resolve to dark-mode values.
  */
 
-export { Colors } from '@/tokens/colors';
+/** @deprecated Use `useColors()` hook instead */
+export { Colors, getColors } from '@/tokens/colors';
 export type { ColorToken } from '@/tokens/colors';

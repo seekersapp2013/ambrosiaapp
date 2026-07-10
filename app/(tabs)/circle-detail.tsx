@@ -221,6 +221,44 @@ export default function CircleDetailScreen() {
 
           {/* ── Info card ────────────────────────────────────────────────── */}
           <View style={styles.infoCard}>
+            {/* Referral circle banner — shown above badges */}
+            {(circle as any).isReferralCircle && (
+              <TouchableOpacity
+                style={styles.referralBanner}
+                activeOpacity={0.82}
+                onPress={() =>
+                  (circle as any).referralId
+                    ? router.push({
+                        pathname: "/(tabs)/booking/referral-detail",
+                        params: { referralId: (circle as any).referralId },
+                      } as any)
+                    : null
+                }
+                accessibilityRole="button"
+                accessibilityLabel="View referral"
+              >
+                <View style={styles.referralBannerIcon}>
+                  <Ionicons name="git-network-outline" size={16} color={Colors.statusWarning} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.referralBannerTitle} allowFontScaling={false}>
+                    Referral Circle
+                  </Text>
+                  <Text style={styles.referralBannerSub} allowFontScaling={false}>
+                    Private space for a 3-way referral
+                  </Text>
+                </View>
+                {(circle as any).referralId && (
+                  <View style={styles.referralBannerCta}>
+                    <Text style={styles.referralBannerCtaText} allowFontScaling={false}>
+                      View Referral
+                    </Text>
+                    <Ionicons name="chevron-forward" size={12} color={Colors.actionPrimary} />
+                  </View>
+                )}
+              </TouchableOpacity>
+            )}
+
             {/* Badges row */}
             <View style={styles.badgesRow}>
               <View style={[styles.badge, isPrivate ? styles.privateBadge : styles.publicBadge]}>
@@ -600,6 +638,48 @@ const styles = StyleSheet.create({
   infoCard: {
     padding: 16,
     gap: 10,
+  },
+  // Referral circle banner
+  referralBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    padding: 12,
+    backgroundColor: Colors.amberSurface,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.amberBorder,
+    marginBottom: 4,
+  },
+  referralBannerIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(245,158,11,0.15)",
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  referralBannerTitle: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: Colors.statusWarning,
+  },
+  referralBannerSub: {
+    fontSize: 11,
+    color: Colors.textMuted,
+    marginTop: 1,
+  },
+  referralBannerCta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+    flexShrink: 0,
+  },
+  referralBannerCtaText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: Colors.actionPrimary,
   },
   badgesRow: {
     flexDirection: "row",

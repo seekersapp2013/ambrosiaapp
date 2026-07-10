@@ -10,7 +10,9 @@ export const createBooking = mutation({
     sessionDate: v.string(), // YYYY-MM-DD format
     sessionTime: v.string(), // HH:MM format
     duration: v.optional(v.number()), // Duration in minutes (default 60)
-    paymentTxHash: v.optional(v.string())
+    paymentTxHash: v.optional(v.string()),
+    // Optional: link this booking to a referral (passed from referral detail screen)
+    referralId: v.optional(v.id("referrals")),
   },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
@@ -87,6 +89,31 @@ export const createBooking = mutation({
       liveStreamStatus: "NOT_STARTED",
       createdAt: now
     });
+
+    // If this booking originated from a referral, link them together
+    if (args.referralId) {
+      try {
+        const referral = await ctx.db.get(args.referralId);
+        if (
+          referral &&
+          referral.status === "ACCEPTED" &&
+          referral.selectedExpertId === args.providerId &&
+          referral.patientId === userId &&
+          !referral.bookingId
+        ) {
+          const commissionAmount = totalAmount * referral.commissionRate;
+          await ctx.db.patch(args.referralId, {
+            bookingId,
+            commissionAmount,
+            commissionCurrency: currency,
+            updatedAt: now,
+          });
+        }
+      } catch (err) {
+        console.error("Failed to link booking to referral:", err);
+        // Non-fatal — booking is still created successfully
+      }
+    }
 
     // Send notifications
     try {
@@ -1010,4 +1037,42 @@ export const getBookingById = query({
       }
     };
   }
+});
+
+// Get past sessions between the current provider and a specific patient.
+// Used in the standalone referral creation form's optional session picker.
+export const getProviderSessionsWithPatient = query({
+  args: {
+    patientId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
+      throw new Error("Not authenticated");
+    }
+
+    // Fetch bookings where this provider is the provider and patientId is the client
+    const bookings = await ctx.db
+      .query("bookings")
+      .withIndex("by_provider", (q) => q.eq("providerId", userId))
+      .filter((q) =>
+        q.and(
+          q.eq(q.field("clientId"), args.patientId),
+          q.eq(q.field("sessionType"), "ONE_ON_ONE")
+        )
+      )
+      .order("desc")
+      .take(50);
+
+    // Return a lightweight summary — enough for a picker list
+    return bookings.map((b) => ({
+      _id: b._id,
+      sessionDate: b.sessionDate,
+      sessionTime: b.sessionTime,
+      duration: b.duration,
+      status: b.status,
+      totalAmount: b.totalAmount,
+      currency: b.currency,
+    }));
+  },
 });

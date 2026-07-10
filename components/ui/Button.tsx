@@ -3,6 +3,9 @@
  * Phase 4: All button variants with full state matrix (Phase 20)
  * Accessibility: Phase 21
  * Motion: Phase 17
+ *
+ * ✅ Phase 0: Fully theme-aware — reads colors from useColors() hook.
+ *    All color values respond to light/dark mode automatically.
  */
 
 import React, { useRef } from 'react';
@@ -18,7 +21,7 @@ import {
   type ViewStyle,
   type TextStyle,
 } from 'react-native';
-import { Colors } from '@/tokens/colors';
+import { useColors } from '@/hooks/useColors';
 import { radius } from '@/tokens/radius';
 import { typeScale } from '@/tokens/typography';
 import { elevation, coloredShadow } from '@/tokens/shadows';
@@ -93,6 +96,7 @@ export function PrimaryButton({
   ...rest
 }: ButtonProps) {
   const { scale, opacity, onPressIn, onPressOut } = usePressAnimation(0.96, 0.85);
+  const C = useColors();
   const isDisabled = disabled || loading;
 
   return (
@@ -106,21 +110,25 @@ export function PrimaryButton({
         accessibilityLabel={accessibilityLabel ?? label}
         accessibilityState={{ disabled: isDisabled, busy: loading }}
         style={[
-          styles.primary,
-          color ? { backgroundColor: color } : null,
+          staticStyles.primary,
+          { backgroundColor: color ?? C.actionPrimary },
           elevation.elevation2,
           coloredShadow.shadowPrimary,
-          isDisabled && styles.primaryDisabled,
+          isDisabled && { backgroundColor: C.actionPrimaryDisabled },
         ]}
         {...rest}
       >
         {loading ? (
           <ActivityIndicator color="#FFFFFF" size="small" />
         ) : (
-          <View style={styles.btnInner}>
+          <View style={staticStyles.btnInner}>
             {icon}
             <Text
-              style={[styles.primaryLabel, isDisabled && styles.primaryLabelDisabled, labelStyle]}
+              style={[
+                staticStyles.primaryLabel,
+                isDisabled && staticStyles.primaryLabelDisabled,
+                labelStyle,
+              ]}
               allowFontScaling={false}
             >
               {label}
@@ -134,7 +142,7 @@ export function PrimaryButton({
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SecondaryButton (Outline)
-// Phase 4: transparent bg, white border, 56px
+// Phase 4: transparent bg, theme-aware border, 56px
 // ─────────────────────────────────────────────────────────────────────────────
 export function SecondaryButton({
   label,
@@ -148,6 +156,7 @@ export function SecondaryButton({
   ...rest
 }: ButtonProps) {
   const { scale, opacity, onPressIn, onPressOut } = usePressAnimation(0.96, 1);
+  const C = useColors();
   const isDisabled = disabled || loading;
 
   return (
@@ -161,19 +170,25 @@ export function SecondaryButton({
         accessibilityLabel={accessibilityLabel ?? label}
         accessibilityState={{ disabled: isDisabled, busy: loading }}
         style={({ pressed }) => [
-          styles.secondary,
-          pressed && styles.secondaryPressed,
-          isDisabled && styles.secondaryDisabled,
+          staticStyles.secondary,
+          { borderColor: C.actionSecondaryBorder },
+          pressed && { backgroundColor: C.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)' },
+          isDisabled && { borderColor: C.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' },
         ]}
         {...rest}
       >
         {loading ? (
-          <ActivityIndicator color={Colors.textPrimary} size="small" />
+          <ActivityIndicator color={C.textPrimary} size="small" />
         ) : (
-          <View style={styles.btnInner}>
+          <View style={staticStyles.btnInner}>
             {icon}
             <Text
-              style={[styles.secondaryLabel, isDisabled && styles.secondaryLabelDisabled, labelStyle]}
+              style={[
+                staticStyles.secondaryLabel,
+                { color: C.textPrimary },
+                isDisabled && { color: C.textDisabled },
+                labelStyle,
+              ]}
               allowFontScaling={false}
             >
               {label}
@@ -205,6 +220,8 @@ export function GhostButton({
   accessibilityLabel,
   ...rest
 }: GhostButtonProps) {
+  const C = useColors();
+
   return (
     <Pressable
       onPress={onPress}
@@ -213,15 +230,20 @@ export function GhostButton({
       accessibilityLabel={accessibilityLabel ?? label}
       accessibilityState={{ disabled }}
       style={({ pressed }) => [
-        styles.ghost,
-        pressed && styles.ghostPressed,
+        staticStyles.ghost,
+        pressed && staticStyles.ghostPressed,
         style,
       ]}
       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
       {...rest}
     >
       <Text
-        style={[styles.ghostLabel, disabled && styles.ghostLabelDisabled, labelStyle]}
+        style={[
+          staticStyles.ghostLabel,
+          { color: C.textLink },
+          disabled && { color: C.textDisabled },
+          labelStyle,
+        ]}
         allowFontScaling={false}
       >
         {label}
@@ -253,53 +275,7 @@ export function SmallPillButton({
   ...rest
 }: SmallPillButtonProps) {
   const { scale, opacity, onPressIn, onPressOut } = usePressAnimation(0.96, 0.85);
-  const isDisabled = disabled || loading;
-
-  return (
-    <Animated.View style={[{ transform: [{ scale }], opacity }, style]}>
-      <Pressable
-        onPress={onPress}
-        onPressIn={onPressIn}
-        onPressOut={onPressOut}
-        disabled={isDisabled}
-        accessibilityRole="button"
-        accessibilityLabel={accessibilityLabel ?? label}
-        accessibilityState={{ disabled: isDisabled, busy: loading }}
-        style={[styles.smallPill, isDisabled && styles.primaryDisabled]}
-        hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
-        {...rest}
-      >
-        {loading ? (
-          <ActivityIndicator color="#FFFFFF" size="small" />
-        ) : (
-          <Text
-            style={[styles.smallPillLabel, isDisabled && styles.primaryLabelDisabled, labelStyle]}
-            allowFontScaling={false}
-          >
-            {label}
-          </Text>
-        )}
-      </Pressable>
-    </Animated.View>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// DestructiveButton
-// Phase 4: #EF4444 background, 56px, full-width pill
-// ─────────────────────────────────────────────────────────────────────────────
-export function DestructiveButton({
-  label,
-  loading = false,
-  disabled = false,
-  onPress,
-  style,
-  labelStyle,
-  icon,
-  accessibilityLabel,
-  ...rest
-}: ButtonProps) {
-  const { scale, opacity, onPressIn, onPressOut } = usePressAnimation(0.96, 0.85);
+  const C = useColors();
   const isDisabled = disabled || loading;
 
   return (
@@ -313,20 +289,77 @@ export function DestructiveButton({
         accessibilityLabel={accessibilityLabel ?? label}
         accessibilityState={{ disabled: isDisabled, busy: loading }}
         style={[
-          styles.destructive,
+          staticStyles.smallPill,
+          { backgroundColor: C.actionPrimary },
+          isDisabled && { backgroundColor: C.actionPrimaryDisabled },
+        ]}
+        hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+        {...rest}
+      >
+        {loading ? (
+          <ActivityIndicator color="#FFFFFF" size="small" />
+        ) : (
+          <Text
+            style={[
+              staticStyles.smallPillLabel,
+              isDisabled && staticStyles.primaryLabelDisabled,
+              labelStyle,
+            ]}
+            allowFontScaling={false}
+          >
+            {label}
+          </Text>
+        )}
+      </Pressable>
+    </Animated.View>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DestructiveButton
+// Phase 4: red background, 56px, full-width pill
+// ─────────────────────────────────────────────────────────────────────────────
+export function DestructiveButton({
+  label,
+  loading = false,
+  disabled = false,
+  onPress,
+  style,
+  labelStyle,
+  icon,
+  accessibilityLabel,
+  ...rest
+}: ButtonProps) {
+  const { scale, opacity, onPressIn, onPressOut } = usePressAnimation(0.96, 0.85);
+  const C = useColors();
+  const isDisabled = disabled || loading;
+
+  return (
+    <Animated.View style={[{ transform: [{ scale }], opacity }, style]}>
+      <Pressable
+        onPress={onPress}
+        onPressIn={onPressIn}
+        onPressOut={onPressOut}
+        disabled={isDisabled}
+        accessibilityRole="button"
+        accessibilityLabel={accessibilityLabel ?? label}
+        accessibilityState={{ disabled: isDisabled, busy: loading }}
+        style={[
+          staticStyles.destructive,
+          { backgroundColor: C.actionDestructive },
           elevation.elevation2,
           coloredShadow.shadowDestructive,
-          isDisabled && styles.destructiveDisabled,
+          isDisabled && { backgroundColor: 'rgba(239,68,68,0.35)' },
         ]}
         {...rest}
       >
         {loading ? (
           <ActivityIndicator color="#FFFFFF" size="small" />
         ) : (
-          <View style={styles.btnInner}>
+          <View style={staticStyles.btnInner}>
             {icon}
             <Text
-              style={[styles.primaryLabel, labelStyle]}
+              style={[staticStyles.primaryLabel, labelStyle]}
               allowFontScaling={false}
             >
               {label}
@@ -340,7 +373,7 @@ export function DestructiveButton({
 
 // ─────────────────────────────────────────────────────────────────────────────
 // IconButton (circular)
-// Phase 4: 40×40px circle, rgba(255,255,255,0.08) bg
+// Phase 4: 40×40px circle, theme-aware background
 // ─────────────────────────────────────────────────────────────────────────────
 interface IconButtonProps extends Omit<PressableProps, 'style'> {
   icon: React.ReactNode;
@@ -358,6 +391,7 @@ export function IconButton({
   ...rest
 }: IconButtonProps) {
   const { scale, onPressIn, onPressOut } = usePressAnimation(0.96, 1);
+  const C = useColors();
 
   return (
     <Animated.View style={{ transform: [{ scale }] }}>
@@ -369,9 +403,17 @@ export function IconButton({
         accessibilityLabel={accessibilityLabel}
         hitSlop={{ top: 2, bottom: 2, left: 2, right: 2 }}
         style={({ pressed }) => [
-          styles.iconBtn,
-          { width: size, height: size, borderRadius: size / 2 },
-          pressed && styles.iconBtnPressed,
+          {
+            width: size,
+            height: size,
+            borderRadius: size / 2,
+            backgroundColor: C.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)',
+            alignItems: 'center' as const,
+            justifyContent: 'center' as const,
+          },
+          pressed && {
+            backgroundColor: C.isDark ? 'rgba(255,255,255,0.14)' : 'rgba(0,0,0,0.10)',
+          },
           style,
         ]}
         {...rest}
@@ -383,9 +425,9 @@ export function IconButton({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Styles
+// Static styles — geometry only, no theme-dependent colors
 // ─────────────────────────────────────────────────────────────────────────────
-const styles = StyleSheet.create({
+const staticStyles = StyleSheet.create({
   btnInner: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -396,13 +438,9 @@ const styles = StyleSheet.create({
   primary: {
     height: 56,
     borderRadius: radius.radiusFull,
-    backgroundColor: Colors.actionPrimary,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 24,
-  },
-  primaryDisabled: {
-    backgroundColor: Colors.actionPrimaryDisabled,
   },
   primaryLabel: {
     ...typeScale.labelLG,
@@ -418,24 +456,13 @@ const styles = StyleSheet.create({
     borderRadius: radius.radiusFull,
     backgroundColor: 'transparent',
     borderWidth: 1.5,
-    borderColor: Colors.actionSecondaryBorder,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 24,
     minWidth: 120,
   },
-  secondaryPressed: {
-    backgroundColor: 'rgba(255,255,255,0.06)',
-  },
-  secondaryDisabled: {
-    borderColor: 'rgba(255,255,255,0.08)',
-  },
   secondaryLabel: {
     ...typeScale.labelLG,
-    color: Colors.textPrimary,
-  },
-  secondaryLabelDisabled: {
-    color: Colors.textDisabled,
   },
 
   // Ghost
@@ -451,17 +478,12 @@ const styles = StyleSheet.create({
   },
   ghostLabel: {
     ...typeScale.labelMD,
-    color: Colors.textLink,
-  },
-  ghostLabelDisabled: {
-    color: Colors.textDisabled,
   },
 
   // Small pill
   smallPill: {
     height: 36,
     borderRadius: radius.radiusFull,
-    backgroundColor: Colors.actionPrimary,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 16,
@@ -476,22 +498,8 @@ const styles = StyleSheet.create({
   destructive: {
     height: 56,
     borderRadius: radius.radiusFull,
-    backgroundColor: Colors.actionDestructive,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 24,
-  },
-  destructiveDisabled: {
-    backgroundColor: 'rgba(239,68,68,0.35)',
-  },
-
-  // Icon button
-  iconBtn: {
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  iconBtnPressed: {
-    backgroundColor: 'rgba(255,255,255,0.14)',
   },
 });

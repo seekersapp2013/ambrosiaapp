@@ -724,6 +724,9 @@ export default defineSchema({
     isActive: v.boolean(),
     // Admin-only posting feature (like WhatsApp admin-only groups)
     postingPermission: v.string(), // "EVERYONE" | "ADMINS_ONLY"
+    // Referral circle fields
+    isReferralCircle: v.optional(v.boolean()), // True for auto-created referral circles
+    referralId: v.optional(v.id("referrals")),  // Back-reference to the originating referral
     // Moderation fields
     approvalStatus: v.optional(v.string()), // "PENDING" | "APPROVED" | "REJECTED" | "NOT_REQUIRED"
     approvalRequestedAt: v.optional(v.number()),
@@ -739,6 +742,7 @@ export default defineSchema({
     .index("by_active", ["isActive"])
     .index("by_invite_code", ["inviteCode"])
     .index("by_posting_permission", ["postingPermission"])
+    .index("by_referral", ["referralId"])
     .index("by_created", ["createdAt"])
     .index("by_approval_status", ["approvalStatus"]),
 
@@ -911,17 +915,26 @@ export default defineSchema({
     selectedExpertId: v.optional(v.id("users")), // Expert chosen by patient
     status: v.string(), // "PENDING" | "ACCEPTED" | "COMPLETED" | "DECLINED"
     declineReason: v.optional(v.string()), // If patient declines all suggestions
-    
+
+    // How the referral was created
+    referralSource: v.optional(v.string()), // "STANDALONE" | "FROM_BOOKING"
+
+    // Optional session context (provider can link a past session when creating)
+    sessionId: v.optional(v.id("bookings")),
+
     // Booking details (once patient selects expert and books)
     bookingId: v.optional(v.id("bookings")),
-    
+
+    // 3-way referral circle (created when patient selects their expert)
+    circleId: v.optional(v.id("circles")),
+
     // Commission tracking (10% to referring expert)
     commissionRate: v.number(), // 0.10 for 10%
     commissionAmount: v.optional(v.number()),
     commissionCurrency: v.optional(v.string()),
     commissionPaid: v.boolean(),
     commissionTxId: v.optional(v.string()),
-    
+
     createdAt: v.number(),
     updatedAt: v.optional(v.number()),
     completedAt: v.optional(v.number())
@@ -930,6 +943,8 @@ export default defineSchema({
     .index("by_selected_expert", ["selectedExpertId"])
     .index("by_status", ["status"])
     .index("by_booking", ["bookingId"])
+    .index("by_session", ["sessionId"])
+    .index("by_circle", ["circleId"])
     .index("by_patient_status", ["patientId", "status"])
     .index("by_created", ["createdAt"]),
 

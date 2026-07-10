@@ -20,7 +20,7 @@ export default function RecordingsScreen() {
     <AppBackground>
       <ScreenHeader
         title="Recordings"
-        onBack={() => router.back()}
+        onBack={() => router.replace("/(tabs)/booking" as any)}
       />
       <ScrollView
         showsVerticalScrollIndicator={false}

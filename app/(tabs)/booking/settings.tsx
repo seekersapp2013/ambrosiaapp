@@ -55,7 +55,7 @@ export default function ProviderSettingsScreen() {
   if (subscription !== undefined && !isProvider) {
     return (
       <AppBackground>
-        <ScreenHeader title="Provider Settings" onBack={() => router.back()} />
+        <ScreenHeader title="Provider Settings" onBack={() => router.replace("/(tabs)/booking" as any)} />
         <MobileCard>
           <View style={styles.gateWrap}>
             <View style={styles.gateIconWrap}>
@@ -82,7 +82,7 @@ export default function ProviderSettingsScreen() {
 
   return (
     <AppBackground>
-      <ScreenHeader title="Provider Settings" onBack={() => router.back()} />
+      <ScreenHeader title="Provider Settings" onBack={() => router.replace("/(tabs)/booking" as any)} />
 
       {/* ── Saved banner ─────────────────────────────────────────── */}
       {savedBanner && (

@@ -26,7 +26,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { Colors } from "@/constants/Colors";
+import { useColors } from "@/hooks/useColors";
 import { VideoView, useVideoPlayer } from "expo-video";
 import { ReelEngagementRow } from "./ReelEngagementRow";
 import { AppLogo } from "@/components/AppLogo";
@@ -73,6 +73,7 @@ interface FollowPillProps {
 }
 
 function FollowPill({ authorId }: FollowPillProps) {
+  const C = useColors();
   const isFollowing = useQuery(api.follows.isFollowing, {
     userId: authorId as Id<"users">,
   });
@@ -92,7 +93,7 @@ function FollowPill({ authorId }: FollowPillProps) {
   if (isFollowing === undefined) {
     return (
       <View style={followStyles.pill}>
-        <ActivityIndicator size={10} color={Colors.textMuted} />
+        <ActivityIndicator size={10} color={C.textMuted} />
       </View>
     );
   }
@@ -101,15 +102,20 @@ function FollowPill({ authorId }: FollowPillProps) {
     <TouchableOpacity
       onPress={handlePress}
       activeOpacity={0.75}
-      style={[followStyles.pill, isFollowing ? followStyles.pillFollowing : followStyles.pillFollow]}
+      style={[
+        followStyles.pill,
+        isFollowing
+          ? [followStyles.pillFollowing, { borderColor: C.borderSubtle }]
+          : { backgroundColor: C.actionPrimary },
+      ]}
       accessibilityRole="button"
       accessibilityLabel={isFollowing ? "Unfollow creator" : "Follow creator"}
       disabled={pending}
     >
       {pending ? (
-        <ActivityIndicator size={10} color={isFollowing ? Colors.textMuted : "#fff"} />
+        <ActivityIndicator size={10} color={isFollowing ? C.textMuted : "#fff"} />
       ) : (
-        <Text style={[followStyles.pillText, isFollowing && followStyles.pillTextFollowing]}>
+        <Text style={[followStyles.pillText, isFollowing && { color: C.textMuted }]}>
           {isFollowing ? "Following" : "Follow"}
         </Text>
       )}
@@ -123,13 +129,9 @@ export function ReelCardFeed({ reel, onPress, isOwnContent, onDeleteRequest, can
     : (reel.author?.name ?? reel.author?.username ?? "Unknown");
 
   const thumbnailUri = reel.posterUrl || reel.poster;
-
-  // Only use the video player when there is no cover image but there is a video.
-  // Passing an empty string when unused avoids initialising a real player.
   const needsVideoPlayer = !thumbnailUri && !!reel.videoUrl;
-
-  // Show delete button for own content or users with delete_content permission
   const showDelete = (isOwnContent || canDeleteContent) && !!onDeleteRequest;
+  const C = useColors();
 
   const player = useVideoPlayer(needsVideoPlayer ? reel.videoUrl! : "", (p) => {
     if (!needsVideoPlayer) return;
@@ -146,7 +148,7 @@ export function ReelCardFeed({ reel, onPress, isOwnContent, onDeleteRequest, can
   }, [player, needsVideoPlayer]);
 
   return (
-    <View style={styles.card}>
+    <View style={[styles.card, { backgroundColor: C.bgSurface, borderColor: C.borderSubtle }]}>
       {/* ── Tappable video / thumbnail ─────────────────────────── */}
       <TouchableOpacity
         onPress={onPress}
@@ -175,7 +177,7 @@ export function ReelCardFeed({ reel, onPress, isOwnContent, onDeleteRequest, can
 
           {/* Placeholder: no cover image and no video (pending upload or old draft) */}
           {!thumbnailUri && !reel.videoUrl && (
-            <View style={styles.thumbnailPlaceholder}>
+            <View style={[styles.thumbnailPlaceholder, { backgroundColor: C.bgElevated }]}>
               <Ionicons name="videocam-outline" size={32} color="rgba(255,255,255,0.3)" />
             </View>
           )}
@@ -189,9 +191,9 @@ export function ReelCardFeed({ reel, onPress, isOwnContent, onDeleteRequest, can
 
           {/* Gated badge — hidden for own content */}
           {reel.isGated && !isOwnContent && (
-            <View style={styles.gatedBadge}>
-              <Ionicons name="lock-closed" size={10} color={Colors.statusWarning} />
-              <Text style={styles.gatedText}>Premium</Text>
+            <View style={[styles.gatedBadge, { backgroundColor: C.amberSurface, borderColor: C.amberBorder }]}>
+              <Ionicons name="lock-closed" size={10} color={C.statusWarning} />
+              <Text style={[styles.gatedText, { color: C.statusWarning }]}>Premium</Text>
             </View>
           )}
 
@@ -203,9 +205,9 @@ export function ReelCardFeed({ reel, onPress, isOwnContent, onDeleteRequest, can
           )}
 
           {/* Pulse type badge — dark bg, red border, AppLogo apple */}
-          <View style={styles.reelBadge}>
+          <View style={[styles.reelBadge, { borderColor: C.isDark ? 'rgba(198,34,41,0.65)' : C.actionPrimary }]}>
             <AppLogo size={16} />
-            <Text style={styles.reelBadgeText}>Pulse</Text>
+            <Text style={[styles.reelBadgeText, { color: C.actionPrimary }]}>Pulse</Text>
           </View>
 
           {/* Delete button — top-right, shown for author or admin */}
@@ -224,25 +226,25 @@ export function ReelCardFeed({ reel, onPress, isOwnContent, onDeleteRequest, can
         </View>
 
         {/* ── Body ─────────────────────────────────────────────── */}
-        <View style={styles.body}>
+        <View style={[styles.body, { backgroundColor: C.bgSurface }]}>
           {reel.caption ? (
-            <Text style={styles.caption} numberOfLines={2}>
+            <Text style={[styles.caption, { color: C.textPrimary }]} numberOfLines={2}>
               {reel.caption}
               {reel.caption.length > 80 ? "..." : ""}
             </Text>
           ) : (
-            <Text style={styles.captionEmpty}>No caption</Text>
+            <Text style={[styles.captionEmpty, { color: C.textMuted }]}>No caption</Text>
           )}
 
           {/* Course indicator badge */}
           {reel.courseInfo && (
             <View style={styles.courseBadge}>
-              <Ionicons name="book-outline" size={11} color={Colors.statusInfo} />
-              <Text style={styles.courseBadgeText} numberOfLines={1}>
+              <Ionicons name="book-outline" size={11} color={C.statusInfo} />
+              <Text style={[styles.courseBadgeText, { color: C.statusInfo }]} numberOfLines={1}>
                 {reel.courseInfo.courseTitle}
               </Text>
               <View style={styles.courseBadgeSep} />
-              <Text style={styles.courseLessonText}>
+              <Text style={[styles.courseLessonText, { color: C.statusInfo }]}>
                 Lesson {reel.courseInfo.order}
               </Text>
             </View>
@@ -251,9 +253,9 @@ export function ReelCardFeed({ reel, onPress, isOwnContent, onDeleteRequest, can
           {/* Premium price banner — hidden for own content */}
           {reel.isGated && !isOwnContent && reel.priceAmount != null && reel.priceToken ? (
             <View style={styles.priceBanner}>
-              <Ionicons name="lock-closed" size={14} color={Colors.primary} />
-              <Text style={styles.priceBannerLabel}>Premium Content</Text>
-              <Text style={styles.priceBannerAmount}>
+              <Ionicons name="lock-closed" size={14} color={C.actionPrimary} />
+              <Text style={[styles.priceBannerLabel, { color: C.actionPrimary }]}>Premium Content</Text>
+              <Text style={[styles.priceBannerAmount, { color: C.statusInfo }]}>
                 {reel.priceAmount} {reel.priceToken}
               </Text>
             </View>
@@ -265,10 +267,10 @@ export function ReelCardFeed({ reel, onPress, isOwnContent, onDeleteRequest, can
               {reel.author?.avatar ? (
                 <Image source={{ uri: reel.author.avatar }} style={styles.avatarImg} />
               ) : (
-                <Ionicons name="person-circle-outline" size={16} color={Colors.textMuted} />
+                <Ionicons name="person-circle-outline" size={16} color={C.textMuted} />
               )}
             </View>
-            <Text style={[styles.authorName, isOwnContent && styles.authorNameSelf]} numberOfLines={1}>
+            <Text style={[styles.authorName, { color: C.textSecondary }, isOwnContent && { color: C.actionPrimary, fontWeight: "700" }]} numberOfLines={1}>
               {authorName}
             </Text>
             {/* Follow pill — only for other people's content */}
@@ -277,12 +279,11 @@ export function ReelCardFeed({ reel, onPress, isOwnContent, onDeleteRequest, can
             )}
           </View>
 
-          {/* Tags */}
           {reel.tags && reel.tags.length > 0 && (
             <View style={styles.tagsRow}>
               {reel.tags.slice(0, 2).map((tag) => (
-                <View key={tag} style={styles.tag}>
-                  <Text style={styles.tagText}>#{tag}</Text>
+                <View key={tag} style={[styles.tag, { backgroundColor: C.bgElevated }]}>
+                  <Text style={[styles.tagText, { color: C.textMuted }]}>#{tag}</Text>
                 </View>
               ))}
             </View>
@@ -309,10 +310,9 @@ function formatDuration(s: number): string {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: Colors.bgSurface,
+    // backgroundColor and borderColor applied inline via useColors()
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: Colors.borderSubtle,
     overflow: "hidden",
     marginBottom: 12,
   },
@@ -328,7 +328,6 @@ const styles = StyleSheet.create({
   thumbnailPlaceholder: {
     width: "100%",
     height: "100%",
-    backgroundColor: Colors.bgElevated,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -350,17 +349,14 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 3,
-    backgroundColor: Colors.amberSurface,
     borderRadius: 20,
     paddingHorizontal: 7,
     paddingVertical: 3,
     borderWidth: 1,
-    borderColor: Colors.amberBorder,
   },
   gatedText: {
     fontSize: 9,
     fontWeight: "700",
-    color: Colors.statusWarning,
   },
   durationBadge: {
     position: "absolute",
@@ -388,12 +384,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderWidth: 1,
-    borderColor: "rgba(198,34,41,0.65)",
   },
   reelBadgeText: {
     fontSize: 11,
     fontWeight: "700",
-    color: Colors.primary,
     letterSpacing: 0.3,
   },
   deleteButton: {
@@ -412,16 +406,20 @@ const styles = StyleSheet.create({
   body: {
     padding: 12,
     gap: 6,
+    // Curved top corners that overlap the image bottom edge — same effect
+    // as the reference health-app "sheet slides up over image" pattern.
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    marginTop: -20,        // pull up to overlap the image by 20dp
+    zIndex: 1,             // sit above the image layer
   },
   caption: {
     fontSize: 13,
     fontWeight: "500",
-    color: Colors.textPrimary,
     lineHeight: 19,
   },
   captionEmpty: {
     fontSize: 13,
-    color: Colors.textMuted,
     fontStyle: "italic",
   },
   priceBanner: {
@@ -440,12 +438,10 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 12,
     fontWeight: "700",
-    color: Colors.primary,
   },
   priceBannerAmount: {
     fontSize: 13,
     fontWeight: "800",
-    color: Colors.statusInfo,
   },
   authorRow: {
     flexDirection: "row",
@@ -468,25 +464,18 @@ const styles = StyleSheet.create({
   authorName: {
     fontSize: 12,
     fontWeight: "500",
-    color: Colors.textSecondary,
-  },
-  authorNameSelf: {
-    color: Colors.primary,
-    fontWeight: "700",
-  },
-  tagsRow: {
-    flexDirection: "row",
-    gap: 5,
   },
   tag: {
-    backgroundColor: Colors.bgElevated,
     borderRadius: 6,
     paddingHorizontal: 6,
     paddingVertical: 2,
   },
   tagText: {
     fontSize: 10,
-    color: Colors.textMuted,
+  },
+  tagsRow: {
+    flexDirection: "row",
+    gap: 5,
   },
   // ── Course badge ──────────────────────────────────────────────────────────
   courseBadge: {
@@ -506,7 +495,6 @@ const styles = StyleSheet.create({
   courseBadgeText: {
     fontSize: 10,
     fontWeight: "600",
-    color: Colors.statusInfo,
     flexShrink: 1,
   },
   courseBadgeSep: {
@@ -518,7 +506,6 @@ const styles = StyleSheet.create({
   courseLessonText: {
     fontSize: 10,
     fontWeight: "700",
-    color: Colors.statusInfo,
   },
 });
 
@@ -533,21 +520,14 @@ const followStyles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  pillFollow: {
-    backgroundColor: Colors.primary,
-  },
   pillFollowing: {
     backgroundColor: "transparent",
     borderWidth: 1,
-    borderColor: Colors.borderSubtle,
   },
   pillText: {
     fontSize: 10,
     fontWeight: "700",
     color: "#fff",
     letterSpacing: 0.2,
-  },
-  pillTextFollowing: {
-    color: Colors.textMuted,
   },
 });

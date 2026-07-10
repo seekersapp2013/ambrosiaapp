@@ -47,6 +47,7 @@ import { LoadingSpinner } from "@/components/stream/LoadingSpinner";
 import { EmptyState } from "@/components/stream/EmptyState";
 import { ContentPaywallSheet } from "@/components/ContentPaywallSheet";
 import { Colors } from "@/constants/Colors";
+import { useColors } from "@/hooks/useColors";
 import { useTabBarHeight } from "@/utils/useDeviceClass";
 
 // ─── Types ─────────────────────────────────────────────────────────────────
@@ -67,6 +68,7 @@ interface FeedModeToggleProps {
 }
 
 function FeedModeToggle({ mode, onChange }: FeedModeToggleProps) {
+  const C = useColors();
   // Animated slide for the pill indicator
   const slideAnim = React.useRef(new Animated.Value(mode === "ai" ? 1 : 0)).current;
 
@@ -85,13 +87,16 @@ function FeedModeToggle({ mode, onChange }: FeedModeToggleProps) {
   });
 
   return (
-    <RNView style={styles.toggleTrack} accessibilityRole="switch" accessibilityLabel="Feed mode toggle">
+    <RNView style={[styles.toggleTrack, {
+      backgroundColor: C.isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.06)",
+      borderColor: C.isDark ? "rgba(255,255,255,0.10)" : "rgba(0,0,0,0.08)",
+    }]} accessibilityRole="switch" accessibilityLabel="Feed mode toggle">
       {/* Sliding pill */}
       <Animated.View
         style={[
           styles.togglePill,
           { transform: [{ translateX: pillTranslate }] },
-          mode === "ai" ? styles.pillAI : styles.pillForYou,
+          { backgroundColor: mode === "ai" ? C.blue : C.primary },
         ]}
       />
 
@@ -107,10 +112,10 @@ function FeedModeToggle({ mode, onChange }: FeedModeToggleProps) {
         <Ionicons
           name="newspaper-outline"
           size={13}
-          color={mode === "for_you" ? "#fff" : Colors.textMuted}
+          color={mode === "for_you" ? "#fff" : C.textMuted}
           style={styles.toggleIcon}
         />
-        <Text style={[styles.toggleLabel, mode === "for_you" && styles.toggleLabelActive]}>
+        <Text style={[styles.toggleLabel, { color: mode === "for_you" ? "#fff" : C.textMuted }]}>
           For You
         </Text>
       </TouchableOpacity>
@@ -127,10 +132,10 @@ function FeedModeToggle({ mode, onChange }: FeedModeToggleProps) {
         <Ionicons
           name="sparkles-outline"
           size={13}
-          color={mode === "ai" ? "#fff" : Colors.textMuted}
+          color={mode === "ai" ? "#fff" : C.textMuted}
           style={styles.toggleIcon}
         />
-        <Text style={[styles.toggleLabel, mode === "ai" && styles.toggleLabelActive]}>
+        <Text style={[styles.toggleLabel, { color: mode === "ai" ? "#fff" : C.textMuted }]}>
           AI
         </Text>
       </TouchableOpacity>
@@ -143,6 +148,7 @@ export default function ForYouScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const tabBarHeight = useTabBarHeight();
+  const C = useColors();
 
   // ── Data ──────────────────────────────────────────────────────────────────
   const feed = useQuery(api.feed.listUnifiedFeed, { limit: 20 });
@@ -281,7 +287,7 @@ export default function ForYouScreen() {
       <MobileCard containerStyle={styles.cardContainer} style={styles.card}>
 
         {/* ── Sticky header chrome ──────────────────────────────────── */}
-        <View style={styles.headerInner}>
+        <View style={[styles.headerInner, { borderBottomColor: C.borderSubtle }]}>
           {/* Shared top nav — title auto-detected from route */}
           <TopNav />
 
@@ -313,7 +319,7 @@ export default function ForYouScreen() {
                 style={styles.debugTrigger}
                 accessibilityLabel="Toggle debug panel"
               >
-                <Ionicons name="bug-outline" size={15} color={Colors.textMuted} />
+                <Ionicons name="bug-outline" size={15} color={C.textMuted} />
               </TouchableOpacity>
             )}
           </RNView>
@@ -537,10 +543,10 @@ export default function ForYouScreen() {
           /* ── AI feed ─────────────────────────────────────────────── */
           /* If AI is unavailable and we have no cached personalised feed, show error screen */
           aiUnavailable && !aiIsPersonalised ? (
-            <RNView style={styles.aiUnavailableContainer}>
-              <Ionicons name="cloud-offline-outline" size={48} color={Colors.textMuted} style={{ marginBottom: 16 }} />
-              <Text style={styles.aiUnavailableTitle}>AI is currently not available</Text>
-              <Text style={styles.aiUnavailableSubtitle}>Please try again later</Text>
+            <RNView style={[styles.aiUnavailableContainer, { backgroundColor: C.bgBase }]}>
+              <Ionicons name="cloud-offline-outline" size={48} color={C.textMuted} style={{ marginBottom: 16 }} />
+              <Text style={[styles.aiUnavailableTitle, { color: C.textPrimary }]}>AI is currently not available</Text>
+              <Text style={[styles.aiUnavailableSubtitle, { color: C.textMuted }]}>Please try again later</Text>
               <TouchableOpacity
                 style={styles.aiRetryButton}
                 onPress={() => {
@@ -599,13 +605,13 @@ export default function ForYouScreen() {
             ListHeaderComponent={
               aiIsPersonalised ? (
                 <RNView style={styles.aiBadgeRow}>
-                  <Ionicons name="sparkles" size={13} color={Colors.blue} />
+                  <Ionicons name="sparkles" size={13} color={C.blue} />
                   <Text style={styles.aiBadgeText}>Ranked for you</Text>
                 </RNView>
               ) : isGeneratingAI ? (
                 <RNView style={styles.aiBadgeRow}>
-                  <Ionicons name="sparkles-outline" size={13} color={Colors.textMuted} />
-                  <Text style={[styles.aiBadgeText, { color: Colors.textMuted }]}>Ranking your feed…</Text>
+                  <Ionicons name="sparkles-outline" size={13} color={C.textMuted} />
+                  <Text style={[styles.aiBadgeText, { color: C.textMuted }]}>Ranking your feed…</Text>
                 </RNView>
               ) : null
             }
@@ -640,7 +646,7 @@ export default function ForYouScreen() {
         >
           {/* Write Article */}
           <TouchableOpacity
-            style={[styles.fab, styles.fabWrite]}
+            style={[styles.fab, { backgroundColor: C.primary }]}
             onPress={() => router.push("/(tabs)/write-article")}
             activeOpacity={0.82}
             accessibilityRole="button"
@@ -651,7 +657,7 @@ export default function ForYouScreen() {
 
           {/* Create Pulse */}
           <TouchableOpacity
-            style={[styles.fab, styles.fabPulse]}
+            style={[styles.fab, { backgroundColor: C.purple }]}
             onPress={() => router.push("/(tabs)/write-reel")}
             activeOpacity={0.82}
             accessibilityRole="button"
@@ -831,19 +837,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 32,
-    paddingTop: 80,
+    paddingBottom: 120,
     gap: 4,
   },
   aiUnavailableTitle: {
     fontSize: 16,
     fontWeight: "700",
-    color: Colors.textPrimary,
     textAlign: "center",
     marginBottom: 6,
   },
   aiUnavailableSubtitle: {
     fontSize: 13,
-    color: Colors.textMuted,
     textAlign: "center",
     marginBottom: 20,
   },

@@ -34,7 +34,7 @@ import { LoadingSpinner } from "@/components/stream/LoadingSpinner";
 import { EmptyState } from "@/components/stream/EmptyState";
 import { ContentPaywallSheet } from "@/components/ContentPaywallSheet";
 import { ArticleEngagementBar } from "@/components/ArticleEngagementBar";
-import { Colors } from "@/constants/Colors";
+import { useColors } from "@/hooks/useColors";
 import { useTabBarHeight } from "@/utils/useDeviceClass";
 import { useNavigationHistory } from "@/context/NavigationHistoryContext";
 
@@ -49,7 +49,28 @@ if (Platform.OS !== "web") {
 }
 
 // ─── HTML shell for article body ─────────────────────────────────────────────
-function buildArticleHtml(contentHtml: string): string {
+function buildArticleHtml(contentHtml: string, isDark: boolean): string {
+  const bg = isDark ? '#0f0f1e' : '#FFFFFF';
+  const textColor = isDark ? '#D1D5DB' : '#374151';
+  const headingColor = isDark ? '#fff' : '#111827';
+  const h3Color = isDark ? '#E5E7EB' : '#1F2937';
+  const h4Color = isDark ? '#D1D5DB' : '#374151';
+  const strongColor = isDark ? '#fff' : '#111827';
+  const emColor = isDark ? '#E5E7EB' : '#4B5563';
+  const blockquoteColor = isDark ? '#9CA3AF' : '#6B7280';
+  const blockquoteBg = isDark ? 'rgba(198,34,41,0.06)' : 'rgba(198,34,41,0.04)';
+  const preBg = isDark ? 'rgba(255,255,255,0.05)' : '#F3F4F6';
+  const preBorder = isDark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.08)';
+  const preText = isDark ? '#D1D5DB' : '#374151';
+  const codeBg = isDark ? 'rgba(255,255,255,0.07)' : '#F3F4F6';
+  const codeText = isDark ? '#E5E7EB' : '#1F2937';
+  const hrColor = isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.08)';
+  const tableBorder = isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.10)';
+  const thBg = isDark ? 'rgba(255,255,255,0.06)' : '#F9FAFB';
+  const thColor = isDark ? '#fff' : '#111827';
+  const markBg = isDark ? 'rgba(245,158,11,0.30)' : 'rgba(245,158,11,0.20)';
+  const markColor = isDark ? '#fff' : '#111827';
+
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -57,30 +78,30 @@ function buildArticleHtml(contentHtml: string): string {
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
-  html,body{background:#0f0f1e;color:#D1D5DB;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:15px;line-height:1.75;padding:0 4px}
-  h1{font-size:24px;font-weight:700;color:#fff;line-height:1.3;margin:16px 0 8px}
-  h2{font-size:20px;font-weight:700;color:#fff;line-height:1.35;margin:14px 0 6px}
-  h3{font-size:17px;font-weight:600;color:#E5E7EB;margin:12px 0 5px}
-  h4{font-size:15px;font-weight:600;color:#D1D5DB;margin:10px 0 4px}
+  html,body{background:${bg};color:${textColor};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:15px;line-height:1.75;padding:0 4px}
+  h1{font-size:24px;font-weight:700;color:${headingColor};line-height:1.3;margin:16px 0 8px}
+  h2{font-size:20px;font-weight:700;color:${headingColor};line-height:1.35;margin:14px 0 6px}
+  h3{font-size:17px;font-weight:600;color:${h3Color};margin:12px 0 5px}
+  h4{font-size:15px;font-weight:600;color:${h4Color};margin:10px 0 4px}
   p{margin-bottom:10px}
-  b,strong{color:#fff;font-weight:700}
-  i,em{color:#E5E7EB}
+  b,strong{color:${strongColor};font-weight:700}
+  i,em{color:${emColor}}
   u{text-decoration-color:rgba(198,34,41,0.7)}
   s{opacity:0.6}
   a{color:#C62229;text-decoration:underline}
   ul,ol{padding-left:22px;margin:6px 0 10px}
   li{margin-bottom:4px}
-  blockquote{border-left:3px solid #C62229;padding:6px 12px;margin:10px 0;background:rgba(198,34,41,0.06);border-radius:0 6px 6px 0;color:#9CA3AF;font-style:italic}
-  pre{background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.10);border-radius:8px;padding:12px;font-family:monospace;font-size:13px;overflow-x:auto;margin:8px 0;color:#D1D5DB}
-  code{background:rgba(255,255,255,0.07);border-radius:4px;padding:1px 5px;font-family:monospace;font-size:13px;color:#E5E7EB}
+  blockquote{border-left:3px solid #C62229;padding:6px 12px;margin:10px 0;background:${blockquoteBg};border-radius:0 6px 6px 0;color:${blockquoteColor};font-style:italic}
+  pre{background:${preBg};border:1px solid ${preBorder};border-radius:8px;padding:12px;font-family:monospace;font-size:13px;overflow-x:auto;margin:8px 0;color:${preText}}
+  code{background:${codeBg};border-radius:4px;padding:1px 5px;font-family:monospace;font-size:13px;color:${codeText}}
   img{max-width:100%;border-radius:8px;margin:6px 0;display:block}
-  hr{border:none;border-top:1px solid rgba(255,255,255,0.12);margin:14px 0}
+  hr{border:none;border-top:1px solid ${hrColor};margin:14px 0}
   table{border-collapse:collapse;width:100%;margin:10px 0}
-  td,th{border:1px solid rgba(255,255,255,0.15);padding:7px 10px;text-align:left}
-  th{background:rgba(255,255,255,0.06);font-weight:600;color:#fff}
+  td,th{border:1px solid ${tableBorder};padding:7px 10px;text-align:left}
+  th{background:${thBg};font-weight:600;color:${thColor}}
   sub{font-size:0.75em;vertical-align:sub}
   sup{font-size:0.75em;vertical-align:super}
-  mark{background:rgba(245,158,11,0.30);color:#fff;border-radius:2px;padding:0 2px}
+  mark{background:${markBg};color:${markColor};border-radius:2px;padding:0 2px}
 </style>
 </head>
 <body>
@@ -104,33 +125,33 @@ ${contentHtml}
 // on native uses react-native-webview with auto-height.
 interface ArticleBodyRendererProps {
   contentHtml: string;
+  isDark: boolean;
 }
 
-function ArticleBodyRenderer({ contentHtml }: ArticleBodyRendererProps) {
+function ArticleBodyRenderer({ contentHtml, isDark }: ArticleBodyRendererProps) {
   const [webViewHeight, setWebViewHeight] = useState(400);
 
   if (Platform.OS === "web") {
-    // Web: render inside a styled div. Using dangerouslySetInnerHTML on a <div>
-    // (not an <iframe>) avoids MetaMask extension interference.
     return (
       <div
         // biome-ignore lint: HTML is authored content from the DB, same origin
-        dangerouslySetInnerHTML={{ __html: injectWebStyles(contentHtml) }}
+        dangerouslySetInnerHTML={{ __html: injectWebStyles(contentHtml, isDark) }}
       />
     );
   }
 
   // Native: WebView with auto-height
   if (!WebView) {
-    // Fallback if WebView not available
     const plain = contentHtml.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
-    return <Text style={styles.articleBodyPlain}>{plain}</Text>;
+    return <Text style={[styles.articleBodyPlain, { color: isDark ? '#D1D5DB' : '#374151' }]}>{plain}</Text>;
   }
+
+  const bgColor = isDark ? 'transparent' : '#FFFFFF';
 
   return (
     <WebView
-      source={{ html: buildArticleHtml(contentHtml) }}
-      style={{ height: webViewHeight, backgroundColor: "transparent" }}
+      source={{ html: buildArticleHtml(contentHtml, isDark) }}
+      style={{ height: webViewHeight, backgroundColor: bgColor }}
       scrollEnabled={false}
       showsVerticalScrollIndicator={false}
       onMessage={(e: any) => {
@@ -147,37 +168,57 @@ function ArticleBodyRenderer({ contentHtml }: ArticleBodyRendererProps) {
         );true;
       `}
       originWhitelist={["*"]}
-      backgroundColor="transparent"
+      backgroundColor={bgColor}
     />
   );
 }
 
 // Injects inline <style> into the HTML for web rendering inside a div
-function injectWebStyles(html: string): string {
+function injectWebStyles(html: string, isDark: boolean): string {
+  const textColor = isDark ? '#D1D5DB' : '#374151';
+  const headingColor = isDark ? '#fff' : '#111827';
+  const h3Color = isDark ? '#E5E7EB' : '#1F2937';
+  const h4Color = isDark ? '#D1D5DB' : '#374151';
+  const strongColor = isDark ? '#fff' : '#111827';
+  const emColor = isDark ? '#E5E7EB' : '#4B5563';
+  const blockquoteColor = isDark ? '#9CA3AF' : '#6B7280';
+  const blockquoteBg = isDark ? 'rgba(198,34,41,0.06)' : 'rgba(198,34,41,0.04)';
+  const preBg = isDark ? 'rgba(255,255,255,0.05)' : '#F3F4F6';
+  const preBorder = isDark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.08)';
+  const preText = isDark ? '#D1D5DB' : '#374151';
+  const codeBg = isDark ? 'rgba(255,255,255,0.07)' : '#F3F4F6';
+  const codeText = isDark ? '#E5E7EB' : '#1F2937';
+  const hrColor = isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.08)';
+  const tableBorder = isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.10)';
+  const thBg = isDark ? 'rgba(255,255,255,0.06)' : '#F9FAFB';
+  const thColor = isDark ? '#fff' : '#111827';
+  const markBg = isDark ? 'rgba(245,158,11,0.30)' : 'rgba(245,158,11,0.20)';
+  const markColor = isDark ? '#fff' : '#111827';
+
   return `<style>
-.ab{color:#D1D5DB;font-size:15px;line-height:1.75;word-break:break-word}
-.ab h1{font-size:24px;font-weight:700;color:#fff;line-height:1.3;margin:16px 0 8px}
-.ab h2{font-size:20px;font-weight:700;color:#fff;line-height:1.35;margin:14px 0 6px}
-.ab h3{font-size:17px;font-weight:600;color:#E5E7EB;margin:12px 0 5px}
-.ab h4{font-size:15px;font-weight:600;color:#D1D5DB;margin:10px 0 4px}
+.ab{color:${textColor};font-size:15px;line-height:1.75;word-break:break-word}
+.ab h1{font-size:24px;font-weight:700;color:${headingColor};line-height:1.3;margin:16px 0 8px}
+.ab h2{font-size:20px;font-weight:700;color:${headingColor};line-height:1.35;margin:14px 0 6px}
+.ab h3{font-size:17px;font-weight:600;color:${h3Color};margin:12px 0 5px}
+.ab h4{font-size:15px;font-weight:600;color:${h4Color};margin:10px 0 4px}
 .ab p{margin-bottom:10px}
-.ab b,.ab strong{color:#fff;font-weight:700}
-.ab i,.ab em{color:#E5E7EB}
+.ab b,.ab strong{color:${strongColor};font-weight:700}
+.ab i,.ab em{color:${emColor}}
 .ab u{text-decoration-color:rgba(198,34,41,0.7)}
 .ab a{color:#C62229;text-decoration:underline}
 .ab ul,.ab ol{padding-left:22px;margin:6px 0 10px}
 .ab li{margin-bottom:4px}
-.ab blockquote{border-left:3px solid #C62229;padding:6px 12px;margin:10px 0;background:rgba(198,34,41,0.06);border-radius:0 6px 6px 0;color:#9CA3AF;font-style:italic}
-.ab pre{background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.10);border-radius:8px;padding:12px;font-family:monospace;font-size:13px;overflow-x:auto;margin:8px 0;color:#D1D5DB}
-.ab code{background:rgba(255,255,255,0.07);border-radius:4px;padding:1px 5px;font-family:monospace;font-size:13px;color:#E5E7EB}
+.ab blockquote{border-left:3px solid #C62229;padding:6px 12px;margin:10px 0;background:${blockquoteBg};border-radius:0 6px 6px 0;color:${blockquoteColor};font-style:italic}
+.ab pre{background:${preBg};border:1px solid ${preBorder};border-radius:8px;padding:12px;font-family:monospace;font-size:13px;overflow-x:auto;margin:8px 0;color:${preText}}
+.ab code{background:${codeBg};border-radius:4px;padding:1px 5px;font-family:monospace;font-size:13px;color:${codeText}}
 .ab img{max-width:100%;border-radius:8px;margin:6px 0;display:block}
-.ab hr{border:none;border-top:1px solid rgba(255,255,255,0.12);margin:14px 0}
+.ab hr{border:none;border-top:1px solid ${hrColor};margin:14px 0}
 .ab table{border-collapse:collapse;width:100%;margin:10px 0}
-.ab td,.ab th{border:1px solid rgba(255,255,255,0.15);padding:7px 10px;text-align:left}
-.ab th{background:rgba(255,255,255,0.06);font-weight:600;color:#fff}
+.ab td,.ab th{border:1px solid ${tableBorder};padding:7px 10px;text-align:left}
+.ab th{background:${thBg};font-weight:600;color:${thColor}}
 .ab sub{font-size:0.75em;vertical-align:sub}
 .ab sup{font-size:0.75em;vertical-align:super}
-.ab mark{background:rgba(245,158,11,0.30);color:#fff;border-radius:2px;padding:0 2px}
+.ab mark{background:${markBg};color:${markColor};border-radius:2px;padding:0 2px}
 </style><div class="ab">${html}</div>`;
 }
 
@@ -188,6 +229,7 @@ export default function ArticleViewerScreen() {
   const { articleId } = useLocalSearchParams<{ articleId: string }>();
   const insets       = useSafeAreaInsets();
   const tabBarHeight = useTabBarHeight();
+  const C = useColors();
   // Enough bottom padding so the engagement bar + tab bar + safe area all clear
   const scrollBottomPad = tabBarHeight + insets.bottom + 32;
 
@@ -288,16 +330,16 @@ export default function ArticleViewerScreen() {
       >
         <MobileCard>
           {/* ── Nav bar ────────────────────────────────────────── */}
-          <View style={styles.navBar}>
+          <View style={[styles.navBar, { borderBottomColor: C.isDark ? C.redBorder : 'rgba(198,34,41,0.35)', backgroundColor: C.isDark ? C.bgSurface : '#0F0F1E' }]}>
             <TouchableOpacity
               style={styles.backBtn}
               onPress={() => history.goBack(router)}
               accessibilityRole="button"
               accessibilityLabel="Go back"
             >
-              <Ionicons name="arrow-back" size={22} color={Colors.textSecondary} />
+              <Ionicons name="arrow-back" size={22} color={C.isDark ? C.textSecondary : '#D1D5DB'} />
             </TouchableOpacity>
-            <Text style={styles.navTitle} numberOfLines={1}>Article</Text>
+            <Text style={[styles.navTitle, { color: C.isDark ? C.textSecondary : '#FFFFFF' }]} numberOfLines={1}>Article</Text>
             <View style={{ width: 40 }} />
           </View>
 
@@ -312,8 +354,8 @@ export default function ArticleViewerScreen() {
                 resizeMode="cover"
               />
             ) : (
-              <View style={styles.coverPlaceholder}>
-                <Ionicons name="newspaper-outline" size={40} color="rgba(255,255,255,0.2)" />
+              <View style={[styles.coverPlaceholder, { backgroundColor: C.bgElevated }]}>
+                <Ionicons name="newspaper-outline" size={40} color={C.isDark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.15)"} />
               </View>
             );
           })()}
@@ -321,24 +363,24 @@ export default function ArticleViewerScreen() {
           <View style={styles.body}>
             {/* ── Gated badge ──────────────────────────────────── */}
             {isGated && (
-              <View style={styles.gatedBadge}>
+              <View style={[styles.gatedBadge, { backgroundColor: C.amberSurface, borderColor: C.amberBorder }]}>
                 <Ionicons
                   name={resolvedAccess ? "lock-open" : "lock-closed"}
                   size={11}
-                  color={Colors.statusWarning}
+                  color={C.statusWarning}
                 />
-                <Text style={styles.gatedText}>
+                <Text style={[styles.gatedText, { color: C.statusWarning }]}>
                   {resolvedAccess ? "Unlocked" : "Premium"}
                 </Text>
               </View>
             )}
 
             {/* ── Title ────────────────────────────────────────── */}
-            <Text style={styles.title}>{article.title}</Text>
+            <Text style={[styles.title, { color: C.textPrimary }]}>{article.title}</Text>
 
             {/* ── Subtitle ─────────────────────────────────────── */}
             {article.subtitle ? (
-              <Text style={styles.subtitle}>{article.subtitle}</Text>
+              <Text style={[styles.subtitle, { color: C.textMuted }]}>{article.subtitle}</Text>
             ) : null}
 
             {/* ── Author + meta ─────────────────────────────────── */}
@@ -350,16 +392,16 @@ export default function ArticleViewerScreen() {
                     style={styles.avatarImg}
                   />
                 ) : (
-                  <Ionicons name="person-circle-outline" size={18} color={Colors.textMuted} />
+                  <Ionicons name="person-circle-outline" size={18} color={C.textMuted} />
                 )}
               </View>
-              <Text style={styles.authorName}>{authorName}</Text>
-              <Text style={styles.metaDot}>·</Text>
-              <Text style={styles.timestamp}>{timeAgo}</Text>
+              <Text style={[styles.authorName, { color: C.textSecondary }]}>{authorName}</Text>
+              <Text style={[styles.metaDot, { color: C.textMuted }]}>·</Text>
+              <Text style={[styles.timestamp, { color: C.textMuted }]}>{timeAgo}</Text>
               {article.readTimeMin ? (
                 <>
-                  <Text style={styles.metaDot}>·</Text>
-                  <Text style={styles.readTime}>{article.readTimeMin} min read</Text>
+                  <Text style={[styles.metaDot, { color: C.textMuted }]}>·</Text>
+                  <Text style={[styles.readTime, { color: C.textMuted }]}>{article.readTimeMin} min read</Text>
                 </>
               ) : null}
             </View>
@@ -368,30 +410,30 @@ export default function ArticleViewerScreen() {
             {article.tags && article.tags.length > 0 && (
               <View style={styles.tagsRow}>
                 {article.tags.map((tag) => (
-                  <View key={tag} style={styles.tag}>
-                    <Text style={styles.tagText}>#{tag}</Text>
+                  <View key={tag} style={[styles.tag, { backgroundColor: C.bgElevated }]}>
+                    <Text style={[styles.tagText, { color: C.textMuted }]}>#{tag}</Text>
                   </View>
                 ))}
               </View>
             )}
 
-            <View style={styles.divider} />
+            <View style={[styles.divider, { backgroundColor: C.borderSubtle }]} />
 
             {/* ── Access spinner ────────────────────────────────── */}
             {showAccessSpinner && (
               <View style={styles.accessSpinnerWrap}>
-                <ActivityIndicator color={Colors.actionPrimary} />
-                <Text style={styles.accessSpinnerText}>Checking access…</Text>
+                <ActivityIndicator color={C.actionPrimary} />
+                <Text style={[styles.accessSpinnerText, { color: C.textMuted }]}>Checking access…</Text>
               </View>
             )}
 
             {/* ── Full article body ─────────────────────────────── */}
             {canViewBody && article.contentHtml ? (
-              <ArticleBodyRenderer contentHtml={article.contentHtml} />
+              <ArticleBodyRenderer contentHtml={article.contentHtml} isDark={C.isDark} />
             ) : canViewBody && !article.contentHtml ? (
               <View style={styles.emptyBodyWrap}>
-                <Ionicons name="document-text-outline" size={32} color={Colors.textMuted} />
-                <Text style={styles.emptyBodyText}>No content available.</Text>
+                <Ionicons name="document-text-outline" size={32} color={C.textMuted} />
+                <Text style={[styles.emptyBodyText, { color: C.textMuted }]}>No content available.</Text>
               </View>
             ) : null}
 
@@ -399,7 +441,7 @@ export default function ArticleViewerScreen() {
             {showPaywall && (
               <View style={styles.paywallWrap}>
                 {article.contentHtml ? (
-                  <Text style={styles.previewText} numberOfLines={4}>
+                  <Text style={[styles.previewText, { color: C.textSecondary }]} numberOfLines={4}>
                     {article.contentHtml
                       .replace(/<[^>]*>/g, " ")
                       .replace(/\s+/g, " ")
@@ -407,20 +449,20 @@ export default function ArticleViewerScreen() {
                       .slice(0, 220)}…
                   </Text>
                 ) : null}
-                <View style={styles.paywallOverlay} pointerEvents="none" />
-                <View style={styles.unlockCard}>
-                  <View style={styles.unlockIconWrap}>
-                    <Ionicons name="lock-closed" size={28} color={Colors.statusWarning} />
+                <View style={[styles.paywallOverlay, { backgroundColor: C.bgBase }]} pointerEvents="none" />
+                <View style={[styles.unlockCard, { backgroundColor: C.bgElevated, borderColor: C.amberBorder }]}>
+                  <View style={[styles.unlockIconWrap, { backgroundColor: C.amberSurface }]}>
+                    <Ionicons name="lock-closed" size={28} color={C.statusWarning} />
                   </View>
-                  <Text style={styles.unlockTitle}>Premium Article</Text>
-                  <Text style={styles.unlockSubtitle}>
+                  <Text style={[styles.unlockTitle, { color: C.textPrimary }]}>Premium Article</Text>
+                  <Text style={[styles.unlockSubtitle, { color: C.textMuted }]}>
                     Unlock full access for{" "}
-                    <Text style={styles.unlockPrice}>
+                    <Text style={[styles.unlockPrice, { color: C.statusWarning }]}>
                       {priceToken} {(priceAmount as number).toFixed(2)}
                     </Text>
                   </Text>
                   <TouchableOpacity
-                    style={styles.unlockBtn}
+                    style={[styles.unlockBtn, { backgroundColor: C.actionPrimary }]}
                     onPress={() => setPaywallOpen(true)}
                     activeOpacity={0.85}
                     accessibilityRole="button"
@@ -477,6 +519,8 @@ function formatTimeAgo(ts: number): string {
 }
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
+// NOTE: Color-dependent styles are applied inline via `C` (useColors hook).
+// This stylesheet contains geometry only + a few cross-theme constant colors.
 const styles = StyleSheet.create({
   scroll: { flex: 1 },
   scrollContent: {},
@@ -489,8 +533,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.redBorder,
-    backgroundColor: Colors.surface,
   },
   backBtn: {
     width: 40,
@@ -501,7 +543,6 @@ const styles = StyleSheet.create({
   navTitle: {
     fontSize: 16,
     fontWeight: "600",
-    color: Colors.textSecondary,
   },
 
   cover: {
@@ -511,7 +552,6 @@ const styles = StyleSheet.create({
   coverPlaceholder: {
     width: "100%",
     aspectRatio: 16 / 9,
-    backgroundColor: Colors.bgElevated,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -526,28 +566,23 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 5,
     alignSelf: "flex-start",
-    backgroundColor: Colors.amberSurface,
     borderRadius: 20,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderWidth: 1,
-    borderColor: Colors.amberBorder,
   },
   gatedText: {
     fontSize: 11,
     fontWeight: "700",
-    color: Colors.statusWarning,
   },
 
   title: {
     fontSize: 24,
     fontWeight: "700",
-    color: Colors.textPrimary,
     lineHeight: 32,
   },
   subtitle: {
     fontSize: 15,
-    color: Colors.textMuted,
     lineHeight: 22,
   },
 
@@ -566,23 +601,21 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   avatarImg: { width: 22, height: 22, borderRadius: 11 },
-  authorName: { fontSize: 13, fontWeight: "600", color: Colors.textSecondary },
-  metaDot: { fontSize: 13, color: Colors.textMuted },
-  timestamp: { fontSize: 12, color: Colors.textMuted },
-  readTime: { fontSize: 12, color: Colors.textMuted },
+  authorName: { fontSize: 13, fontWeight: "600" },
+  metaDot: { fontSize: 13 },
+  timestamp: { fontSize: 12 },
+  readTime: { fontSize: 12 },
 
   tagsRow: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
   tag: {
-    backgroundColor: Colors.bgElevated,
     borderRadius: 8,
     paddingHorizontal: 8,
     paddingVertical: 3,
   },
-  tagText: { fontSize: 11, color: Colors.textMuted },
+  tagText: { fontSize: 11 },
 
   divider: {
     height: 1,
-    backgroundColor: Colors.borderSubtle,
     marginVertical: 4,
   },
 
@@ -594,13 +627,11 @@ const styles = StyleSheet.create({
   },
   accessSpinnerText: {
     fontSize: 13,
-    color: Colors.textMuted,
   },
 
   // Plain text fallback (when WebView not available)
   articleBodyPlain: {
     fontSize: 15,
-    color: Colors.textSecondary,
     lineHeight: 26,
   },
 
@@ -611,7 +642,6 @@ const styles = StyleSheet.create({
   },
   emptyBodyText: {
     fontSize: 14,
-    color: Colors.textMuted,
   },
 
   // Paywall
@@ -622,7 +652,6 @@ const styles = StyleSheet.create({
   },
   previewText: {
     fontSize: 15,
-    color: Colors.textSecondary,
     lineHeight: 26,
   },
   paywallOverlay: {
@@ -632,16 +661,13 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     marginTop: "30%",
-    backgroundColor: Colors.bgBase,
     opacity: 0.92,
   },
   unlockCard: {
     marginTop: 16,
     alignItems: "center",
-    backgroundColor: Colors.bgElevated,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: Colors.amberBorder,
     padding: 24,
     gap: 8,
   },
@@ -649,7 +675,6 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: Colors.amberSurface,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 4,
@@ -657,17 +682,14 @@ const styles = StyleSheet.create({
   unlockTitle: {
     fontSize: 17,
     fontWeight: "700",
-    color: Colors.textPrimary,
   },
   unlockSubtitle: {
     fontSize: 14,
-    color: Colors.textMuted,
     textAlign: "center",
     lineHeight: 20,
   },
   unlockPrice: {
     fontWeight: "700",
-    color: Colors.statusWarning,
   },
   unlockBtn: {
     flexDirection: "row",
@@ -676,7 +698,6 @@ const styles = StyleSheet.create({
     marginTop: 8,
     height: 48,
     borderRadius: 999,
-    backgroundColor: Colors.primary,
     paddingHorizontal: 24,
   },
   unlockBtnText: {

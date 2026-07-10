@@ -1,7 +1,10 @@
 /**
- * Write Reel Screen
- * Create and publish a new reel.
+ * Write Reel Screen — 3-step wizard
  * Route: /(tabs)/write-reel
+ *
+ * Step 1 — Media     video + cover image
+ * Step 2 — Details   caption, tags, visibility
+ * Step 3 — Settings  sensitive, premium/price → Publish
  */
 
 import React, { useState, useRef, useCallback } from "react";
@@ -16,12 +19,13 @@ import {
   ActivityIndicator,
   Switch,
   Image,
+  Platform,
+  KeyboardAvoidingView,
 } from "react-native";
 import { useRouter, Redirect } from "expo-router";
 import { useMutation, useQuery } from "convex/react";
 import { Authenticated, Unauthenticated, AuthLoading } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { Id } from "@/convex/_generated/dataModel";
 import * as ImagePicker from "expo-image-picker";
 import { VideoView, useVideoPlayer } from "expo-video";
 import { Ionicons } from "@expo/vector-icons";
@@ -32,34 +36,52 @@ import { MobileCard } from "@/components/MobileCard";
 import { Colors } from "@/tokens/colors";
 import { typeScale } from "@/tokens/typography";
 import { spacing } from "@/tokens/spacing";
+import { radius } from "@/tokens/radius";
+import { WizardProgressBar } from "@/components/ui/ScreenHeader";
+import { useTabBarHeight } from "@/utils/useDeviceClass";
 import { CURRENCIES, Currency, CURRENCY_SYMBOLS } from "@/utils/currency";
 import { useNavigationHistory } from "@/context/NavigationHistoryContext";
 
+// ─── Constants ────────────────────────────────────────────────────────────────
+const TOTAL_STEPS = 3;
+const STEP_LABELS    = ["Media", "Details", "Settings"];
+const STEP_SUBTITLES = [
+  "Upload your video and cover image",
+  "Add a caption, tags, and set visibility",
+  "Final settings before publishing",
+];
+
 // ─── Form content ─────────────────────────────────────────────────────────────
 function WriteReelContent() {
-  const router = useRouter();
+  const router  = useRouter();
   const history = useNavigationHistory();
-  const insets = useSafeAreaInsets();
+  const insets       = useSafeAreaInsets();
+  const tabBarHeight = useTabBarHeight();
+  const bottomPad    = tabBarHeight + insets.bottom + spacing.space8;
 
-  const [caption, setCaption] = useState("");
-  const [tags, setTags] = useState("");
-  const [isGated, setIsGated] = useState(false);
-  const [priceAmount, setPriceAmount] = useState("1");
+  const scrollRef = useRef<ScrollView>(null);
+
+  // ── Wizard state ──────────────────────────────────────────────────────────
+  const [step, setStep] = useState(1);
+
+  // ── Form state ────────────────────────────────────────────────────────────
+  const [caption,       setCaption]       = useState("");
+  const [tags,          setTags]          = useState("");
+  const [isGated,       setIsGated]       = useState(false);
+  const [priceAmount,   setPriceAmount]   = useState("1");
   const [priceCurrency, setPriceCurrency] = useState<Currency>("USD");
-  const [isSensitive, setIsSensitive] = useState(false);
-  const [isPublic, setIsPublic] = useState(true);
-  const [videoUri, setVideoUri] = useState<string | null>(null);
-  const [coverUri, setCoverUri] = useState<string | null>(null);
-  const [coverMime, setCoverMime] = useState("image/jpeg");
-  const [submitting, setSubmitting] = useState(false);
-  const [currencyOpen, setCurrencyOpen] = useState(false);
+  const [isSensitive,   setIsSensitive]   = useState(false);
+  const [isPublic,      setIsPublic]      = useState(true);
+  const [videoUri,      setVideoUri]      = useState<string | null>(null);
+  const [coverUri,      setCoverUri]      = useState<string | null>(null);
+  const [coverMime,     setCoverMime]     = useState("image/jpeg");
+  const [submitting,    setSubmitting]    = useState(false);
+  const [currencyOpen,  setCurrencyOpen]  = useState(false);
 
   const generateUploadUrl = useMutation(api.files.generateUploadUrl);
-  const createReel = useMutation(api.reels.createReel);
-  const myProfile = useQuery(api.profiles.getMyProfile);
-  const walletData = useQuery((api as any)["wallets/getWalletBalance"].getWalletBalance, {});
+  const createReel        = useMutation(api.reels.createReel);
+  const walletData        = useQuery((api as any)["wallets/getWalletBalance"].getWalletBalance, {});
 
-  // Sync wallet primary currency into priceCurrency once loaded
   const walletSynced = useRef(false);
   React.useEffect(() => {
     if (!walletSynced.current && walletData?.primaryCurrency) {
@@ -68,13 +90,12 @@ function WriteReelContent() {
     }
   }, [walletData]);
 
-  // ── Video preview player ──────────────────────────────────────────────────
   const previewPlayer = useVideoPlayer(videoUri ?? null, (p) => {
-    p.loop = true;
+    p.loop  = true;
     p.muted = true;
   });
 
-  // ── Pick video ────────────────────────────────────────────────────────────
+  // ── Media pickers ─────────────────────────────────────────────────────────
   const handlePickVideo = useCallback(async () => {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (perm.status !== "granted") {
@@ -86,12 +107,9 @@ function WriteReelContent() {
       allowsEditing: false,
       quality: 1,
     });
-    if (!result.canceled && result.assets?.[0]) {
-      setVideoUri(result.assets[0].uri);
-    }
+    if (!result.canceled && result.assets?.[0]) setVideoUri(result.assets[0].uri);
   }, []);
 
-  // ── Pick cover image ───────────────────────────────────────────────────────
   const handlePickCover = useCallback(async () => {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (perm.status !== "granted") {
@@ -112,404 +130,311 @@ function WriteReelContent() {
 
   // ── Submit ────────────────────────────────────────────────────────────────
   const handleSubmit = useCallback(async () => {
-    if (!videoUri) {
-      Alert.alert("No video", "Please select a video first.");
-      return;
-    }
-    if (!coverUri) {
-      Alert.alert("Cover image required", "Please upload a cover image for your Pulse.");
-      return;
-    }
+    if (!videoUri) { Alert.alert("No video", "Please select a video first."); return; }
+    if (!coverUri) { Alert.alert("Cover required", "Please upload a cover image."); return; }
     const parsedPrice = parseFloat(priceAmount);
     if (isGated && (isNaN(parsedPrice) || parsedPrice <= 0)) {
-      Alert.alert("Invalid price", "Please enter a valid price.");
-      return;
+      Alert.alert("Invalid price", "Please enter a valid price."); return;
     }
-
     setSubmitting(true);
     try {
-      // Upload video
-      const uploadUrl = await generateUploadUrl();
-      const response = await fetch(videoUri);
-      const blob = await response.blob();
-      const uploadRes = await fetch(uploadUrl, {
-        method: "POST",
-        headers: { "Content-Type": blob.type || "video/mp4" },
-        body: blob,
-      });
+      const uploadUrl  = await generateUploadUrl();
+      const response   = await fetch(videoUri);
+      const blob       = await response.blob();
+      const uploadRes  = await fetch(uploadUrl, { method: "POST", headers: { "Content-Type": blob.type || "video/mp4" }, body: blob });
       if (!uploadRes.ok) throw new Error("Upload failed");
       const { storageId } = await uploadRes.json();
 
-      // Upload cover image
       const coverUploadUrl = await generateUploadUrl();
-      const coverResponse = await fetch(coverUri);
-      const coverBlob = await coverResponse.blob();
-      const coverUploadRes = await fetch(coverUploadUrl, {
-        method: "POST",
-        headers: { "Content-Type": coverMime },
-        body: coverBlob,
-      });
-      if (!coverUploadRes.ok) throw new Error("Cover image upload failed");
+      const coverResponse  = await fetch(coverUri);
+      const coverBlob      = await coverResponse.blob();
+      const coverUploadRes = await fetch(coverUploadUrl, { method: "POST", headers: { "Content-Type": coverMime }, body: coverBlob });
+      if (!coverUploadRes.ok) throw new Error("Cover upload failed");
       const { storageId: posterStorageId } = await coverUploadRes.json();
 
-      const tagsArray = tags
-        .split(",")
-        .map((t) => t.trim())
-        .filter(Boolean);
-
+      const tagsArray = tags.split(",").map((t) => t.trim()).filter(Boolean);
       await createReel({
-        video: storageId,
-        poster: posterStorageId,
+        video: storageId, poster: posterStorageId,
         caption: caption.trim() || undefined,
-        tags: tagsArray,
-        isGated,
+        tags: tagsArray, isGated,
         priceToken: isGated ? priceCurrency : undefined,
         priceAmount: isGated ? parsedPrice : undefined,
-        isSensitive,
-        isPublic,
+        isSensitive, isPublic,
       });
-
-      Alert.alert(
-        "Published!",
-        "Your reel has been submitted and will appear once approved.",
-        [{ text: "OK", onPress: () => router.replace("/(tabs)/pulse") }]
-      );
+      Alert.alert("Published!", "Your reel has been submitted and will appear once approved.", [
+        { text: "OK", onPress: () => router.replace("/(tabs)/pulse") },
+      ]);
     } catch (e: any) {
       Alert.alert("Error", e.message ?? "Failed to publish reel.");
     } finally {
       setSubmitting(false);
     }
-  }, [
-    videoUri,
-    coverUri,
-    coverMime,
-    caption,
-    tags,
-    isGated,
-    priceAmount,
-    priceCurrency,
-    isSensitive,
-    isPublic,
-    generateUploadUrl,
-    createReel,
-    router,
-  ]);
+  }, [videoUri, coverUri, coverMime, caption, tags, isGated, priceAmount, priceCurrency, isSensitive, isPublic, generateUploadUrl, createReel, router]);
+
+  // ── Navigation ────────────────────────────────────────────────────────────
+  function handleNext() {
+    if (step === 1) {
+      if (!videoUri) { Alert.alert("Video required", "Please select a video before continuing."); return; }
+      if (!coverUri) { Alert.alert("Cover required", "Please upload a cover image before continuing."); return; }
+    }
+    setStep((s) => Math.min(s + 1, TOTAL_STEPS) as any);
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
+  }
+
+  function handleBack() {
+    if (step === 1) { history.goBack(router); return; }
+    setStep((s) => Math.max(s - 1, 1) as any);
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
+  }
 
   return (
     <AppBackground style={styles.root}>
       <MobileCard style={styles.formCard} containerStyle={styles.formCardContainer}>
-        {/* Header — inside card, pinned to top */}
+        {/* ── Screen header ──────────────────────────────────────────── */}
         <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
           <TouchableOpacity
-            onPress={() => history.goBack(router)}
+            onPress={handleBack}
             style={styles.headerBtn}
             activeOpacity={0.75}
             accessibilityRole="button"
-            accessibilityLabel="Cancel"
+            accessibilityLabel={step === 1 ? "Cancel" : "Back"}
           >
-            <Ionicons name="close" size={24} color={Colors.iconPrimary} />
+            <Ionicons name="chevron-back" size={24} color={Colors.iconPrimary} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle} allowFontScaling={false}>
-            Create Pulse
-          </Text>
-          <TouchableOpacity
-            style={[styles.publishBtn, (!videoUri || !coverUri || submitting) && styles.publishBtnDisabled]}
-            onPress={handleSubmit}
-            disabled={!videoUri || !coverUri || submitting}
-            activeOpacity={0.85}
-            accessibilityRole="button"
-            accessibilityLabel="Publish reel"
-          >
-            {submitting ? (
-              <ActivityIndicator size="small" color="#fff" />
-            ) : (
-              <Text style={styles.publishBtnText} allowFontScaling={false}>
-                Publish
-              </Text>
-            )}
-          </TouchableOpacity>
+          <Text style={styles.headerTitle} allowFontScaling={false}>Create Pulse</Text>
+          <View style={styles.headerBtn} />
         </View>
 
-        <ScrollView
-          style={styles.scroll}
-          contentContainerStyle={[
-            styles.scrollContent,
-            { paddingBottom: insets.bottom + 32 },
-          ]}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
         >
-        {/* Video picker */}
-        {!videoUri ? (
-          <TouchableOpacity
-            style={styles.videoPicker}
-            onPress={handlePickVideo}
-            activeOpacity={0.8}
-            accessibilityRole="button"
-            accessibilityLabel="Select video"
+          <ScrollView
+            ref={scrollRef}
+            style={styles.scroll}
+            contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomPad }]}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
           >
-            <Ionicons name="videocam-outline" size={48} color={Colors.iconDisabled} />
-            <Text style={styles.videoPickerTitle} allowFontScaling={false}>
-              Select a Video
-            </Text>
-            <Text style={styles.videoPickerSub} allowFontScaling={false}>
-              MP4, MOV up to 100 MB
-            </Text>
-          </TouchableOpacity>
-        ) : (
-          <View style={styles.videoPreviewWrap}>
-            <VideoView
-              player={previewPlayer}
-              style={styles.videoPreview}
-              contentFit="cover"
-              nativeControls={false}
-              accessibilityLabel="Video preview"
-            />
-            <TouchableOpacity
-              style={styles.removeVideoBtn}
-              onPress={() => setVideoUri(null)}
-              activeOpacity={0.8}
-              accessibilityRole="button"
-              accessibilityLabel="Remove video"
-            >
-              <Ionicons name="close-circle" size={28} color="#fff" />
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {/* Cover image picker */}
-        <View style={styles.field}>
-          <View style={styles.fieldLabelRow}>
-            <Text style={styles.fieldLabel} allowFontScaling={false}>
-              Cover Image
-            </Text>
-            <Text style={styles.fieldRequired} allowFontScaling={false}>Required</Text>
-          </View>
-          <Text style={styles.fieldHint} allowFontScaling={false}>
-            Shown in the feed instead of the video thumbnail
-          </Text>
-          {!coverUri ? (
-            <TouchableOpacity
-              style={styles.coverPicker}
-              onPress={handlePickCover}
-              activeOpacity={0.8}
-              accessibilityRole="button"
-              accessibilityLabel="Select cover image"
-            >
-              <Ionicons name="image-outline" size={32} color={Colors.iconDisabled} />
-              <Text style={styles.coverPickerTitle} allowFontScaling={false}>
-                Select Cover Image
-              </Text>
-              <Text style={styles.coverPickerSub} allowFontScaling={false}>
-                JPG, PNG · 16:9 recommended
-              </Text>
-            </TouchableOpacity>
-          ) : (
-            <View style={styles.coverPreviewWrap}>
-              <Image
-                source={{ uri: coverUri }}
-                style={styles.coverPreview}
-                resizeMode="cover"
-                accessibilityLabel="Cover image preview"
-              />
-              <TouchableOpacity
-                style={styles.removeCoverBtn}
-                onPress={() => setCoverUri(null)}
-                activeOpacity={0.8}
-                accessibilityRole="button"
-                accessibilityLabel="Remove cover image"
-              >
-                <Ionicons name="close-circle" size={28} color="#fff" />
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.changeCoverBtn}
-                onPress={handlePickCover}
-                activeOpacity={0.8}
-                accessibilityRole="button"
-                accessibilityLabel="Change cover image"
-              >
-                <Ionicons name="camera-outline" size={14} color="#fff" />
-                <Text style={styles.changeCoverText} allowFontScaling={false}>Change</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-        </View>
-
-        {/* Caption */}
-        <View style={styles.field}>
-          <Text style={styles.fieldLabel} allowFontScaling={false}>
-            Caption
-          </Text>          <TextInput
-            style={styles.textArea}
-            placeholder="Write a caption…"
-            placeholderTextColor={Colors.textDisabled}
-            value={caption}
-            onChangeText={setCaption}
-            maxLength={500}
-            multiline
-            numberOfLines={3}
-            textAlignVertical="top"
-            accessibilityLabel="Caption"
-          />
-          <Text style={styles.charCount} allowFontScaling={false}>
-            {caption.length}/500
-          </Text>
-        </View>
-
-        {/* Tags */}
-        <View style={styles.field}>
-          <Text style={styles.fieldLabel} allowFontScaling={false}>
-            Tags
-          </Text>
-          <TextInput
-            style={styles.textInput}
-            placeholder="fitness, health, wellness"
-            placeholderTextColor={Colors.textDisabled}
-            value={tags}
-            onChangeText={setTags}
-            accessibilityLabel="Tags"
-          />
-          <Text style={styles.fieldHint} allowFontScaling={false}>
-            Comma-separated
-          </Text>
-        </View>
-
-        {/* Divider */}
-        <View style={styles.divider} />
-
-        {/* Visibility */}
-        <View style={styles.field}>
-          <Text style={styles.fieldLabel} allowFontScaling={false}>
-            Visibility
-          </Text>
-          <View style={styles.radioGroup}>
-            {[
-              { value: true, label: "Public", sub: "Shows in the Reels feed" },
-              { value: false, label: "Course-only", sub: "Only available in courses" },
-            ].map(({ value, label, sub }) => (
-              <TouchableOpacity
-                key={String(value)}
-                style={[styles.radioRow, isPublic === value && styles.radioRowActive]}
-                onPress={() => setIsPublic(value)}
-                activeOpacity={0.8}
-                accessibilityRole="radio"
-                accessibilityState={{ checked: isPublic === value }}
-              >
-                <View style={[styles.radioCircle, isPublic === value && styles.radioCircleActive]}>
-                  {isPublic === value && <View style={styles.radioDot} />}
-                </View>
-                <View style={styles.radioText}>
-                  <Text style={styles.radioLabel} allowFontScaling={false}>
-                    {label}
-                  </Text>
-                  <Text style={styles.radioSub} allowFontScaling={false}>
-                    {sub}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-
-        {/* Sensitive toggle */}
-        <View style={styles.toggleRow}>
-          <View style={styles.toggleInfo}>
-            <Text style={styles.toggleLabel} allowFontScaling={false}>
-              Sensitive Content
-            </Text>
-            <Text style={styles.toggleSub} allowFontScaling={false}>
-              Adds a warning before playback
-            </Text>
-          </View>
-          <Switch
-            value={isSensitive}
-            onValueChange={setIsSensitive}
-            trackColor={{ false: Colors.bgElevated, true: Colors.actionPrimary }}
-            thumbColor="#fff"
-            accessibilityLabel="Mark as sensitive"
-          />
-        </View>
-
-        {/* Gated toggle */}
-        <View style={styles.toggleRow}>
-          <View style={styles.toggleInfo}>
-            <Text style={styles.toggleLabel} allowFontScaling={false}>
-              Premium (Paid)
-            </Text>
-            <Text style={styles.toggleSub} allowFontScaling={false}>
-              Viewers must pay to watch
-            </Text>
-          </View>
-          <Switch
-            value={isGated}
-            onValueChange={setIsGated}
-            trackColor={{ false: Colors.bgElevated, true: Colors.actionPrimary }}
-            thumbColor="#fff"
-            accessibilityLabel="Make premium"
-          />
-        </View>
-
-        {/* Price fields */}
-        {isGated && (
-          <View style={styles.priceRow}>
-            <View style={styles.priceAmountWrap}>
-              <Text style={styles.fieldLabel} allowFontScaling={false}>
-                Price
-              </Text>
-              <TextInput
-                style={styles.textInput}
-                placeholder="1.00"
-                placeholderTextColor={Colors.textDisabled}
-                value={priceAmount}
-                onChangeText={setPriceAmount}
-                keyboardType="decimal-pad"
-                accessibilityLabel="Price amount"
-              />
-            </View>
-            <View style={styles.priceCurrencyWrap}>
-              <Text style={styles.fieldLabel} allowFontScaling={false}>
-                Currency
-              </Text>
-              <TouchableOpacity
-                style={styles.textInput}
-                onPress={() => setCurrencyOpen((o) => !o)}
-                activeOpacity={0.8}
-                accessibilityRole="button"
-                accessibilityLabel="Select currency"
-              >
-                <Text style={styles.currencyBtnText} allowFontScaling={false}>
-                  {CURRENCY_SYMBOLS[priceCurrency]} {priceCurrency}
+            {/* ── Progress header ──────────────────────────────────── */}
+            <View style={styles.progressSection}>
+              <View style={styles.progressLabels}>
+                <Text style={styles.stepCounter} allowFontScaling={false}>
+                  Step {step} of {TOTAL_STEPS}
                 </Text>
-              </TouchableOpacity>
-              {currencyOpen && (
-                <View style={styles.currencyDropdown}>
-                  {CURRENCIES.map((c) => (
-                    <TouchableOpacity
-                      key={c}
-                      style={[
-                        styles.currencyItem,
-                        priceCurrency === c && styles.currencyItemActive,
-                      ]}
-                      onPress={() => {
-                        setPriceCurrency(c);
-                        setCurrencyOpen(false);
-                      }}
-                      activeOpacity={0.8}
-                    >
-                      <Text style={styles.currencyItemText} allowFontScaling={false}>
-                        {CURRENCY_SYMBOLS[c]} {c}
-                      </Text>
-                      {priceCurrency === c && (
-                        <Ionicons name="checkmark" size={14} color={Colors.actionPrimary} />
-                      )}
+                <Text style={styles.stepName} allowFontScaling={false}>
+                  {STEP_LABELS[step - 1]}
+                </Text>
+              </View>
+              <WizardProgressBar step={step} total={TOTAL_STEPS} />
+            </View>
+
+            {/* ── Step title ───────────────────────────────────────── */}
+            <View style={styles.stepHeader}>
+              <Text style={styles.stepTitle} allowFontScaling={false}>{STEP_LABELS[step - 1]}</Text>
+              <Text style={styles.stepSubtitle} allowFontScaling={false}>{STEP_SUBTITLES[step - 1]}</Text>
+            </View>
+
+            {/* ════════════════════════════════════════════════════════
+                STEP 1 — Media
+            ════════════════════════════════════════════════════════ */}
+            {step === 1 && (
+              <View style={styles.stepBody}>
+                {/* Video picker */}
+                {!videoUri ? (
+                  <TouchableOpacity style={styles.videoPicker} onPress={handlePickVideo} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel="Select video">
+                    <Ionicons name="videocam-outline" size={48} color={Colors.iconDisabled} />
+                    <Text style={styles.videoPickerTitle} allowFontScaling={false}>Select a Video</Text>
+                    <Text style={styles.videoPickerSub} allowFontScaling={false}>MP4, MOV up to 100 MB</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <View style={styles.videoPreviewWrap}>
+                    <VideoView player={previewPlayer} style={styles.videoPreview} contentFit="cover" nativeControls={false} accessibilityLabel="Video preview" />
+                    <TouchableOpacity style={styles.removeVideoBtn} onPress={() => setVideoUri(null)} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel="Remove video">
+                      <Ionicons name="close-circle" size={28} color="#fff" />
                     </TouchableOpacity>
-                  ))}
+                  </View>
+                )}
+
+                {/* Cover image picker */}
+                <View style={styles.field}>
+                  <View style={styles.fieldLabelRow}>
+                    <Text style={styles.fieldLabel} allowFontScaling={false}>Cover Image</Text>
+                    <Text style={styles.fieldRequired} allowFontScaling={false}>Required</Text>
+                  </View>
+                  <Text style={styles.fieldHint} allowFontScaling={false}>Shown in the feed instead of the video thumbnail</Text>
+                  {!coverUri ? (
+                    <TouchableOpacity style={styles.coverPicker} onPress={handlePickCover} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel="Select cover image">
+                      <Ionicons name="image-outline" size={32} color={Colors.iconDisabled} />
+                      <Text style={styles.coverPickerTitle} allowFontScaling={false}>Select Cover Image</Text>
+                      <Text style={styles.coverPickerSub} allowFontScaling={false}>JPG, PNG · 16:9 recommended</Text>
+                    </TouchableOpacity>
+                  ) : (
+                    <View style={styles.coverPreviewWrap}>
+                      <Image source={{ uri: coverUri }} style={styles.coverPreview} resizeMode="cover" accessibilityLabel="Cover image preview" />
+                      <TouchableOpacity style={styles.removeCoverBtn} onPress={() => setCoverUri(null)} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel="Remove cover image">
+                        <Ionicons name="close-circle" size={28} color="#fff" />
+                      </TouchableOpacity>
+                      <TouchableOpacity style={styles.changeCoverBtn} onPress={handlePickCover} activeOpacity={0.8}>
+                        <Ionicons name="camera-outline" size={14} color="#fff" />
+                        <Text style={styles.changeCoverText} allowFontScaling={false}>Change</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
                 </View>
+              </View>
+            )}
+
+            {/* ════════════════════════════════════════════════════════
+                STEP 2 — Details
+            ════════════════════════════════════════════════════════ */}
+            {step === 2 && (
+              <View style={styles.stepBody}>
+                {/* Caption */}
+                <View style={styles.field}>
+                  <Text style={styles.fieldLabel} allowFontScaling={false}>Caption</Text>
+                  <TextInput
+                    style={styles.textArea}
+                    placeholder="Write a caption…"
+                    placeholderTextColor={Colors.textDisabled}
+                    value={caption}
+                    onChangeText={setCaption}
+                    maxLength={500}
+                    multiline
+                    numberOfLines={3}
+                    textAlignVertical="top"
+                    accessibilityLabel="Caption"
+                  />
+                  <Text style={styles.charCount} allowFontScaling={false}>{caption.length}/500</Text>
+                </View>
+
+                {/* Tags */}
+                <View style={styles.field}>
+                  <Text style={styles.fieldLabel} allowFontScaling={false}>Tags</Text>
+                  <TextInput
+                    style={styles.textInput}
+                    placeholder="fitness, health, wellness"
+                    placeholderTextColor={Colors.textDisabled}
+                    value={tags}
+                    onChangeText={setTags}
+                    accessibilityLabel="Tags"
+                  />
+                  <Text style={styles.fieldHint} allowFontScaling={false}>Comma-separated</Text>
+                </View>
+
+                {/* Visibility */}
+                <View style={styles.field}>
+                  <Text style={styles.fieldLabel} allowFontScaling={false}>Visibility</Text>
+                  <View style={styles.radioGroup}>
+                    {[
+                      { value: true,  label: "Public",      sub: "Shows in the Reels feed" },
+                      { value: false, label: "Course-only", sub: "Only available in courses" },
+                    ].map(({ value, label, sub }) => (
+                      <TouchableOpacity
+                        key={String(value)}
+                        style={[styles.radioRow, isPublic === value && styles.radioRowActive]}
+                        onPress={() => setIsPublic(value)}
+                        activeOpacity={0.8}
+                        accessibilityRole="radio"
+                        accessibilityState={{ checked: isPublic === value }}
+                      >
+                        <View style={[styles.radioCircle, isPublic === value && styles.radioCircleActive]}>
+                          {isPublic === value && <View style={styles.radioDot} />}
+                        </View>
+                        <View style={styles.radioText}>
+                          <Text style={styles.radioLabel} allowFontScaling={false}>{label}</Text>
+                          <Text style={styles.radioSub} allowFontScaling={false}>{sub}</Text>
+                        </View>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+              </View>
+            )}
+
+            {/* ════════════════════════════════════════════════════════
+                STEP 3 — Settings
+            ════════════════════════════════════════════════════════ */}
+            {step === 3 && (
+              <View style={styles.stepBody}>
+                {/* Sensitive toggle */}
+                <View style={styles.toggleRow}>
+                  <View style={styles.toggleInfo}>
+                    <Text style={styles.toggleLabel} allowFontScaling={false}>Sensitive Content</Text>
+                    <Text style={styles.toggleSub} allowFontScaling={false}>Adds a warning before playback</Text>
+                  </View>
+                  <Switch value={isSensitive} onValueChange={setIsSensitive} trackColor={{ false: Colors.bgElevated, true: Colors.actionPrimary }} thumbColor="#fff" accessibilityLabel="Mark as sensitive" />
+                </View>
+
+                {/* Gated toggle */}
+                <View style={styles.toggleRow}>
+                  <View style={styles.toggleInfo}>
+                    <Text style={styles.toggleLabel} allowFontScaling={false}>Premium (Paid)</Text>
+                    <Text style={styles.toggleSub} allowFontScaling={false}>Viewers must pay to watch</Text>
+                  </View>
+                  <Switch value={isGated} onValueChange={setIsGated} trackColor={{ false: Colors.bgElevated, true: Colors.actionPrimary }} thumbColor="#fff" accessibilityLabel="Make premium" />
+                </View>
+
+                {/* Price fields */}
+                {isGated && (
+                  <View style={styles.priceRow}>
+                    <View style={styles.priceAmountWrap}>
+                      <Text style={styles.fieldLabel} allowFontScaling={false}>Price</Text>
+                      <TextInput
+                        style={styles.textInput}
+                        placeholder="1.00"
+                        placeholderTextColor={Colors.textDisabled}
+                        value={priceAmount}
+                        onChangeText={setPriceAmount}
+                        keyboardType="decimal-pad"
+                        accessibilityLabel="Price amount"
+                      />
+                    </View>
+                    <View style={styles.priceCurrencyWrap}>
+                      <Text style={styles.fieldLabel} allowFontScaling={false}>Currency</Text>
+                      <TouchableOpacity style={styles.textInput} onPress={() => setCurrencyOpen((o) => !o)} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel="Select currency">
+                        <Text style={styles.currencyBtnText} allowFontScaling={false}>{CURRENCY_SYMBOLS[priceCurrency]} {priceCurrency}</Text>
+                      </TouchableOpacity>
+                      {currencyOpen && (
+                        <View style={styles.currencyDropdown}>
+                          {CURRENCIES.map((c) => (
+                            <TouchableOpacity key={c} style={[styles.currencyItem, priceCurrency === c && styles.currencyItemActive]} onPress={() => { setPriceCurrency(c as Currency); setCurrencyOpen(false); }} activeOpacity={0.8}>
+                              <Text style={styles.currencyItemText} allowFontScaling={false}>{CURRENCY_SYMBOLS[c as Currency]} {c}</Text>
+                              {priceCurrency === c && <Ionicons name="checkmark" size={14} color={Colors.actionPrimary} />}
+                            </TouchableOpacity>
+                          ))}
+                        </View>
+                      )}
+                    </View>
+                  </View>
+                )}
+              </View>
+            )}
+
+            {/* ── Nav buttons ──────────────────────────────────────── */}
+            <View style={styles.navRow}>
+              <TouchableOpacity style={styles.backBtn} onPress={handleBack} disabled={submitting} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel={step === 1 ? "Cancel" : "Back"}>
+                <Ionicons name="chevron-back" size={18} color={Colors.textSecondary} />
+                <Text style={styles.backBtnText} allowFontScaling={false}>{step === 1 ? "Cancel" : "Back"}</Text>
+              </TouchableOpacity>
+
+              {step < TOTAL_STEPS ? (
+                <TouchableOpacity style={styles.nextBtn} onPress={handleNext} activeOpacity={0.85} accessibilityRole="button" accessibilityLabel="Next">
+                  <Text style={styles.nextBtnText} allowFontScaling={false}>Next</Text>
+                  <Ionicons name="chevron-forward" size={18} color="#fff" />
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity style={[styles.nextBtn, submitting && styles.nextBtnDisabled]} onPress={handleSubmit} disabled={submitting} activeOpacity={0.85} accessibilityRole="button" accessibilityLabel="Publish">
+                  {submitting ? (
+                    <><ActivityIndicator size="small" color="#fff" /><Text style={styles.nextBtnText} allowFontScaling={false}>Publishing…</Text></>
+                  ) : (
+                    <><Ionicons name="send-outline" size={18} color="#fff" /><Text style={styles.nextBtnText} allowFontScaling={false}>Publish</Text></>
+                  )}
+                </TouchableOpacity>
               )}
             </View>
-          </View>
-        )}
-        </ScrollView>
+          </ScrollView>
+        </KeyboardAvoidingView>
       </MobileCard>
     </AppBackground>
   );
@@ -518,15 +443,9 @@ function WriteReelContent() {
 export default function WriteReelScreen() {
   return (
     <>
-      <AuthLoading>
-        <AppLoader />
-      </AuthLoading>
-      <Unauthenticated>
-        <Redirect href="/" />
-      </Unauthenticated>
-      <Authenticated>
-        <WriteReelContent />
-      </Authenticated>
+      <AuthLoading><AppLoader /></AuthLoading>
+      <Unauthenticated><Redirect href="/" /></Unauthenticated>
+      <Authenticated><WriteReelContent /></Authenticated>
     </>
   );
 }
@@ -534,19 +453,10 @@ export default function WriteReelScreen() {
 // ─── Styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   root: { flex: 1 },
+  formCardContainer: { flex: 1, paddingTop: 0, paddingBottom: 0 },
+  formCard: { flex: 1, padding: 0 },
 
-  // Form card
-  formCardContainer: {
-    flex: 1,
-    paddingTop: 0,
-    paddingBottom: 16,
-  },
-  formCard: {
-    flex: 1,
-    padding: 0,
-  },
-
-  // Header — now lives inside the card
+  // Header
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -555,292 +465,143 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: Colors.borderSubtle,
   },
-  headerBtn: {
-    width: 40,
-    height: 40,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  headerTitle: {
-    flex: 1,
-    ...typeScale.headingMD,
-    color: Colors.textPrimary,
-    textAlign: "center",
-  },
-  publishBtn: {
-    backgroundColor: Colors.actionPrimary,
-    borderRadius: 20,
-    paddingHorizontal: spacing.space4,
-    paddingVertical: spacing.space2,
-    minWidth: 72,
-    alignItems: "center",
-  },
-  publishBtnDisabled: {
-    opacity: 0.45,
-  },
-  publishBtnText: {
-    ...typeScale.labelMD,
-    color: "#fff",
-  },
+  headerBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
+  headerTitle: { flex: 1, ...typeScale.headingMD, color: Colors.textPrimary, textAlign: "center" },
 
   // Scroll
   scroll: { flex: 1 },
-  scrollContent: {
-    padding: spacing.space4,
-    gap: spacing.space4,
-  },
+  scrollContent: { padding: spacing.space4, gap: spacing.space4 },
+
+  // Progress
+  progressSection: { marginBottom: spacing.space2 },
+  progressLabels: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: spacing.space2 },
+  stepCounter: { ...typeScale.labelSM, color: Colors.textSecondary, fontWeight: "600" },
+  stepName: { ...typeScale.caption, color: Colors.textMuted },
+
+  // Step header
+  stepHeader: { marginBottom: spacing.space4, gap: spacing.space1 },
+  stepTitle: { ...typeScale.headingLG, color: Colors.textPrimary, fontWeight: "700" },
+  stepSubtitle: { ...typeScale.bodyMD, color: Colors.textMuted, lineHeight: 22 },
+
+  // Step body
+  stepBody: { gap: spacing.space4 },
 
   // Video picker
   videoPicker: {
-    height: 220,
-    borderRadius: 16,
-    borderWidth: 2,
-    borderColor: Colors.borderDefault,
-    borderStyle: "dashed",
+    height: 220, borderRadius: 16, borderWidth: 2,
+    borderColor: Colors.borderDefault, borderStyle: "dashed",
     backgroundColor: Colors.bgElevated,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: spacing.space2,
+    alignItems: "center", justifyContent: "center", gap: spacing.space2,
   },
-  videoPickerTitle: {
-    ...typeScale.headingSM,
-    color: Colors.textSecondary,
-  },
-  videoPickerSub: {
-    ...typeScale.bodySM,
-    color: Colors.textDisabled,
-  },
-
-  // Video preview
-  videoPreviewWrap: {
-    height: 220,
-    borderRadius: 16,
-    overflow: "hidden",
-    backgroundColor: "#000",
-  },
-  videoPreview: {
-    width: "100%",
-    height: "100%",
-  },
-  removeVideoBtn: {
-    position: "absolute",
-    top: spacing.space2,
-    right: spacing.space2,
-  },
+  videoPickerTitle: { ...typeScale.headingSM, color: Colors.textSecondary },
+  videoPickerSub:   { ...typeScale.bodySM, color: Colors.textDisabled },
+  videoPreviewWrap: { height: 220, borderRadius: 16, overflow: "hidden", backgroundColor: "#000" },
+  videoPreview:     { width: "100%", height: "100%" },
+  removeVideoBtn:   { position: "absolute", top: spacing.space2, right: spacing.space2 },
 
   // Fields
   field: { gap: spacing.space2 },
-  fieldLabel: {
-    ...typeScale.labelSM,
-    color: Colors.textSecondary,
-    fontWeight: "600",
-  },
-  fieldLabelRow: {
-    flexDirection: "row" as const,
-    alignItems: "center" as const,
-    gap: spacing.space2,
-  },
-  fieldRequired: {
-    ...typeScale.caption,
-    color: Colors.primary,
-    fontWeight: "700",
-  },
-  fieldHint: {
-    ...typeScale.caption,
-    color: Colors.textDisabled,
-  },
-  charCount: {
-    ...typeScale.caption,
-    color: Colors.textDisabled,
-    textAlign: "right",
-  },
+  fieldLabel:    { ...typeScale.labelSM, color: Colors.textSecondary, fontWeight: "600" },
+  fieldLabelRow: { flexDirection: "row" as const, alignItems: "center" as const, gap: spacing.space2 },
+  fieldRequired: { ...typeScale.caption, color: Colors.actionPrimary, fontWeight: "700" },
+  fieldHint:     { ...typeScale.caption, color: Colors.textDisabled },
+  charCount:     { ...typeScale.caption, color: Colors.textDisabled, textAlign: "right" },
   textInput: {
-    height: 48,
-    backgroundColor: Colors.bgElevated,
-    borderWidth: 1,
-    borderColor: Colors.borderDefault,
-    borderRadius: 12,
-    paddingHorizontal: spacing.space4,
-    ...typeScale.bodyMD,
-    color: Colors.textPrimary,
-    justifyContent: "center",
+    height: 48, backgroundColor: Colors.bgElevated,
+    borderWidth: 1, borderColor: Colors.borderDefault,
+    borderRadius: 12, paddingHorizontal: spacing.space4,
+    ...typeScale.bodyMD, color: Colors.textPrimary, justifyContent: "center",
   },
   textArea: {
-    minHeight: 80,
-    backgroundColor: Colors.bgElevated,
-    borderWidth: 1,
-    borderColor: Colors.borderDefault,
-    borderRadius: 12,
-    paddingHorizontal: spacing.space4,
-    paddingTop: spacing.space3,
-    ...typeScale.bodyMD,
-    color: Colors.textPrimary,
+    minHeight: 80, backgroundColor: Colors.bgElevated,
+    borderWidth: 1, borderColor: Colors.borderDefault,
+    borderRadius: 12, paddingHorizontal: spacing.space4, paddingTop: spacing.space3,
+    ...typeScale.bodyMD, color: Colors.textPrimary,
   },
 
-  // Divider
-  divider: {
-    height: 1,
-    backgroundColor: Colors.borderSubtle,
-    marginVertical: spacing.space2,
+  // Cover picker
+  coverPicker: {
+    height: 160, borderRadius: 12, borderWidth: 2,
+    borderColor: Colors.borderDefault, borderStyle: "dashed",
+    backgroundColor: Colors.bgElevated,
+    alignItems: "center", justifyContent: "center", gap: spacing.space2,
   },
+  coverPickerTitle: { ...typeScale.labelMD, color: Colors.textSecondary },
+  coverPickerSub:   { ...typeScale.bodySM, color: Colors.textDisabled },
+  coverPreviewWrap: { height: 160, borderRadius: 12, overflow: "hidden", backgroundColor: Colors.bgElevated },
+  coverPreview:     { width: "100%", height: "100%" },
+  removeCoverBtn:   { position: "absolute", top: spacing.space2, right: spacing.space2 },
+  changeCoverBtn: {
+    position: "absolute", bottom: spacing.space2, right: spacing.space2,
+    flexDirection: "row", alignItems: "center", gap: 4,
+    backgroundColor: "rgba(0,0,0,0.65)", borderRadius: 8,
+    paddingHorizontal: spacing.space3, paddingVertical: spacing.space1,
+  },
+  changeCoverText: { ...typeScale.caption, color: "#fff", fontWeight: "600" },
 
   // Radio group
   radioGroup: { gap: spacing.space2 },
   radioRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.space3,
+    flexDirection: "row", alignItems: "center", gap: spacing.space3,
     backgroundColor: Colors.bgElevated,
-    borderWidth: 1,
-    borderColor: Colors.borderDefault,
-    borderRadius: 12,
-    padding: spacing.space3,
+    borderWidth: 1, borderColor: Colors.borderDefault,
+    borderRadius: 12, padding: spacing.space3,
   },
-  radioRowActive: {
-    borderColor: Colors.actionPrimary,
-    backgroundColor: Colors.bgPrimarySubtle,
-  },
+  radioRowActive: { borderColor: Colors.actionPrimary, backgroundColor: Colors.bgPrimarySubtle },
   radioCircle: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 2,
-    borderColor: Colors.borderDefault,
-    alignItems: "center",
-    justifyContent: "center",
+    width: 20, height: 20, borderRadius: 10,
+    borderWidth: 2, borderColor: Colors.borderDefault,
+    alignItems: "center", justifyContent: "center",
   },
-  radioCircleActive: {
-    borderColor: Colors.actionPrimary,
-  },
-  radioDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: Colors.actionPrimary,
-  },
-  radioText: { flex: 1 },
-  radioLabel: {
-    ...typeScale.labelMD,
-    color: Colors.textPrimary,
-  },
-  radioSub: {
-    ...typeScale.caption,
-    color: Colors.textMuted,
-    marginTop: 2,
-  },
+  radioCircleActive: { borderColor: Colors.actionPrimary },
+  radioDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: Colors.actionPrimary },
+  radioText:  { flex: 1 },
+  radioLabel: { ...typeScale.labelMD, color: Colors.textPrimary },
+  radioSub:   { ...typeScale.caption, color: Colors.textMuted, marginTop: 2 },
 
-  // Toggle rows
+  // Toggles
   toggleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
     backgroundColor: Colors.bgElevated,
-    borderWidth: 1,
-    borderColor: Colors.borderDefault,
-    borderRadius: 12,
-    padding: spacing.space4,
+    borderWidth: 1, borderColor: Colors.borderDefault,
+    borderRadius: 12, padding: spacing.space4,
   },
-  toggleInfo: { flex: 1, marginRight: spacing.space4 },
-  toggleLabel: {
-    ...typeScale.labelMD,
-    color: Colors.textPrimary,
-  },
-  toggleSub: {
-    ...typeScale.caption,
-    color: Colors.textMuted,
-    marginTop: 2,
-  },
+  toggleInfo:  { flex: 1, marginRight: spacing.space4 },
+  toggleLabel: { ...typeScale.labelMD, color: Colors.textPrimary },
+  toggleSub:   { ...typeScale.caption, color: Colors.textMuted, marginTop: 2 },
 
   // Price row
-  priceRow: {
-    flexDirection: "row",
-    gap: spacing.space3,
-  },
-  priceAmountWrap: { flex: 1, gap: spacing.space2 },
-  priceCurrencyWrap: { flex: 1, gap: spacing.space2, zIndex: 10 },
-  currencyBtnText: {
-    ...typeScale.bodyMD,
-    color: Colors.textPrimary,
-  },
+  priceRow:         { flexDirection: "row", gap: spacing.space3 },
+  priceAmountWrap:  { flex: 1, gap: spacing.space2 },
+  priceCurrencyWrap:{ flex: 1, gap: spacing.space2, zIndex: 10 },
+  currencyBtnText:  { ...typeScale.bodyMD, color: Colors.textPrimary },
   currencyDropdown: {
-    position: "absolute",
-    top: 80,
-    left: 0,
-    right: 0,
+    position: "absolute", top: 80, left: 0, right: 0,
     backgroundColor: Colors.bgElevated,
-    borderWidth: 1,
-    borderColor: Colors.borderDefault,
-    borderRadius: 12,
-    overflow: "hidden",
-    zIndex: 100,
+    borderWidth: 1, borderColor: Colors.borderDefault,
+    borderRadius: 12, overflow: "hidden", zIndex: 100,
   },
   currencyItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: spacing.space4,
-    paddingVertical: spacing.space3,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.borderSubtle,
+    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+    paddingHorizontal: spacing.space4, paddingVertical: spacing.space3,
+    borderBottomWidth: 1, borderBottomColor: Colors.borderSubtle,
   },
-  currencyItemActive: {
-    backgroundColor: Colors.bgPrimarySubtle,
-  },
-  currencyItemText: {
-    ...typeScale.bodyMD,
-    color: Colors.textPrimary,
-  },
+  currencyItemActive: { backgroundColor: Colors.bgPrimarySubtle },
+  currencyItemText:   { ...typeScale.bodyMD, color: Colors.textPrimary },
 
-  // Cover image picker
-  coverPicker: {
-    height: 160,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: Colors.borderDefault,
-    borderStyle: "dashed",
+  // Nav buttons
+  navRow: { flexDirection: "row", gap: spacing.space3, marginTop: spacing.space4 },
+  backBtn: {
+    flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4,
+    height: 50, borderRadius: radius.radiusMD,
     backgroundColor: Colors.bgElevated,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: spacing.space2,
+    borderWidth: 1, borderColor: Colors.borderSubtle,
   },
-  coverPickerTitle: {
-    ...typeScale.labelMD,
-    color: Colors.textSecondary,
+  backBtnText: { ...typeScale.labelSM, color: Colors.textSecondary, fontWeight: "600", fontSize: 15 },
+  nextBtn: {
+    flex: 2, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6,
+    height: 50, borderRadius: radius.radiusMD, backgroundColor: Colors.actionPrimary,
   },
-  coverPickerSub: {
-    ...typeScale.bodySM,
-    color: Colors.textDisabled,
-  },
-  coverPreviewWrap: {
-    height: 160,
-    borderRadius: 12,
-    overflow: "hidden",
-    backgroundColor: Colors.bgElevated,
-  },
-  coverPreview: {
-    width: "100%",
-    height: "100%",
-  },
-  removeCoverBtn: {
-    position: "absolute",
-    top: spacing.space2,
-    right: spacing.space2,
-  },
-  changeCoverBtn: {
-    position: "absolute",
-    bottom: spacing.space2,
-    right: spacing.space2,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    backgroundColor: "rgba(0,0,0,0.65)",
-    borderRadius: 8,
-    paddingHorizontal: spacing.space3,
-    paddingVertical: spacing.space1,
-  },
-  changeCoverText: {
-    ...typeScale.caption,
-    color: "#fff",
-    fontWeight: "600",
-  },
+  nextBtnDisabled: { opacity: 0.7 },
+  nextBtnText: { fontSize: 15, fontWeight: "700", color: "#fff" },
 });

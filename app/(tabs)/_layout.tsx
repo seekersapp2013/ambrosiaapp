@@ -4,12 +4,12 @@ import { Authenticated, Unauthenticated, AuthLoading } from "convex/react";
 import { useEffect } from "react";
 import { Platform, View, TouchableOpacity, Text, StyleSheet, Dimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Colors } from "@/constants/Colors";
 import { AppLoader } from "@/components/AppLoader";
 import { useTabBarHeight } from "@/utils/useDeviceClass";
 import { zIndex } from "@/tokens/zIndex";
 import { MOBILE_CARD_ENABLED } from "@/components/MobileCard";
 import { useNavigationHistory } from "@/context/NavigationHistoryContext";
+import { useColors } from "@/hooks/useColors";
 
 function RedirectToSignIn() {
   const router = useRouter();
@@ -32,6 +32,7 @@ const TABS = [
 function CardTabBar({ state, descriptors, navigation }: any) {
   const insets = useSafeAreaInsets();
   const baseHeight = useTabBarHeight();
+  const C = useColors();
   const paddingBottom = Platform.OS === "android" ? insets.bottom + 4 : 8;
   const barHeight = baseHeight + (Platform.OS === "android" ? insets.bottom : 0);
   const screenWidth = Dimensions.get("window").width;
@@ -42,12 +43,29 @@ function CardTabBar({ state, descriptors, navigation }: any) {
   const cardWidth = Math.min(screenWidth - cardPadding * 2, cardMaxWidth);
   const sideOffset = (screenWidth - cardWidth) / 2;
 
+  // Theme-aware bar background + border
+  // Dark:  distinct dark navy + stronger crimson top border
+  // Light: pure white + neutral hairline + soft upward shadow
+  const barBg          = C.bgTabBar;
+  const barBorderColor = C.borderTabBar;
+  const barShadowColor = C.isDark ? "#C62229" : "#000000";
+  const barShadowOpacity = C.isDark ? 0.15 : 0.06;
+
+  const barStyle = [
+    tabStyles.barBase,
+    {
+      backgroundColor:  barBg,
+      borderColor:      barBorderColor,
+      shadowColor:      barShadowColor,
+      shadowOpacity:    barShadowOpacity,
+    },
+  ];
+
   if (!MOBILE_CARD_ENABLED) {
-    // Fallback: standard full-width bar
     return (
       <View
         style={[
-          tabStyles.barBase,
+          ...barStyle,
           {
             height: barHeight,
             paddingBottom,
@@ -59,7 +77,7 @@ function CardTabBar({ state, descriptors, navigation }: any) {
           },
         ]}
       >
-        {renderItems(state, navigation, barHeight, paddingBottom)}
+        {renderItems(state, navigation, C)}
       </View>
     );
   }
@@ -67,7 +85,7 @@ function CardTabBar({ state, descriptors, navigation }: any) {
   return (
     <View
       style={[
-        tabStyles.barBase,
+        ...barStyle,
         {
           height: barHeight,
           paddingBottom,
@@ -78,13 +96,12 @@ function CardTabBar({ state, descriptors, navigation }: any) {
         },
       ]}
     >
-      {renderItems(state, navigation, barHeight, paddingBottom)}
+      {renderItems(state, navigation, C)}
     </View>
   );
 }
 
-function renderItems(state: any, navigation: any, barHeight: number, paddingBottom: number) {
-  // Only render the 3 visible tabs
+function renderItems(state: any, navigation: any, C: ReturnType<typeof useColors>) {
   const visibleRoutes = state.routes.filter((r: any) =>
     TABS.some((t) => t.name === r.name)
   );
@@ -98,7 +115,6 @@ function renderItems(state: any, navigation: any, barHeight: number, paddingBott
     const onPress = () => {
       const event = navigation.emit({ type: "tabPress", target: route.key, canPreventDefault: true });
       if (!isFocused && !event.defaultPrevented) {
-        // Clear navigation history when user deliberately taps a tab
         history.clear();
         navigation.navigate(route.name);
       }
@@ -117,12 +133,12 @@ function renderItems(state: any, navigation: any, barHeight: number, paddingBott
         <Ionicons
           name={tabConfig.icon}
           size={22}
-          color={isFocused ? Colors.iconAccent : Colors.iconDisabled}
+          color={isFocused ? C.iconAccent : C.iconDisabled}
         />
-        <Text style={[tabStyles.label, isFocused && tabStyles.labelActive]}>
+        <Text style={[tabStyles.label, { color: isFocused ? C.iconAccent : C.iconDisabled }]}>
           {tabConfig.label}
         </Text>
-        {isFocused && <View style={tabStyles.activeDot} />}
+        {isFocused && <View style={[tabStyles.activeDot, { backgroundColor: C.iconAccent }]} />}
       </TouchableOpacity>
     );
   });
@@ -130,22 +146,19 @@ function renderItems(state: any, navigation: any, barHeight: number, paddingBott
 
 const tabStyles = StyleSheet.create({
   barBase: {
-    position: "absolute",
-    bottom: 0,
+    position:      "absolute",
+    bottom:        0,
     flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "rgba(10, 10, 21, 0.97)",
-    borderTopWidth: 1,
-    borderLeftWidth: 1,
+    alignItems:    "center",
+    borderTopWidth:   1,
+    borderLeftWidth:  1,
     borderRightWidth: 1,
-    borderColor: "rgba(198, 34, 41, 0.3)",
-    shadowColor: "#C62229",
-    shadowOffset: { width: 0, height: -8 },
-    shadowOpacity: 0.15,
-    shadowRadius: 20,
-    elevation: 10,
-    zIndex: zIndex.header,
-    paddingTop: 8,
+    // shadow values set dynamically per-render (light vs dark)
+    shadowOffset:  { width: 0, height: -6 },
+    shadowRadius:  16,
+    elevation:     10,
+    zIndex:        zIndex.header,
+    paddingTop:    8,
   },
   tabItem: {
     flex: 1,
@@ -157,10 +170,7 @@ const tabStyles = StyleSheet.create({
   label: {
     fontSize: 11,
     fontWeight: "500",
-    color: Colors.iconDisabled,
-  },
-  labelActive: {
-    color: Colors.iconAccent,
+    // color set dynamically
   },
   activeDot: {
     position: "absolute",
@@ -168,7 +178,7 @@ const tabStyles = StyleSheet.create({
     width: 20,
     height: 2,
     borderRadius: 1,
-    backgroundColor: Colors.iconAccent,
+    // backgroundColor set dynamically
   },
 });
 

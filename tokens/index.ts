@@ -5,7 +5,7 @@
  *   import { Colors, spacing, typeScale, radius, elevation, duration, zIndex } from '@/tokens';
  */
 
-export { Colors }                          from './colors';
+export { Colors, getColors }               from './colors';
 export type { ColorToken }                 from './colors';
 
 export { spacing }                         from './spacing';

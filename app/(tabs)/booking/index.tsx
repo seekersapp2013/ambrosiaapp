@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef } from "react";
+import React, { useState, useMemo } from "react";
 import {
   View,
   Text,
@@ -12,6 +12,7 @@ import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import { useColors } from "@/hooks/useColors";
 import { Colors } from "@/tokens/colors";
 import { typeScale } from "@/tokens/typography";
 import { spacing } from "@/tokens/spacing";
@@ -25,46 +26,27 @@ import { EmptyStateCard } from "@/components/ui/Card";
 // ─── Types ────────────────────────────────────────────────────────────────────
 type BookingTab = "upcoming" | "completed" | "cancelled";
 
-// Maps Convex status strings to our display tabs
 const STATUS_TO_TAB: Record<string, BookingTab | null> = {
-  CONFIRMED:  "upcoming",
-  PENDING:    "upcoming",
-  COMPLETED:  "completed",
-  CANCELLED:  "cancelled",
-  REJECTED:   "cancelled",
-};
-
-// ─── Status design tokens ─────────────────────────────────────────────────────
-const STATUS_COLOR: Record<string, string> = {
-  CONFIRMED:  Colors.statusInfo,
-  PENDING:    Colors.statusWarning,
-  COMPLETED:  Colors.statusSuccess,
-  CANCELLED:  Colors.statusDanger,
-  REJECTED:   Colors.statusDanger,
-};
-
-const STATUS_BG: Record<string, string> = {
-  CONFIRMED:  Colors.statusInfoBg,
-  PENDING:    Colors.statusWarningBg,
-  COMPLETED:  Colors.statusSuccessBg,
-  CANCELLED:  Colors.statusDangerBg,
-  REJECTED:   Colors.statusDangerBg,
+  CONFIRMED: "upcoming",
+  PENDING:   "upcoming",
+  COMPLETED: "completed",
+  CANCELLED: "cancelled",
+  REJECTED:  "cancelled",
 };
 
 const STATUS_ICON: Record<string, keyof typeof Ionicons.glyphMap> = {
-  CONFIRMED:  "checkmark-circle-outline",
-  PENDING:    "time-outline",
-  COMPLETED:  "checkmark-done-outline",
-  CANCELLED:  "close-circle-outline",
-  REJECTED:   "close-circle-outline",
+  CONFIRMED: "checkmark-circle-outline",
+  PENDING:   "time-outline",
+  COMPLETED: "checkmark-done-outline",
+  CANCELLED: "close-circle-outline",
+  REJECTED:  "close-circle-outline",
 };
-
 const STATUS_LABEL: Record<string, string> = {
-  CONFIRMED:  "Confirmed",
-  PENDING:    "Pending",
-  COMPLETED:  "Completed",
-  CANCELLED:  "Cancelled",
-  REJECTED:   "Rejected",
+  CONFIRMED: "Confirmed",
+  PENDING:   "Pending",
+  COMPLETED: "Completed",
+  CANCELLED: "Cancelled",
+  REJECTED:  "Rejected",
 };
 
 const SCREEN_TABS: { key: BookingTab; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
@@ -76,83 +58,75 @@ const SCREEN_TABS: { key: BookingTab; label: string; icon: keyof typeof Ionicons
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function formatDate(dateStr: string): string {
   try {
-    const d = new Date(dateStr);
-    return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-  } catch {
-    return dateStr;
-  }
+    return new Date(dateStr).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  } catch { return dateStr; }
 }
-
 function formatTime(timeStr: string): string {
   try {
     const [h, m] = timeStr.split(":").map(Number);
     const ampm = h >= 12 ? "PM" : "AM";
-    const hour = h % 12 || 12;
-    return `${hour}:${m.toString().padStart(2, "0")} ${ampm}`;
-  } catch {
-    return timeStr;
-  }
+    return `${h % 12 || 12}:${m.toString().padStart(2, "0")} ${ampm}`;
+  } catch { return timeStr; }
 }
-
 function isSessionJoinable(sessionDate: string, sessionTime: string): boolean {
   try {
     const now = Date.now();
     const sessionMs = new Date(`${sessionDate}T${sessionTime}`).getTime();
     const diffMinutes = (sessionMs - now) / 60000;
-    // Joinable from 15 min before until 60 min after start
     return diffMinutes <= 15 && diffMinutes >= -60;
-  } catch {
-    return false;
-  }
+  } catch { return false; }
 }
 
 // ─── Booking Card ─────────────────────────────────────────────────────────────
-function BookingCard({
-  booking,
-  onPress,
-  onJoin,
-}: {
-  booking: any;
-  onPress: () => void;
-  onJoin?: () => void;
+function BookingCard({ booking, onPress, onJoin }: {
+  booking: any; onPress: () => void; onJoin?: () => void;
 }) {
+  const C = useColors();
+  const STATUS_COLOR: Record<string, string> = {
+    CONFIRMED: C.statusInfo,
+    PENDING:   C.statusWarning,
+    COMPLETED: C.statusSuccess,
+    CANCELLED: C.statusDanger,
+    REJECTED:  C.statusDanger,
+  };
+  const STATUS_BG: Record<string, string> = {
+    CONFIRMED: C.statusInfoBg,
+    PENDING:   C.statusWarningBg,
+    COMPLETED: C.statusSuccessBg,
+    CANCELLED: C.statusDangerBg,
+    REJECTED:  C.statusDangerBg,
+  };
   const status = booking.status as string;
-  const statusColor = STATUS_COLOR[status] ?? Colors.iconSecondary;
-  const statusBg    = STATUS_BG[status]    ?? Colors.bgElevated;
+  const statusColor = STATUS_COLOR[status] ?? C.iconSecondary;
+  const statusBg    = STATUS_BG[status]    ?? C.bgElevated;
   const statusIcon  = STATUS_ICON[status]  ?? "ellipse-outline";
   const statusLabel = STATUS_LABEL[status] ?? status;
-
   const providerName =
     booking.provider?.profile?.name ??
-    booking.provider?.profile?.username ??
-    "Provider";
-
-  // Allow join if time restriction is disabled
+    booking.provider?.profile?.username ?? "Provider";
   const disableTimeRestriction =
     process.env.EXPO_PUBLIC_DISABLE_STREAM_TIME_RESTRICTION === "true";
-
   const canJoin =
     status === "CONFIRMED" &&
     (disableTimeRestriction || isSessionJoinable(booking.sessionDate, booking.sessionTime));
 
   return (
     <TouchableOpacity
-      style={styles.bookingCard}
+      style={[styles.bookingCard, { backgroundColor: C.bgElevated, borderColor: C.borderSubtle }]}
       onPress={onPress}
       activeOpacity={0.82}
       accessibilityRole="button"
       accessibilityLabel={`Booking with ${providerName}`}
     >
-      {/* Header row */}
       <View style={styles.cardHeader}>
-        <View style={styles.cardIconWrap}>
-          <Ionicons name="calendar" size={20} color={Colors.actionPrimary} />
+        <View style={[styles.cardIconWrap, { backgroundColor: C.bgPrimaryMid }]}>
+          <Ionicons name="calendar" size={20} color={C.actionPrimary} />
         </View>
         <View style={styles.cardTitleBlock}>
-          <Text style={styles.cardTitle} numberOfLines={1} allowFontScaling={false}>
+          <Text style={[styles.cardTitle, { color: C.textPrimary }]} numberOfLines={1} allowFontScaling={false}>
             {booking.provider?.subscription?.jobTitle ?? "Session"}
           </Text>
-          <Text style={styles.cardProvider} numberOfLines={1} allowFontScaling={false}>
+          <Text style={[styles.cardProvider, { color: C.textMuted }]} numberOfLines={1} allowFontScaling={false}>
             with {providerName}
           </Text>
         </View>
@@ -163,47 +137,30 @@ function BookingCard({
           </Text>
         </View>
       </View>
-
-      {/* Divider */}
-      <View style={styles.cardDivider} />
-
-      {/* Meta row */}
+      <View style={[styles.cardDivider, { backgroundColor: C.borderSubtle }]} />
       <View style={styles.cardMeta}>
         <View style={styles.metaItem}>
-          <Ionicons name="calendar-outline" size={13} color={Colors.iconSecondary} />
-          <Text style={styles.metaText} allowFontScaling={false}>
-            {formatDate(booking.sessionDate)}
-          </Text>
+          <Ionicons name="calendar-outline" size={13} color={C.iconSecondary} />
+          <Text style={[styles.metaText, { color: C.textMuted }]} allowFontScaling={false}>{formatDate(booking.sessionDate)}</Text>
         </View>
         <View style={styles.metaItem}>
-          <Ionicons name="time-outline" size={13} color={Colors.iconSecondary} />
-          <Text style={styles.metaText} allowFontScaling={false}>
-            {formatTime(booking.sessionTime)}
-          </Text>
+          <Ionicons name="time-outline" size={13} color={C.iconSecondary} />
+          <Text style={[styles.metaText, { color: C.textMuted }]} allowFontScaling={false}>{formatTime(booking.sessionTime)}</Text>
         </View>
         <View style={styles.metaItem}>
-          <Ionicons name="pricetag-outline" size={13} color={Colors.iconSecondary} />
-          <Text style={styles.metaText} allowFontScaling={false}>
-            {booking.totalAmount} {booking.currency}
-          </Text>
+          <Ionicons name="pricetag-outline" size={13} color={C.iconSecondary} />
+          <Text style={[styles.metaText, { color: C.textMuted }]} allowFontScaling={false}>{booking.totalAmount} {booking.currency}</Text>
         </View>
       </View>
-
-      {/* Duration chip + join button row */}
       <View style={styles.cardFooter}>
-        <View style={styles.categoryChip}>
-          <Text style={styles.categoryText} allowFontScaling={false}>
+        <View style={[styles.categoryChip, { backgroundColor: C.bgPrimarySubtle, borderColor: C.borderFilled }]}>
+          <Text style={[styles.categoryText, { color: C.actionPrimary }]} allowFontScaling={false}>
             {booking.duration} min · {booking.sessionType === "ONE_TO_MANY" ? "Group" : "1-on-1"}
           </Text>
         </View>
         {canJoin && onJoin && (
-          <TouchableOpacity
-            style={styles.joinBtn}
-            onPress={onJoin}
-            activeOpacity={0.82}
-            accessibilityRole="button"
-            accessibilityLabel="Join live session"
-          >
+          <TouchableOpacity style={[styles.joinBtn, { backgroundColor: C.actionPrimary }]} onPress={onJoin} activeOpacity={0.82}
+            accessibilityRole="button" accessibilityLabel="Join live session">
             <Ionicons name="videocam" size={13} color="#FFFFFF" />
             <Text style={styles.joinBtnText} allowFontScaling={false}>Join Now</Text>
           </TouchableOpacity>
@@ -213,97 +170,125 @@ function BookingCard({
   );
 }
 
-// ─── Stat Badge ───────────────────────────────────────────────────────────────
-function StatBadge({
-  count,
-  label,
-  icon,
-  color,
-  bg,
-}: {
-  count: number;
-  label: string;
-  icon: keyof typeof Ionicons.glyphMap;
-  color: string;
-  bg: string;
+// ─── Section Header ───────────────────────────────────────────────────────────
+function SectionHeader({ title, action, actionLabel }: {
+  title: string; action?: () => void; actionLabel?: string;
 }) {
+  const C = useColors();
   return (
-    <View style={[styles.statBadge, { backgroundColor: bg }]}>
-      <Ionicons name={icon} size={16} color={color} />
-      <Text style={[styles.statCount, { color }]} allowFontScaling={false}>
-        {count}
-      </Text>
-      <Text style={styles.statLabel} allowFontScaling={false}>{label}</Text>
+    <View style={styles.sectionHeader}>
+      <Text style={[styles.sectionTitle, { color: C.textPrimary }]} allowFontScaling={false}>{title}</Text>
+      {action && (
+        <TouchableOpacity onPress={action} hitSlop={{ top:8, bottom:8, left:8, right:8 }}
+          accessibilityRole="button">
+          <Text style={[styles.sectionLink, { color: C.actionPrimary }]} allowFontScaling={false}>{actionLabel ?? "See all"}</Text>
+        </TouchableOpacity>
+      )}
     </View>
+  );
+}
+
+// ─── Action Tile ──────────────────────────────────────────────────────────────
+function ActionTile({ icon, label, onPress, iconBg, iconColor }: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  onPress: () => void;
+  iconBg: string;
+  iconColor: string;
+}) {
+  const C = useColors();
+  return (
+    <TouchableOpacity style={styles.actionTile} onPress={onPress}
+      activeOpacity={0.82} accessibilityRole="button" accessibilityLabel={label}>
+      <View style={[styles.actionTileIcon, { backgroundColor: iconBg }]}>
+        <Ionicons name={icon} size={22} color={iconColor} />
+      </View>
+      <Text style={[styles.actionTileLabel, { color: C.textSecondary }]} allowFontScaling={false}>{label}</Text>
+    </TouchableOpacity>
+  );
+}
+
+// ─── Provider Dashboard Banner ────────────────────────────────────────────────
+function ProviderDashboardBanner({ onPress }: { onPress: () => void }) {
+  const C = useColors();
+  return (
+    <TouchableOpacity
+      style={[styles.providerBanner, { backgroundColor: C.statusInfoBg, borderColor: C.blueBorder }]}
+      onPress={onPress}
+      activeOpacity={0.88}
+      accessibilityRole="button"
+      accessibilityLabel="Open provider dashboard"
+    >
+      {/* Left accent strip */}
+      <View style={[styles.providerBannerAccent, { backgroundColor: C.statusInfo }]} />
+
+      <View style={[styles.providerBannerIconWrap, { backgroundColor: C.blueSurfaceMid }]}>
+        <Ionicons name="grid" size={22} color={C.statusInfo} />
+      </View>
+
+      <View style={styles.providerBannerText}>
+        <View style={styles.providerBannerTitleRow}>
+          <Text style={[styles.providerBannerTitle, { color: C.textPrimary }]} allowFontScaling={false}>
+            Provider Dashboard
+          </Text>
+          <View style={[styles.providerBannerBadge, { backgroundColor: C.statusInfo }]}>
+            <Text style={styles.providerBannerBadgeText} allowFontScaling={false}>PRO</Text>
+          </View>
+        </View>
+        <Text style={[styles.providerBannerSub, { color: C.textMuted }]} allowFontScaling={false}>
+          Manage sessions · Confirm requests · Track earnings
+        </Text>
+      </View>
+
+      <View style={[styles.providerBannerChevron, { backgroundColor: C.blueSurfaceMid }]}>
+        <Ionicons name="chevron-forward" size={16} color={C.statusInfo} />
+      </View>
+    </TouchableOpacity>
   );
 }
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function BookingScreen() {
   const router = useRouter();
+  const C = useColors();
   const [activeTab, setActiveTab] = useState<BookingTab>("upcoming");
   const [searchQuery, setSearchQuery] = useState("");
 
-  // ── Convex queries ────────────────────────────────────────────────────────
-  const bookings = useQuery(api.bookings.getMyBookings, {});
+  const bookings       = useQuery(api.bookings.getMyBookings, {});
   const mySubscription = useQuery(api.bookingSubscribers.getMySubscription, {});
-  const isLoading = bookings === undefined;
+  const isLoading      = bookings === undefined;
+  const isProvider     = !!mySubscription?.isActive;
 
-  // ── Derived data ──────────────────────────────────────────────────────────
   const { filtered, upcomingCount, completedCount, cancelledCount, upcomingPreview } =
     useMemo(() => {
-      if (!bookings) {
-        return {
-          filtered: [],
-          upcomingCount: 0,
-          completedCount: 0,
-          cancelledCount: 0,
-          upcomingPreview: [],
-        };
-      }
-
-      const upcoming  = bookings.filter((b) => STATUS_TO_TAB[b.status] === "upcoming");
-      const completed = bookings.filter((b) => STATUS_TO_TAB[b.status] === "completed");
-      const cancelled = bookings.filter((b) => STATUS_TO_TAB[b.status] === "cancelled");
-
-      const tabMap: Record<BookingTab, typeof bookings> = {
-        upcoming,
-        completed,
-        cancelled,
-      };
-
-      // Apply search filter to the active tab
+      if (!bookings) return { filtered: [], upcomingCount: 0, completedCount: 0, cancelledCount: 0, upcomingPreview: [] };
+      const upcoming  = bookings.filter(b => STATUS_TO_TAB[b.status] === "upcoming");
+      const completed = bookings.filter(b => STATUS_TO_TAB[b.status] === "completed");
+      const cancelled = bookings.filter(b => STATUS_TO_TAB[b.status] === "cancelled");
+      const tabMap: Record<BookingTab, typeof bookings> = { upcoming, completed, cancelled };
       const q = searchQuery.trim().toLowerCase();
       const applySearch = (list: typeof bookings) => {
         if (!q) return list;
-        return list.filter((b) => {
-          const providerName = (
-            b.provider?.profile?.name ??
-            b.provider?.profile?.username ??
-            ""
-          ).toLowerCase();
-          const jobTitle = (b.provider?.subscription?.jobTitle ?? "").toLowerCase();
-          const date = (b.sessionDate ?? "").toLowerCase();
-          return providerName.includes(q) || jobTitle.includes(q) || date.includes(q);
+        return list.filter(b => {
+          const name = (b.provider?.profile?.name ?? b.provider?.profile?.username ?? "").toLowerCase();
+          const title = (b.provider?.subscription?.jobTitle ?? "").toLowerCase();
+          const date  = (b.sessionDate ?? "").toLowerCase();
+          return name.includes(q) || title.includes(q) || date.includes(q);
         });
       };
-
       return {
-        filtered: applySearch(tabMap[activeTab] ?? []),
+        filtered:       applySearch(tabMap[activeTab] ?? []),
         upcomingCount:  upcoming.length,
         completedCount: completed.length,
         cancelledCount: cancelled.length,
-        upcomingPreview: upcoming.slice(0, 3),
+        upcomingPreview: upcoming.slice(0, 2),
       };
     }, [bookings, activeTab, searchQuery]);
 
-  const isProvider = !!mySubscription?.isActive;
-
-  // ── Empty state per tab ───────────────────────────────────────────────────
   const EMPTY_STATE: Record<BookingTab, { icon: keyof typeof Ionicons.glyphMap; title: string; subtitle: string }> = {
-    upcoming:  { icon: "calendar-outline",      title: "No upcoming bookings",  subtitle: "Browse providers and book your first session." },
-    completed: { icon: "checkmark-done-outline", title: "No completed bookings", subtitle: "Sessions you attend will appear here." },
-    cancelled: { icon: "ban-outline",            title: "No cancelled bookings", subtitle: "Any cancelled appointments will appear here." },
+    upcoming:  { icon: "calendar-outline",       title: "No upcoming bookings",  subtitle: "Browse providers and book your first session." },
+    completed: { icon: "checkmark-done-outline",  title: "No completed bookings", subtitle: "Sessions you attend will appear here." },
+    cancelled: { icon: "ban-outline",             title: "No cancelled bookings", subtitle: "Any cancelled appointments will appear here." },
   };
 
   return (
@@ -314,88 +299,85 @@ export default function BookingScreen() {
         showsVerticalScrollIndicator={false}
       >
         <MobileCard>
-          {/* ── Top nav ────────────────────────────────────────────────── */}
+          {/* ── Top nav ─────────────────────────────────────────────── */}
           <TopNav />
 
-          {/* ── Page intro ─────────────────────────────────────────────── */}
-          <View style={styles.introBlock}>
-            <Text style={styles.introSubtitle}>Manage your appointments &amp; sessions</Text>
-            {/* ── Booking search ──────────────────────────────────────── */}
-            <View style={styles.searchWrap}>
-              <Ionicons name="search-outline" size={16} color={Colors.iconSecondary} />
-              <TextInput
-                style={styles.searchInput}
-                placeholder="Search by provider, session type…"
-                placeholderTextColor={Colors.textMuted}
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-                returnKeyType="search"
-                clearButtonMode="while-editing"
-                accessibilityLabel="Search bookings"
-                allowFontScaling={false}
+          {/* ── Provider Dashboard Banner (providers only) ──────────── */}
+          {isProvider && (
+            <View style={styles.providerBannerSection}>
+              <ProviderDashboardBanner
+                onPress={() => router.push("/(tabs)/booking/my-sessions" as any)}
               />
-              {searchQuery.length > 0 && (
-                <TouchableOpacity
-                  onPress={() => setSearchQuery("")}
-                  hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-                  accessibilityRole="button"
-                  accessibilityLabel="Clear search"
-                >
-                  <Ionicons name="close-circle" size={16} color={Colors.iconSecondary} />
-                </TouchableOpacity>
-              )}
-            </View>
-          </View>
-
-          {/* ── Stats strip ───────────────────────────────────────────── */}
-          {!isLoading && (
-            <View style={styles.statsStrip}>
-              <StatBadge
-                count={upcomingCount}
-                label="Upcoming"
-                icon="calendar-outline"
-                color={Colors.statusInfo}
-                bg={Colors.statusInfoBg}
-              />
-              <StatBadge
-                count={completedCount}
-                label="Completed"
-                icon="checkmark-done-outline"
-                color={Colors.statusSuccess}
-                bg={Colors.statusSuccessBg}
-              />
-              <StatBadge
-                count={cancelledCount}
-                label="Cancelled"
-                icon="ban-outline"
-                color={Colors.statusDanger}
-                bg={Colors.statusDangerBg}
-              />
-              {isProvider && (
-                <View style={[styles.statBadge, { backgroundColor: Colors.bgPrimaryMid }]}>
-                  <Ionicons name="star" size={16} color={Colors.actionPrimary} />
-                  <Text style={[styles.statLabel, { color: Colors.actionPrimary, fontWeight: "600" }]} allowFontScaling={false}>
-                    Provider
-                  </Text>
-                </View>
-              )}
             </View>
           )}
 
-          {/* ── Upcoming preview (top 3 confirmed) ───────────────────── */}
+          {/* ── Hero header ─────────────────────────────────────────── */}
+          <View style={styles.heroBlock}>
+            <Text style={[styles.heroTitle, { color: C.textPrimary }]} allowFontScaling={false}>Your Sessions</Text>
+            <Text style={[styles.heroSub, { color: C.textMuted }]} allowFontScaling={false}>
+              Book 1-on-1 sessions or join group events
+            </Text>
+          </View>
+
+          {/* ── Stats strip ─────────────────────────────────────────── */}
+          {!isLoading && (
+            <View style={styles.statsRow}>
+              {[
+                { count: upcomingCount,  label: "Upcoming",  color: C.statusInfo,    bg: C.statusInfoBg,    icon: "calendar-outline" as const },
+                { count: completedCount, label: "Completed", color: C.statusSuccess, bg: C.statusSuccessBg, icon: "checkmark-done-outline" as const },
+                { count: cancelledCount, label: "Cancelled", color: C.statusDanger,  bg: C.statusDangerBg,  icon: "ban-outline" as const },
+              ].map(s => (
+                <View key={s.label} style={[styles.statCard, { backgroundColor: s.bg }]}>
+                  <Ionicons name={s.icon} size={16} color={s.color} />
+                  <Text style={[styles.statCount, { color: s.color }]} allowFontScaling={false}>{s.count}</Text>
+                  <Text style={[styles.statLabel, { color: C.textMuted }]} allowFontScaling={false}>{s.label}</Text>
+                </View>
+              ))}
+            </View>
+          )}
+
+          {/* ── Search ──────────────────────────────────────────────── */}
+          <View style={[styles.searchWrap, { backgroundColor: C.bgElevated, borderColor: C.borderSubtle }]}>
+            <Ionicons name="search-outline" size={16} color={C.iconSecondary} />
+            <TextInput
+              style={[styles.searchInput, { color: C.textPrimary }]}
+              placeholder="Search by provider, date…"
+              placeholderTextColor={C.textMuted}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              returnKeyType="search"
+              clearButtonMode="while-editing"
+              accessibilityLabel="Search bookings"
+              allowFontScaling={false}
+            />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity onPress={() => setSearchQuery("")}
+                hitSlop={{ top:6, bottom:6, left:6, right:6 }}
+                accessibilityRole="button" accessibilityLabel="Clear search">
+                <Ionicons name="close-circle" size={16} color={C.iconSecondary} />
+              </TouchableOpacity>
+            )}
+          </View>
+        </MobileCard>
+
+        {/* ══════════════════════════════════════════════════════════
+            SECTION 1 — 1-ON-1 SESSIONS
+        ══════════════════════════════════════════════════════════ */}
+        <MobileCard style={styles.sectionCard}>
+          {/* Section label */}
+          <View style={[styles.sectionLabelRow, { borderBottomColor: C.borderSubtle }]}>
+            <View style={[styles.sectionDot, { backgroundColor: C.actionPrimary }]} />
+            <Text style={[styles.sectionChipLabel, { color: C.textMuted }]} allowFontScaling={false}>1-ON-1 SESSIONS</Text>
+          </View>
+
+          {/* Upcoming preview */}
           {!isLoading && upcomingPreview.length > 0 && (
-            <View style={styles.previewSection}>
-              <View style={styles.sectionHeader}>
-                <Text style={styles.sectionTitle}>Coming Up</Text>
-                <TouchableOpacity
-                  onPress={() => setActiveTab("upcoming")}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  accessibilityRole="button"
-                >
-                  <Text style={styles.sectionLink}>See all</Text>
-                </TouchableOpacity>
-              </View>
-              {upcomingPreview.map((booking) => (
+            <View style={styles.innerSection}>
+              <SectionHeader
+                title="Coming Up"
+                action={() => setActiveTab("upcoming")}
+              />
+              {upcomingPreview.map(booking => (
                 <BookingCard
                   key={booking._id}
                   booking={booking}
@@ -406,231 +388,215 @@ export default function BookingScreen() {
             </View>
           )}
 
-          {/* ── Quick actions ─────────────────────────────────────────── */}
-          <View style={styles.quickActions}>
-            <TouchableOpacity
-              style={styles.quickActionBtn}
-              onPress={() => router.push("/(tabs)/booking/providers" as any)}
-              activeOpacity={0.82}
-              accessibilityRole="button"
-              accessibilityLabel="Book a session"
-            >
-              <View style={[styles.quickActionIcon, { backgroundColor: Colors.bgPrimaryMid }]}>
-                <Ionicons name="add-circle" size={22} color={Colors.actionPrimary} />
-              </View>
-              <Text style={styles.quickActionLabel} allowFontScaling={false}>Book Session</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.quickActionBtn}
-              onPress={() => router.push("/(tabs)/booking/providers" as any)}
-              activeOpacity={0.82}
-              accessibilityRole="button"
-              accessibilityLabel="Browse providers"
-            >
-              <View style={[styles.quickActionIcon, { backgroundColor: Colors.statusInfoBg }]}>
-                <Ionicons name="search" size={22} color={Colors.statusInfo} />
-              </View>
-              <Text style={styles.quickActionLabel} allowFontScaling={false}>Find Providers</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.quickActionBtn}
-              onPress={() => router.push("/(tabs)/booking/history" as any)}
-              activeOpacity={0.82}
-              accessibilityRole="button"
-              accessibilityLabel="Booking history"
-            >
-              <View style={[styles.quickActionIcon, { backgroundColor: Colors.statusSuccessBg }]}>
-                <Ionicons name="time" size={22} color={Colors.statusSuccess} />
-              </View>
-              <Text style={styles.quickActionLabel} allowFontScaling={false}>History</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.quickActionBtn}
-              onPress={() => router.push("/(tabs)/booking/events" as any)}
-              activeOpacity={0.82}
-              accessibilityRole="button"
-              accessibilityLabel="My events"
-            >
-              <View style={[styles.quickActionIcon, { backgroundColor: Colors.statusInfoBg }]}>
-                <Ionicons name="calendar-outline" size={22} color={Colors.statusInfo} />
-              </View>
-              <Text style={styles.quickActionLabel} allowFontScaling={false}>Events</Text>
-            </TouchableOpacity>
-
-            {isProvider && (
-              <TouchableOpacity
-                style={styles.quickActionBtn}
-                onPress={() => router.push("/(tabs)/booking/recordings" as any)}
-                activeOpacity={0.82}
-                accessibilityRole="button"
-                accessibilityLabel="My recordings"
-              >
-                <View style={[styles.quickActionIcon, { backgroundColor: Colors.purpleSurface }]}>
-                  <Ionicons name="radio-outline" size={22} color={Colors.palette.purple} />
-                </View>
-                <Text style={styles.quickActionLabel} allowFontScaling={false}>Recordings</Text>
-              </TouchableOpacity>
-            )}
-
-            {isProvider ? (
-              <TouchableOpacity
-                style={styles.quickActionBtn}
-                onPress={() => router.push("/(tabs)/booking/my-sessions" as any)}
-                activeOpacity={0.82}
-                accessibilityRole="button"
-                accessibilityLabel="My sessions as provider"
-              >
-                <View style={[styles.quickActionIcon, { backgroundColor: Colors.statusWarningBg }]}>
-                  <Ionicons name="people-outline" size={22} color={Colors.statusWarning} />
-                </View>
-                <Text style={styles.quickActionLabel} allowFontScaling={false}>My Sessions</Text>
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity
-                style={styles.quickActionBtn}
-                onPress={() => router.push("/(tabs)/booking/become-provider" as any)}
-                activeOpacity={0.82}
-                accessibilityRole="button"
-                accessibilityLabel="Become a provider"
-              >
-                <View style={[styles.quickActionIcon, { backgroundColor: Colors.statusWarningBg }]}>
-                  <Ionicons name="ribbon-outline" size={22} color={Colors.statusWarning} />
-                </View>
-                <Text style={styles.quickActionLabel} allowFontScaling={false}>Go Pro</Text>
-              </TouchableOpacity>
-            )}
-
-            <TouchableOpacity
-              style={styles.quickActionBtn}
-              onPress={() => router.push("/(tabs)/booking/referrals" as any)}
-              activeOpacity={0.82}
-              accessibilityRole="button"
-              accessibilityLabel="View referrals"
-            >
-              <View style={[styles.quickActionIcon, { backgroundColor: Colors.greenSurface }]}>
-                <Ionicons name="git-network-outline" size={22} color={Colors.statusSuccess} />
-              </View>
-              <Text style={styles.quickActionLabel} allowFontScaling={false}>Referrals</Text>
-            </TouchableOpacity>
+          {/* Quick actions for 1-on-1 */}
+          <View style={styles.innerSection}>
+            <SectionHeader title="Quick Actions" />
+            <View style={styles.actionTilesGrid}>
+              <ActionTile icon="person-add-outline" label="Book 1-on-1"
+                onPress={() => router.push("/(tabs)/booking/providers" as any)}
+                iconBg={C.bgPrimaryMid} iconColor={C.actionPrimary} />
+              <ActionTile icon="search-outline" label="Find Providers"
+                onPress={() => router.push("/(tabs)/booking/providers" as any)}
+                iconBg={C.statusInfoBg} iconColor={C.statusInfo} />
+              <ActionTile icon="time-outline" label="History"
+                onPress={() => router.push("/(tabs)/booking/history" as any)}
+                iconBg={C.statusSuccessBg} iconColor={C.statusSuccess} />
+              <ActionTile icon="git-network-outline" label="Referrals"
+                onPress={() => router.push("/(tabs)/booking/referrals" as any)}
+                iconBg={C.greenSurface} iconColor={C.statusSuccess} />
+            </View>
           </View>
 
-          {/* ── Tab bar ───────────────────────────────────────────────── */}
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.tabBar}
-            contentContainerStyle={styles.tabBarContent}
-          >
-            {SCREEN_TABS.map((tab) => {
-              const isActive = activeTab === tab.key;
-              return (
-                <TouchableOpacity
-                  key={tab.key}
-                  style={[styles.tabItem, isActive && styles.tabItemActive]}
-                  onPress={() => setActiveTab(tab.key)}
-                  activeOpacity={0.8}
-                  accessibilityRole="tab"
-                  accessibilityState={{ selected: isActive }}
-                  accessibilityLabel={tab.label}
-                >
-                  <Ionicons
-                    name={tab.icon}
-                    size={14}
-                    color={isActive ? Colors.actionPrimary : Colors.iconDisabled}
-                  />
-                  <Text
-                    style={[styles.tabLabel, isActive && styles.tabLabelActive]}
-                    allowFontScaling={false}
-                  >
-                    {tab.label}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
+          {/* Tab + booking list */}
+          <View style={styles.innerSection}>
+            {/* Tab bar */}
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}
+              contentContainerStyle={[styles.tabBarContent, { borderBottomColor: C.borderSubtle }]}>
+              {SCREEN_TABS.map(tab => {
+                const isActive = activeTab === tab.key;
+                return (
+                  <TouchableOpacity key={tab.key}
+                    style={[styles.tabItem, isActive && { borderBottomColor: C.actionPrimary }]}
+                    onPress={() => setActiveTab(tab.key)}
+                    activeOpacity={0.8} accessibilityRole="tab"
+                    accessibilityState={{ selected: isActive }}
+                    accessibilityLabel={tab.label}>
+                    <Ionicons name={tab.icon} size={14}
+                      color={isActive ? C.actionPrimary : C.iconDisabled} />
+                    <Text style={[styles.tabLabel, { color: C.iconDisabled }, isActive && { color: C.actionPrimary, fontWeight: "600" }]} allowFontScaling={false}>
+                      {tab.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
 
-          {/* ── Tab content ───────────────────────────────────────────── */}
-          <View style={styles.tabContent}>
-            {isLoading ? (
-              <ActivityIndicator
-                color={Colors.actionPrimary}
-                style={{ marginTop: 40 }}
-              />
-            ) : filtered.length === 0 ? (
-              <View style={styles.emptyWrap}>
+            {/* Tab content */}
+            <View style={styles.tabContent}>
+              {isLoading ? (
+                <ActivityIndicator color={C.actionPrimary} style={{ marginVertical: 40 }} />
+              ) : filtered.length === 0 ? (
                 <EmptyStateCard
                   icon={EMPTY_STATE[activeTab].icon}
                   title={EMPTY_STATE[activeTab].title}
                   subtitle={EMPTY_STATE[activeTab].subtitle}
-                  action={
-                    activeTab === "upcoming" ? (
-                      <PrimaryButton
-                        label="Find a Provider"
-                        onPress={() => router.push("/(tabs)/booking/providers" as any)}
-                        icon={<Ionicons name="search-outline" size={18} color="#FFFFFF" />}
-                      />
-                    ) : undefined
-                  }
+                  action={activeTab === "upcoming" ? (
+                    <PrimaryButton
+                      label="Find a Provider"
+                      onPress={() => router.push("/(tabs)/booking/providers" as any)}
+                      icon={<Ionicons name="search-outline" size={18} color="#FFFFFF" />}
+                    />
+                  ) : undefined}
                 />
-              </View>
-            ) : (
-              <View style={styles.bookingList}>
-                {filtered.map((booking) => (
-                  <BookingCard
-                    key={booking._id}
-                    booking={booking}
-                    onPress={() =>
-                      router.push(`/(tabs)/booking/booking-detail?bookingId=${booking._id}` as any)
-                    }
-                    onJoin={() =>
-                      router.push(`/(tabs)/booking/live-session?bookingId=${booking._id}` as any)
-                    }
-                  />
-                ))}
-              </View>
-            )}
-          </View>
-
-          {/* ── CTA + Provider Dashboard ──────────────────────────────── */}
-          {activeTab === "upcoming" && (
-            <View style={styles.ctaWrap}>
-              {filtered.length > 0 && (
-                <PrimaryButton
-                  label="Book a New Session"
-                  onPress={() => router.push("/(tabs)/booking/providers" as any)}
-                  icon={<Ionicons name="add-circle-outline" size={20} color="#FFFFFF" />}
-                />
-              )}
-              {isProvider && (
-                <TouchableOpacity
-                  style={styles.providerDashBtn}
-                  onPress={() => router.push("/(tabs)/booking/my-sessions" as any)}
-                  activeOpacity={0.85}
-                  accessibilityRole="button"
-                  accessibilityLabel="Open provider dashboard"
-                >
-                  <View style={styles.providerDashLeft}>
-                    <View style={styles.providerDashIconWrap}>
-                      <Ionicons name="grid-outline" size={20} color="#FFFFFF" />
-                    </View>
-                    <View style={styles.providerDashTextWrap}>
-                      <Text style={styles.providerDashTitle} allowFontScaling={false}>
-                        Provider Dashboard
-                      </Text>
-                      <Text style={styles.providerDashSub} allowFontScaling={false}>
-                        Manage sessions, confirm requests &amp; track earnings
-                      </Text>
-                    </View>
-                  </View>
-                  <Ionicons name="chevron-forward" size={18} color="#FFFFFF" />
-                </TouchableOpacity>
+              ) : (
+                <View style={styles.bookingList}>
+                  {filtered.map(booking => (
+                    <BookingCard
+                      key={booking._id}
+                      booking={booking}
+                      onPress={() => router.push(`/(tabs)/booking/booking-detail?bookingId=${booking._id}` as any)}
+                      onJoin={() => router.push(`/(tabs)/booking/live-session?bookingId=${booking._id}` as any)}
+                    />
+                  ))}
+                </View>
               )}
             </View>
-          )}
+          </View>
         </MobileCard>
+
+        {/* ══════════════════════════════════════════════════════════
+            SECTION 2 — GROUP EVENTS
+        ══════════════════════════════════════════════════════════ */}
+        <MobileCard style={styles.sectionCard}>
+          <View style={[styles.sectionLabelRow, { borderBottomColor: C.borderSubtle }]}>
+            <View style={[styles.sectionDot, { backgroundColor: C.statusInfo }]} />
+            <Text style={[styles.sectionChipLabel, { color: C.textMuted }]} allowFontScaling={false}>GROUP EVENTS</Text>
+          </View>
+
+          <View style={[styles.eventsPromoCard, { backgroundColor: C.statusInfoBg, borderColor: C.blueBorder }]}>
+            <View style={styles.eventsPromoLeft}>
+              <View style={[styles.eventsPromoIconWrap, { backgroundColor: C.blueSurfaceMid }]}>
+                <Ionicons name="people" size={26} color={C.statusInfo} />
+              </View>
+              <View style={styles.eventsPromoText}>
+                <Text style={[styles.eventsPromoTitle, { color: C.textPrimary }]} allowFontScaling={false}>
+                  Join a Live Event
+                </Text>
+                <Text style={[styles.eventsPromoSub, { color: C.textMuted }]} allowFontScaling={false}>
+                  Audio & video group sessions with expert providers
+                </Text>
+              </View>
+            </View>
+            <TouchableOpacity
+              style={[styles.eventsPromoCta, { backgroundColor: C.blueSurfaceMid, borderColor: C.blueBorder }]}
+              onPress={() => router.push("/(tabs)/booking/events" as any)}
+              activeOpacity={0.85}
+              accessibilityRole="button"
+              accessibilityLabel="Browse group events"
+            >
+              <Text style={[styles.eventsPromoCtaText, { color: C.statusInfo }]} allowFontScaling={false}>Browse</Text>
+              <Ionicons name="arrow-forward" size={14} color={C.statusInfo} />
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.actionTilesGrid}>
+            <ActionTile icon="radio-outline" label="Live Events"
+              onPress={() => router.push("/(tabs)/booking/events" as any)}
+              iconBg={C.statusInfoBg} iconColor={C.statusInfo} />
+            <ActionTile icon="mic-outline" label="Audio Rooms"
+              onPress={() => router.push("/(tabs)/booking/events" as any)}
+              iconBg={C.purpleSurface} iconColor={C.palette.purple} />
+            <ActionTile icon="videocam-outline" label="Recordings"
+              onPress={() => router.push("/(tabs)/booking/recordings" as any)}
+              iconBg={C.statusWarningBg} iconColor={C.statusWarning} />
+            <ActionTile icon="ribbon-outline" label={isProvider ? "My Events" : "Go Pro"}
+              onPress={() => router.push(isProvider ? "/(tabs)/booking/events" as any : "/(tabs)/booking/become-provider" as any)}
+              iconBg={C.bgPrimaryMid} iconColor={C.actionPrimary} />
+          </View>
+        </MobileCard>
+
+        {/* ══════════════════════════════════════════════════════════
+            SECTION 3 — PROVIDER TOOLS (provider-only)
+        ══════════════════════════════════════════════════════════ */}
+        {isProvider && (
+          <MobileCard style={styles.sectionCard}>
+            <View style={[styles.sectionLabelRow, { borderBottomColor: C.borderSubtle }]}>
+              <View style={[styles.sectionDot, { backgroundColor: C.statusSuccess }]} />
+              <Text style={[styles.sectionChipLabel, { color: C.textMuted }]} allowFontScaling={false}>PROVIDER TOOLS</Text>
+            </View>
+
+            <View style={styles.providerToolsGrid}>
+              <TouchableOpacity style={[styles.providerToolCard, { backgroundColor: C.bgElevated, borderColor: C.borderSubtle }]}
+                onPress={() => router.push("/(tabs)/booking/my-sessions" as any)}
+                activeOpacity={0.85} accessibilityRole="button" accessibilityLabel="My sessions">
+                <View style={[styles.providerToolIcon, { backgroundColor: C.statusInfoBg }]}>
+                  <Ionicons name="calendar-sharp" size={22} color={C.statusInfo} />
+                </View>
+                <Text style={[styles.providerToolLabel, { color: C.textPrimary }]} allowFontScaling={false}>My Sessions</Text>
+                <Text style={[styles.providerToolSub, { color: C.textMuted }]} allowFontScaling={false}>View &amp; confirm requests</Text>
+                <Ionicons name="chevron-forward" size={14} color={C.iconSecondary} style={{ marginTop: 4 }} />
+              </TouchableOpacity>
+
+              <TouchableOpacity style={[styles.providerToolCard, { backgroundColor: C.bgElevated, borderColor: C.borderSubtle }]}
+                onPress={() => router.push("/(tabs)/booking/events" as any)}
+                activeOpacity={0.85} accessibilityRole="button" accessibilityLabel="Manage events">
+                <View style={[styles.providerToolIcon, { backgroundColor: C.bgPrimaryMid }]}>
+                  <Ionicons name="radio" size={22} color={C.actionPrimary} />
+                </View>
+                <Text style={[styles.providerToolLabel, { color: C.textPrimary }]} allowFontScaling={false}>Events</Text>
+                <Text style={[styles.providerToolSub, { color: C.textMuted }]} allowFontScaling={false}>Create &amp; manage events</Text>
+                <Ionicons name="chevron-forward" size={14} color={C.iconSecondary} style={{ marginTop: 4 }} />
+              </TouchableOpacity>
+
+              <TouchableOpacity style={[styles.providerToolCard, { backgroundColor: C.bgElevated, borderColor: C.borderSubtle }]}
+                onPress={() => router.push("/(tabs)/booking/recordings" as any)}
+                activeOpacity={0.85} accessibilityRole="button" accessibilityLabel="Recordings">
+                <View style={[styles.providerToolIcon, { backgroundColor: C.purpleSurface }]}>
+                  <Ionicons name="cloud-upload-outline" size={22} color={C.palette.purple} />
+                </View>
+                <Text style={[styles.providerToolLabel, { color: C.textPrimary }]} allowFontScaling={false}>Recordings</Text>
+                <Text style={[styles.providerToolSub, { color: C.textMuted }]} allowFontScaling={false}>Manage session recordings</Text>
+                <Ionicons name="chevron-forward" size={14} color={C.iconSecondary} style={{ marginTop: 4 }} />
+              </TouchableOpacity>
+
+              <TouchableOpacity style={[styles.providerToolCard, { backgroundColor: C.bgElevated, borderColor: C.borderSubtle }]}
+                onPress={() => router.push("/(tabs)/booking/referrals" as any)}
+                activeOpacity={0.85} accessibilityRole="button" accessibilityLabel="Referrals">
+                <View style={[styles.providerToolIcon, { backgroundColor: C.greenSurface }]}>
+                  <Ionicons name="git-network-outline" size={22} color={C.statusSuccess} />
+                </View>
+                <Text style={[styles.providerToolLabel, { color: C.textPrimary }]} allowFontScaling={false}>Referrals</Text>
+                <Text style={[styles.providerToolSub, { color: C.textMuted }]} allowFontScaling={false}>Track &amp; earn rewards</Text>
+                <Ionicons name="chevron-forward" size={14} color={C.iconSecondary} style={{ marginTop: 4 }} />
+              </TouchableOpacity>
+            </View>
+          </MobileCard>
+        )}
+
+        {/* ══════════════════════════════════════════════════════════
+            GO PRO CTA (non-providers only)
+        ══════════════════════════════════════════════════════════ */}
+        {!isProvider && !isLoading && (
+          <MobileCard style={styles.sectionCard}>
+            <TouchableOpacity style={[styles.goProCard, { backgroundColor: C.statusWarningBg, borderColor: C.amberBorder }]}
+              onPress={() => router.push("/(tabs)/booking/become-provider" as any)}
+              activeOpacity={0.88} accessibilityRole="button" accessibilityLabel="Become a provider">
+              <View style={styles.goProLeft}>
+                <View style={[styles.goProIconWrap, { backgroundColor: C.amberSurface }]}>
+                  <Ionicons name="ribbon" size={24} color={C.statusWarning} />
+                </View>
+                <View>
+                  <Text style={[styles.goProTitle, { color: C.textPrimary }]} allowFontScaling={false}>Become a Provider</Text>
+                  <Text style={[styles.goProSub, { color: C.textMuted }]} allowFontScaling={false}>
+                    Share your expertise and earn from sessions
+                  </Text>
+                </View>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={C.statusWarning} />
+            </TouchableOpacity>
+          </MobileCard>
+        )}
+
       </ScrollView>
     </AppBackground>
   );
@@ -641,32 +607,120 @@ const styles = StyleSheet.create({
   scroll: { flex: 1 },
   scrollContent: { paddingBottom: spacing.scrollBottomPadding },
 
-  searchBtn: {
+  // ── Provider Banner Section (top of first card) ──────────────────
+  providerBannerSection: {
+    paddingHorizontal: spacing.space4,
+    paddingTop: spacing.space4,
+    paddingBottom: 0,
+  },
+  providerBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: radius.radiusMD,
+    borderWidth: 1,
+    overflow: "hidden",
+    paddingVertical: spacing.space3,
+    paddingRight: spacing.space3,
+  },
+  providerBannerAccent: {
+    width: 3,
+    alignSelf: "stretch",
+    marginRight: spacing.space3,
+  },
+  providerBannerIconWrap: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: radius.radiusSM,
     alignItems: "center",
     justifyContent: "center",
+    marginRight: spacing.space3,
+    flexShrink: 0,
+  },
+  providerBannerText: {
+    flex: 1,
+    gap: 3,
+  },
+  providerBannerTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.space2,
+  },
+  providerBannerTitle: {
+    ...typeScale.labelMD,
+    fontWeight: "700",
+  },
+  providerBannerBadge: {
+    backgroundColor: Colors.statusInfo,
+    borderRadius: radius.radiusFull,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+  },
+  providerBannerBadgeText: {
+    fontSize: 9,
+    fontWeight: "800",
+    color: "#FFFFFF",
+    letterSpacing: 0.5,
+  },
+  providerBannerSub: {
+    ...typeScale.caption,
+  },
+  providerBannerChevron: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
   },
 
-  introBlock: {
-    paddingTop: spacing.space4,
-    paddingBottom: spacing.space5,
+  // ── Hero ─────────────────────────────────────────────────────────
+  heroBlock: {
     paddingHorizontal: spacing.space4,
+    paddingTop: spacing.space5,
+    paddingBottom: spacing.space3,
   },
-  introSubtitle: {
+  heroTitle: {
+    ...typeScale.headingXL,
+    color: Colors.textPrimary,
+    fontWeight: "700",
+  },
+  heroSub: {
     ...typeScale.bodyMD,
     color: Colors.textMuted,
-    marginBottom: spacing.space3,
+    marginTop: 4,
   },
 
-  // Booking search bar
+  // ── Stats ────────────────────────────────────────────────────────
+  statsRow: {
+    flexDirection: "row",
+    gap: spacing.space2,
+    paddingHorizontal: spacing.space4,
+    marginBottom: spacing.space4,
+  },
+  statCard: {
+    flex: 1,
+    flexDirection: "column",
+    alignItems: "center",
+    paddingVertical: spacing.space3,
+    borderRadius: radius.radiusMD,
+    gap: 4,
+  },
+  statCount: {
+    ...typeScale.headingMD,
+    fontWeight: "700",
+  },
+  statLabel: {
+    ...typeScale.caption,
+    color: Colors.textMuted,
+  },
+
+  // ── Search ───────────────────────────────────────────────────────
   searchWrap: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    marginTop: spacing.space4,
-    width: "100%",
+    marginHorizontal: spacing.space4,
+    marginBottom: spacing.space4,
     backgroundColor: Colors.bgElevated,
     borderRadius: radius.radiusFull,
     borderWidth: 1,
@@ -681,35 +735,37 @@ const styles = StyleSheet.create({
     padding: 0,
   },
 
-  // Stats strip
-  statsStrip: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: spacing.space2,
-    paddingHorizontal: spacing.space4,
-    marginBottom: spacing.space5,
+  // ── Section Cards ────────────────────────────────────────────────
+  sectionCard: {
+    paddingBottom: spacing.space4,
+    marginTop: 0,
   },
-  statBadge: {
+  sectionLabelRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 5,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: radius.radiusFull,
+    gap: spacing.space2,
+    paddingHorizontal: spacing.space4,
+    paddingTop: spacing.space5,
+    paddingBottom: spacing.space3,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.borderSubtle,
+    marginBottom: spacing.space4,
   },
-  statCount: {
-    ...typeScale.labelSM,
-    fontWeight: "700",
+  sectionDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
   },
-  statLabel: {
-    ...typeScale.caption,
+  sectionChipLabel: {
+    ...typeScale.overline,
     color: Colors.textMuted,
+    letterSpacing: 1.2,
   },
 
-  // Upcoming preview section
-  previewSection: {
+  // ── Inner Sections ───────────────────────────────────────────────
+  innerSection: {
     paddingHorizontal: spacing.space4,
-    marginBottom: spacing.space4,
+    marginBottom: spacing.space5,
   },
   sectionHeader: {
     flexDirection: "row",
@@ -726,52 +782,48 @@ const styles = StyleSheet.create({
     color: Colors.actionPrimary,
   },
 
-  // Quick actions
-  quickActions: {
+  // ── Action Tiles ─────────────────────────────────────────────────
+  actionTilesGrid: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    paddingHorizontal: spacing.space4,
-    marginBottom: spacing.space5,
-    gap: spacing.space2,
+    gap: spacing.space3,
   },
-  quickActionBtn: {
+  actionTile: {
     flex: 1,
     alignItems: "center",
     gap: 6,
   },
-  quickActionIcon: {
-    width: 48,
-    height: 48,
+  actionTileIcon: {
+    width: 52,
+    height: 52,
     borderRadius: radius.radiusMD,
     alignItems: "center",
     justifyContent: "center",
   },
-  quickActionLabel: {
+  actionTileLabel: {
     ...typeScale.caption,
     fontSize: 11,
-    fontWeight: "500",
+    fontWeight: "600",
     color: Colors.textSecondary,
     textAlign: "center",
   },
 
-  // Tab bar
-  tabBar: {
-    borderTopWidth: 1,
-    borderTopColor: Colors.borderSubtle,
+  // ── Tab bar ──────────────────────────────────────────────────────
+  tabBarContent: {
+    paddingBottom: spacing.space3,
     borderBottomWidth: 1,
     borderBottomColor: Colors.borderSubtle,
-  },
-  tabBarContent: {
-    paddingHorizontal: spacing.space2,
+    gap: 4,
+    marginBottom: spacing.space3,
   },
   tabItem: {
     flexDirection: "row",
     alignItems: "center",
     gap: 5,
     paddingHorizontal: spacing.space4,
-    paddingVertical: spacing.space3,
+    paddingVertical: spacing.space2,
     borderBottomWidth: 2,
     borderBottomColor: "transparent",
+    marginBottom: -1,
   },
   tabItemActive: {
     borderBottomColor: Colors.actionPrimary,
@@ -784,28 +836,22 @@ const styles = StyleSheet.create({
     color: Colors.actionPrimary,
     fontWeight: "600",
   },
-
-  // Tab content
   tabContent: {
-    minHeight: 240,
+    minHeight: 200,
   },
-  emptyWrap: {
-    paddingVertical: spacing.space4,
-  },
+
+  // ── Booking List ─────────────────────────────────────────────────
   bookingList: {
-    paddingHorizontal: spacing.space4,
-    paddingTop: spacing.space4,
     gap: spacing.space3,
   },
 
-  // Booking card
+  // ── Booking Card ─────────────────────────────────────────────────
   bookingCard: {
     backgroundColor: Colors.bgElevated,
     borderRadius: radius.radiusMD,
     borderWidth: 1,
     borderColor: Colors.borderSubtle,
     padding: spacing.space4,
-    marginBottom: spacing.space3,
   },
   cardHeader: {
     flexDirection: "row",
@@ -903,51 +949,139 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
   },
 
-  // CTA
-  ctaWrap: {
-    paddingHorizontal: spacing.space4,
-    paddingTop: spacing.space3,
-    paddingBottom: spacing.space4,
-    gap: spacing.space3,
-  },
-
-  // Provider Dashboard button — solid blue, provider-only
-  providerDashBtn: {
+  // ── Events Promo Card ────────────────────────────────────────────
+  eventsPromoCard: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: spacing.space4,
-    paddingVertical: 16,
-    backgroundColor: Colors.statusInfo,
-    borderRadius: radius.radiusFull,
+    backgroundColor: Colors.statusInfoBg,
+    borderRadius: radius.radiusMD,
+    borderWidth: 1,
+    borderColor: Colors.blueBorder,
+    padding: spacing.space4,
+    marginHorizontal: spacing.space4,
+    marginBottom: spacing.space4,
   },
-  providerDashLeft: {
+  eventsPromoLeft: {
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.space3,
     flex: 1,
   },
-  providerDashIconWrap: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: "rgba(255,255,255,0.20)",
+  eventsPromoIconWrap: {
+    width: 48,
+    height: 48,
+    borderRadius: radius.radiusSM,
+    backgroundColor: Colors.blueSurfaceMid,
     alignItems: "center",
     justifyContent: "center",
     flexShrink: 0,
   },
-  providerDashTextWrap: {
+  eventsPromoText: {
     flex: 1,
-    gap: 1,
+    gap: 3,
   },
-  providerDashTitle: {
-    ...typeScale.labelLG,
-    color: "#FFFFFF",
+  eventsPromoTitle: {
+    ...typeScale.labelMD,
+    color: Colors.textPrimary,
     fontWeight: "700",
   },
-  providerDashSub: {
+  eventsPromoSub: {
     ...typeScale.caption,
-    color: "rgba(255,255,255,0.75)",
-    lineHeight: 14,
+    color: Colors.textMuted,
+    lineHeight: 15,
+  },
+  eventsPromoCta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: Colors.blueSurfaceMid,
+    borderRadius: radius.radiusFull,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderWidth: 1,
+    borderColor: Colors.blueBorder,
+    flexShrink: 0,
+  },
+  eventsPromoCtaText: {
+    ...typeScale.labelSM,
+    color: Colors.statusInfo,
+    fontWeight: "600",
+  },
+
+  // ── Provider Tools Grid ──────────────────────────────────────────
+  providerToolsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.space3,
+    paddingHorizontal: spacing.space4,
+  },
+  providerToolCard: {
+    width: "47%",
+    backgroundColor: Colors.bgElevated,
+    borderRadius: radius.radiusMD,
+    borderWidth: 1,
+    borderColor: Colors.borderSubtle,
+    padding: spacing.space4,
+    gap: 4,
+  },
+  providerToolIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: radius.radiusSM,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 4,
+  },
+  providerToolLabel: {
+    ...typeScale.labelMD,
+    color: Colors.textPrimary,
+    fontWeight: "700",
+  },
+  providerToolSub: {
+    ...typeScale.caption,
+    color: Colors.textMuted,
+    lineHeight: 15,
+  },
+
+  // ── Go Pro Card ──────────────────────────────────────────────────
+  goProCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: Colors.statusWarningBg,
+    borderRadius: radius.radiusMD,
+    borderWidth: 1,
+    borderColor: Colors.amberBorder,
+    padding: spacing.space4,
+    marginHorizontal: spacing.space4,
+    marginTop: spacing.space3,
+    marginBottom: spacing.space2,
+  },
+  goProLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.space3,
+    flex: 1,
+  },
+  goProIconWrap: {
+    width: 48,
+    height: 48,
+    borderRadius: radius.radiusSM,
+    backgroundColor: Colors.amberSurface,
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  goProTitle: {
+    ...typeScale.labelMD,
+    color: Colors.textPrimary,
+    fontWeight: "700",
+  },
+  goProSub: {
+    ...typeScale.caption,
+    color: Colors.textMuted,
+    marginTop: 2,
+    lineHeight: 15,
   },
 });

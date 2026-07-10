@@ -18,6 +18,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Colors } from "@/tokens/colors";
+import { useColors } from "@/hooks/useColors";
 import { typeScale } from "@/tokens/typography";
 import { spacing } from "@/tokens/spacing";
 import { radius } from "@/tokens/radius";
@@ -248,6 +249,7 @@ function ReferralCard({
 // ─── Main component ───────────────────────────────────────────────────────────
 export function PatientReferralsList() {
   const router = useRouter();
+  const C = useColors();
   const [activeFilter, setActiveFilter] = useState<FilterKey>("ALL");
   const [declineTarget, setDeclineTarget] = useState<string | null>(null);
   const [declining, setDeclining] = useState(false);
@@ -299,13 +301,17 @@ export function PatientReferralsList() {
           const active = activeFilter === item.key;
           return (
             <TouchableOpacity
-              style={[styles.filterChip, active && styles.filterChipActive]}
+              style={[
+                styles.filterChip,
+                { backgroundColor: C.bgElevated, borderColor: C.borderSubtle },
+                active && { backgroundColor: C.bgPrimaryMid, borderColor: C.borderFilled },
+              ]}
               onPress={() => setActiveFilter(item.key)}
               activeOpacity={0.8}
               accessibilityRole="button"
               accessibilityState={{ selected: active }}
             >
-              <Text style={[styles.filterChipText, active && styles.filterChipTextActive]} allowFontScaling={false}>
+              <Text style={[styles.filterChipText, { color: C.textMuted }, active && { color: C.actionPrimary, fontWeight: "600" }]} allowFontScaling={false}>
                 {item.label}
               </Text>
             </TouchableOpacity>
@@ -316,7 +322,7 @@ export function PatientReferralsList() {
       {/* Content */}
       {isLoading ? (
         <View style={styles.loadingWrap}>
-          <ActivityIndicator color={Colors.actionPrimary} />
+          <ActivityIndicator color={C.actionPrimary} />
         </View>
       ) : !referrals || referrals.length === 0 ? (
         <EmptyStateCard
@@ -384,16 +390,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 7,
     borderRadius: radius.radiusFull,
-    backgroundColor: Colors.bgElevated,
     borderWidth: 1,
-    borderColor: Colors.borderSubtle,
   },
-  filterChipActive: {
-    backgroundColor: Colors.bgPrimaryMid,
-    borderColor: Colors.borderFilled,
-  },
-  filterChipText: { ...typeScale.labelSM, color: Colors.textMuted },
-  filterChipTextActive: { color: Colors.actionPrimary, fontWeight: "600" },
+  filterChipText: { ...typeScale.labelSM },
 
   // Loading / empty
   loadingWrap: { paddingVertical: spacing.space8, alignItems: "center" },

@@ -1,9 +1,10 @@
-import { View, ScrollView } from "tamagui";
+import { ScrollView } from "tamagui";
 import { Password } from "./auth/password/Password";
+import { AppBackgroundWithGlow } from "@/components/AppBackground";
 
 export function SignIn() {
   return (
-    <View flex={1} width="100%" backgroundColor="#0a0a15">
+    <AppBackgroundWithGlow>
       <ScrollView
         flex={1}
         width="100%"
@@ -16,6 +17,6 @@ export function SignIn() {
       >
         <Password />
       </ScrollView>
-    </View>
+    </AppBackgroundWithGlow>
   );
 }

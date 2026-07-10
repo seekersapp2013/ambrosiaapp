@@ -100,7 +100,7 @@ export default function BookingDetailScreen() {
     if (viewMode === "calendar")      { setViewMode("details"); return; }
     if (viewMode === "confirmation")  { setViewMode("calendar"); return; }
     if (viewMode === "success")       { router.replace("/(tabs)/booking" as any); return; }
-    router.back();
+    router.replace("/(tabs)/booking" as any);
   }
 
   const headerTitle =
@@ -112,7 +112,7 @@ export default function BookingDetailScreen() {
   if (isLoading) {
     return (
       <AppBackground>
-        <ScreenHeader title="Loading…" onBack={() => router.back()} />
+        <ScreenHeader title="Loading…" onBack={() => router.replace("/(tabs)/booking" as any)} />
         <View style={styles.loadingWrap}>
           <ActivityIndicator size="large" color={Colors.actionPrimary} />
         </View>
@@ -123,11 +123,11 @@ export default function BookingDetailScreen() {
   if (!providerInfo) {
     return (
       <AppBackground>
-        <ScreenHeader title="Not Found" onBack={() => router.back()} />
+        <ScreenHeader title="Not Found" onBack={() => router.replace("/(tabs)/booking" as any)} />
         <View style={styles.loadingWrap}>
           <Ionicons name="alert-circle-outline" size={48} color={Colors.statusDanger} />
           <Text style={styles.notFoundText} allowFontScaling={false}>Provider not found</Text>
-          <SecondaryButton label="Go Back" onPress={() => router.back()} style={{ marginTop: spacing.space4 }} />
+          <SecondaryButton label="Go Back" onPress={() => router.replace("/(tabs)/booking" as any)} style={{ marginTop: spacing.space4 }} />
         </View>
       </AppBackground>
     );

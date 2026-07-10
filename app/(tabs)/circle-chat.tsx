@@ -1,33 +1,37 @@
 /**
- * Circle Chat — WhatsApp-quality group chat experience
+ * Circle Chat — WhatsApp-inspired group chat experience
+ * Features: image upload, multi-user colored names, read receipts, time stamps
  */
 
 import React, { useState, useRef, useCallback, memo } from "react";
 import {
   View, Text, TouchableOpacity, FlatList, TextInput, StyleSheet,
   Alert, ActivityIndicator, Animated, KeyboardAvoidingView, Platform, Image,
-  StatusBar, ScrollView, Pressable,
+  StatusBar, ScrollView, Pressable, Dimensions, Modal,
 } from "react-native";
-import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import { useQuery, useMutation } from "convex/react";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import * as ImagePicker from "expo-image-picker";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { AppBackground } from "@/components/AppBackground";
 import { MobileCard } from "@/components/MobileCard";
 import { Colors } from "@/constants/Colors";
+import { useColors } from "@/hooks/useColors";
 import { useNavigationHistory } from "@/context/NavigationHistoryContext";
 import { useTabBarHeight } from "@/utils/useDeviceClass";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const QUICK_EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "🙏", "🔥", "🎉"];
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
-// Distinct colors for sender names (cycles through for variety)
+// WhatsApp-style sender name colors for group chats
 const SENDER_PALETTE = [
-  "#E57373", "#F06292", "#BA68C8", "#7986CB",
-  "#64B5F6", "#4DB6AC", "#81C784", "#FFD54F",
-  "#FF8A65", "#A1887F",
+  "#25D366", "#34B7F1", "#FF6B6B", "#A855F7",
+  "#F59E0B", "#EC4899", "#06B6D4", "#84CC16",
+  "#F97316", "#6366F1",
 ];
 
 function senderColor(id: string): string {
@@ -52,9 +56,9 @@ function dateDividerLabel(ts: number): string {
 }
 
 const ROLE_BADGE: Record<string, { label: string; color: string }> = {
-  CREATOR: { label: "Creator", color: Colors.purple },
-  ADMIN:   { label: "Admin",   color: Colors.statusInfo },
-  MODERATOR: { label: "Mod",  color: Colors.statusSuccess },
+  CREATOR: { label: "Creator", color: "#A855F7" },
+  ADMIN:   { label: "Admin",   color: "#3B82F6" },
+  MODERATOR: { label: "Mod",  color: "#22C55E" },
 };
 
 // ── Avatar component ──────────────────────────────────────────────────────────
@@ -89,25 +93,38 @@ interface BubbleProps {
   isLast: boolean;
   onLongPress: () => void;
   onReact: (emoji: string) => void;
+  onImagePress: (uri: string) => void;
+  isDark: boolean;
 }
 
 const MessageBubble = memo(({
-  msg, isOwn, showAvatar, showName, isFirst, isLast, onLongPress, onReact,
+  msg, isOwn, showAvatar, showName, isFirst, isLast, onLongPress, onReact, onImagePress, isDark,
 }: BubbleProps) => {
+  const C = useColors();
   const nameColor = senderColor(msg.sender?.id ?? "");
   const role = msg.sender?.role ? ROLE_BADGE[msg.sender.role] : null;
+  const isImage = msg.messageType === "image" && msg.imageUrl;
 
-  // Bubble shape: only round the corner adjacent to avatar on first/last in group
+  // WhatsApp-style bubble: pointed tail on first message in group
   const bubbleRadius = {
-    borderTopLeftRadius:    isOwn ? 18 : isFirst ? 4  : 18,
-    borderTopRightRadius:   isOwn ? (isFirst ? 4 : 18) : 18,
-    borderBottomLeftRadius: isOwn ? 18 : isLast  ? 4  : 18,
-    borderBottomRightRadius:isOwn ? (isLast ? 4 : 18) : 18,
+    borderTopLeftRadius:     isOwn ? 8 : (isFirst ? 0 : 8),
+    borderTopRightRadius:    isOwn ? (isFirst ? 0 : 8) : 8,
+    borderBottomLeftRadius:  isOwn ? 8 : (isLast ? 0 : 8),
+    borderBottomRightRadius: isOwn ? (isLast ? 0 : 8) : 8,
   };
+
+  // Own messages: branded red tint (dark) or deep red (light)
+  // Others: elevated surface
+  const ownBubbleBg = isDark ? 'rgba(198,34,41,0.18)' : '#C62229';
+  const otherBubbleBg = isDark ? '#1A1A2E' : '#FFFFFF';
+  const ownTextColor = isDark ? '#FFFFFF' : '#FFFFFF';
+  const otherTextColor = isDark ? '#E5E5E5' : '#111827';
+  const ownMetaColor = isDark ? 'rgba(255,255,255,0.55)' : 'rgba(255,255,255,0.7)';
+  const otherMetaColor = isDark ? 'rgba(255,255,255,0.4)' : '#6B7280';
 
   return (
     <View style={[styles.msgRow, isOwn && styles.msgRowOwn]}>
-      {/* Avatar column — always 36px wide for alignment */}
+      {/* Avatar column — group chat shows avatars for other users */}
       {!isOwn && (
         <View style={styles.avatarCol}>
           {showAvatar ? <SenderAvatar sender={msg.sender} /> : null}
@@ -127,20 +144,20 @@ const MessageBubble = memo(({
               </View>
             )}
             {msg.isPinned && (
-              <Ionicons name="pin" size={10} color={Colors.statusWarning} style={{ marginLeft: 2 }} />
+              <Ionicons name="pin" size={10} color="#F59E0B" style={{ marginLeft: 2 }} />
             )}
           </View>
         )}
 
         {/* Reply preview */}
         {msg.replyTo && (
-          <View style={[styles.replyPreview, isOwn && styles.replyPreviewOwn]}>
+          <View style={[styles.replyPreview, { backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.05)" }]}>
             <View style={[styles.replyStripe, { backgroundColor: isOwn ? "rgba(255,255,255,0.6)" : nameColor }]} />
             <View style={{ flex: 1 }}>
               <Text style={[styles.replyFrom, { color: isOwn ? "rgba(255,255,255,0.85)" : nameColor }]}>
                 {msg.replyTo.senderName}
               </Text>
-              <Text style={styles.replyContent} numberOfLines={1}>{msg.replyTo.content}</Text>
+              <Text style={[styles.replyContent, { color: otherMetaColor }]} numberOfLines={1}>{msg.replyTo.content}</Text>
             </View>
           </View>
         )}
@@ -151,39 +168,60 @@ const MessageBubble = memo(({
           activeOpacity={0.85}
           style={[
             styles.bubble,
-            isOwn ? styles.bubbleOwn : styles.bubbleOther,
+            { backgroundColor: isOwn ? ownBubbleBg : otherBubbleBg },
             bubbleRadius,
+            isImage && styles.bubbleImage,
           ]}
         >
-          <Text style={[styles.msgText, isOwn && styles.msgTextOwn]}>{msg.content}</Text>
+          {/* Image message */}
+          {isImage && (
+            <TouchableOpacity onPress={() => onImagePress(msg.imageUrl)} activeOpacity={0.9}>
+              <Image
+                source={{ uri: msg.imageUrl }}
+                style={styles.msgImage}
+                resizeMode="cover"
+              />
+            </TouchableOpacity>
+          )}
+
+          {/* Text message */}
+          {msg.messageType === "text" && (
+            <Text style={[styles.msgText, { color: isOwn ? ownTextColor : otherTextColor }]}>
+              {msg.content}
+            </Text>
+          )}
 
           {/* Meta row: edited + time + read ticks */}
-          <View style={styles.metaRow}>
-            {msg.isEdited && <Text style={[styles.editedLabel, isOwn && styles.metaOwn]}>edited </Text>}
-            <Text style={[styles.timeLabel, isOwn && styles.metaOwn]}>{timeLabel(msg.createdAt)}</Text>
+          <View style={[styles.metaRow, isImage && styles.metaRowImage]}>
+            {msg.isEdited && (
+              <Text style={[styles.editedLabel, { color: isOwn ? ownMetaColor : otherMetaColor }]}>edited </Text>
+            )}
+            <Text style={[styles.timeLabel, { color: isOwn ? ownMetaColor : otherMetaColor }]}>
+              {timeLabel(msg.createdAt)}
+            </Text>
             {isOwn && (
               <Ionicons
                 name="checkmark-done"
-                size={13}
-                color="rgba(255,255,255,0.55)"
-                style={{ marginLeft: 2 }}
+                size={14}
+                color={isDark ? "#34B7F1" : "rgba(255,255,255,0.8)"}
+                style={{ marginLeft: 3 }}
               />
             )}
           </View>
         </TouchableOpacity>
 
-        {/* Reactions row — floats below bubble */}
+        {/* Reactions row */}
         {msg.reactions?.length > 0 && (
           <View style={[styles.reactionsRow, isOwn && styles.reactionsRowOwn]}>
             {msg.reactions.map((r: any) => (
               <TouchableOpacity
                 key={r.emoji}
-                style={[styles.reactionChip, r.userReacted && styles.reactionChipActive]}
+                style={[styles.reactionChip, { backgroundColor: isDark ? '#1A1A2E' : '#F3F4F6', borderColor: isDark ? 'rgba(255,255,255,0.1)' : '#E5E7EB' }, r.userReacted && { borderColor: C.primary, backgroundColor: isDark ? 'rgba(198,34,41,0.12)' : 'rgba(198,34,41,0.08)' }]}
                 onPress={() => onReact(r.emoji)}
                 activeOpacity={0.7}
               >
                 <Text style={styles.reactionEmoji}>{r.emoji}</Text>
-                {r.count > 1 && <Text style={styles.reactionCount}>{r.count}</Text>}
+                {r.count > 1 && <Text style={[styles.reactionCount, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>{r.count}</Text>}
               </TouchableOpacity>
             ))}
           </View>
@@ -195,6 +233,7 @@ const MessageBubble = memo(({
 
 // ── Screen ────────────────────────────────────────────────────────────────────
 export default function CircleChatScreen() {
+  const C = useColors();
   const router = useRouter();
   const history = useNavigationHistory();
   const { circleId } = useLocalSearchParams<{ circleId: string }>();
@@ -204,8 +243,10 @@ export default function CircleChatScreen() {
 
   const [messageText, setMessageText] = useState("");
   const [isSending, setIsSending] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const [showEmojiBar, setShowEmojiBar] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
+  const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
   const emojiAnim = useRef(new Animated.Value(0)).current;
 
   const circle = useQuery(api.circles.getCircleById,
@@ -217,14 +258,14 @@ export default function CircleChatScreen() {
   const membersResult = useQuery(api.circleMembers.getCircleMembers,
     circleId && showMenu ? { circleId: circleId as Id<"circles">, limit: 100 } : "skip");
 
-  const sendMessage  = useMutation(api.circleMessages.sendMessage);
-  const deleteMsg    = useMutation(api.circleMessages.deleteMessage);
-  const togglePin    = useMutation(api.circleMessages.togglePinMessage);
-  const addReaction  = useMutation(api.circleMessages.addReaction);
-  const leaveCircle  = useMutation(api.circleMembers.leaveCircle);
+  const sendMessage    = useMutation(api.circleMessages.sendMessage);
+  const deleteMsg      = useMutation(api.circleMessages.deleteMessage);
+  const togglePin      = useMutation(api.circleMessages.togglePinMessage);
+  const addReaction    = useMutation(api.circleMessages.addReaction);
+  const leaveCircle    = useMutation(api.circleMembers.leaveCircle);
+  const generateUpload = useMutation(api.files.generateUploadUrl);
 
   const isAdmin = ["CREATOR","ADMIN","MODERATOR"].includes(circle?.membership?.role ?? "");
-  const isCreator = circle?.membership?.role === "CREATOR";
   const inputPaddingBottom = tabBarHeight + insets.bottom + 8;
 
   // ── Emoji bar toggle ──────────────────────────────────────────────────────
@@ -234,7 +275,94 @@ export default function CircleChatScreen() {
     Animated.spring(emojiAnim, { toValue: toVal, useNativeDriver: false, friction: 10 }).start();
   };
 
-  // ── Send ──────────────────────────────────────────────────────────────────
+  // ── Image upload ──────────────────────────────────────────────────────────
+  const handleImagePick = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        quality: 0.8,
+      });
+
+      if (result.canceled || !result.assets?.[0]) return;
+
+      setIsUploading(true);
+      const asset = result.assets[0];
+
+      // Get upload URL from Convex
+      const uploadUrl = await generateUpload();
+
+      // Upload the image
+      const response = await fetch(asset.uri);
+      const blob = await response.blob();
+      const uploadResult = await fetch(uploadUrl, {
+        method: "POST",
+        headers: { "Content-Type": asset.mimeType ?? "image/jpeg" },
+        body: blob,
+      });
+
+      const { storageId } = await uploadResult.json();
+
+      // Send as image message
+      await sendMessage({
+        circleId: circleId as Id<"circles">,
+        messageType: "image",
+        content: storageId,
+      });
+
+      setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 80);
+    } catch (err: any) {
+      Alert.alert("Upload Failed", err?.message ?? "Could not upload image.");
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  // ── Camera capture ────────────────────────────────────────────────────────
+  const handleCameraCapture = async () => {
+    try {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert("Permission Required", "Camera access is needed to take photos.");
+        return;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        allowsEditing: true,
+        quality: 0.8,
+      });
+
+      if (result.canceled || !result.assets?.[0]) return;
+
+      setIsUploading(true);
+      const asset = result.assets[0];
+
+      const uploadUrl = await generateUpload();
+      const response = await fetch(asset.uri);
+      const blob = await response.blob();
+      const uploadResult = await fetch(uploadUrl, {
+        method: "POST",
+        headers: { "Content-Type": asset.mimeType ?? "image/jpeg" },
+        body: blob,
+      });
+
+      const { storageId } = await uploadResult.json();
+
+      await sendMessage({
+        circleId: circleId as Id<"circles">,
+        messageType: "image",
+        content: storageId,
+      });
+
+      setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 80);
+    } catch (err: any) {
+      Alert.alert("Camera Error", err?.message ?? "Could not capture image.");
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  // ── Send text ─────────────────────────────────────────────────────────────
   const handleSend = async () => {
     const text = messageText.trim();
     if (!text || !circleId) return;
@@ -313,19 +441,21 @@ export default function CircleChatScreen() {
     const sameSenderNext = next?.sender?.id === msg.sender?.id &&
       new Date(msg.createdAt).toDateString() === new Date(next.createdAt).toDateString();
 
-    const showAvatar = !isOwn && !sameSenderNext;   // show avatar on LAST in group (like WhatsApp)
-    const showName   = !isOwn && !sameSenderPrev;   // show name on FIRST in group
+    const showAvatar = !isOwn && !sameSenderNext;
+    const showName   = !isOwn && !sameSenderPrev;
     const isFirst    = !sameSenderPrev;
     const isLast     = !sameSenderNext;
-    const gap        = sameSenderPrev ? 2 : 8;      // tighter spacing within a group
+    const gap        = sameSenderPrev ? 2 : 10;
 
     return (
       <View style={{ marginTop: gap }}>
         {newDay && (
           <View style={styles.dateDivider}>
-            <View style={styles.divLine} />
-            <Text style={styles.divLabel}>{dateDividerLabel(msg.createdAt)}</Text>
-            <View style={styles.divLine} />
+            <View style={[styles.divPill, { backgroundColor: C.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }]}>
+              <Text style={[styles.divLabel, { color: C.isDark ? '#9CA3AF' : '#6B7280' }]}>
+                {dateDividerLabel(msg.createdAt)}
+              </Text>
+            </View>
           </View>
         )}
         <MessageBubble
@@ -337,10 +467,12 @@ export default function CircleChatScreen() {
           isLast={isLast}
           onLongPress={() => handleLongPress(msg, isOwn)}
           onReact={(emoji) => handleReact(msg._id, emoji)}
+          onImagePress={(uri) => setFullscreenImage(uri)}
+          isDark={C.isDark}
         />
       </View>
     );
-  }, [messages, circle, handleLongPress, handleReact]);
+  }, [messages, circle, handleLongPress, handleReact, C.isDark]);
 
   // ── Loading guard ─────────────────────────────────────────────────────────
   if (circle === undefined || messages === undefined) {
@@ -348,7 +480,7 @@ export default function CircleChatScreen() {
       <AppBackground>
         <MobileCard containerStyle={styles.cardContainer} style={styles.card}>
           <View style={styles.center}>
-            <ActivityIndicator size="large" color={Colors.primary} />
+            <ActivityIndicator size="large" color={C.primary} />
           </View>
         </MobileCard>
       </AppBackground>
@@ -356,6 +488,9 @@ export default function CircleChatScreen() {
   }
 
   const latestPinned = pinnedMessages?.[0] ?? null;
+
+  // WhatsApp-style chat background color
+  const chatBg = C.isDark ? '#0B141A' : '#ECE5DD';
 
   return (
     <AppBackground>
@@ -366,14 +501,15 @@ export default function CircleChatScreen() {
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         keyboardVerticalOffset={tabBarHeight + insets.bottom}
       >
+
         {/* ── Header ────────────────────────────────────────────────── */}
-        <View style={styles.header}>
+        <View style={[styles.header, { backgroundColor: C.bgTabBar, borderBottomColor: C.borderTabBar }]}>
           <TouchableOpacity
             onPress={() => history.goBack(router, "/(tabs)/circle")}
             style={styles.headerIconBtn}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <Ionicons name="arrow-back" size={22} color={Colors.textPrimary} />
+            <Ionicons name="arrow-back" size={22} color="#FFFFFF" />
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -385,11 +521,13 @@ export default function CircleChatScreen() {
               {circle?.coverImage
                 ? <Image source={{ uri: circle.coverImage }} style={styles.headerAvatar} />
                 : <View style={[styles.headerAvatar, styles.headerAvatarFallback]}>
-                    <Ionicons name="people" size={20} color={Colors.primary} />
+                    <Ionicons
+                      name={(circle as any)?.isReferralCircle ? "git-network-outline" : "people"}
+                      size={18}
+                      color={(circle as any)?.isReferralCircle ? "#F59E0B" : C.primary}
+                    />
                   </View>
               }
-              {/* Online indicator dot */}
-              <View style={styles.onlineDot} />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.headerTitle} numberOfLines={1}>{circle?.name ?? "Circle"}</Text>
@@ -397,46 +535,51 @@ export default function CircleChatScreen() {
             </View>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.headerIconBtn}
-            onPress={() => setShowMenu(true)}
-          >
-            <Ionicons name="ellipsis-vertical" size={22} color={Colors.textPrimary} />
+          <TouchableOpacity style={styles.headerIconBtn} onPress={() => setShowMenu(true)}>
+            <Ionicons name="ellipsis-vertical" size={20} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
 
         {/* ── Pinned banner ──────────────────────────────────────────── */}
         {latestPinned && (
-          <View style={styles.pinnedBar}>
-            <View style={styles.pinnedStripe} />
-            <Ionicons name="pin" size={13} color={Colors.statusWarning} style={{ marginRight: 6 }} />
-            <Text style={styles.pinnedText} numberOfLines={1}>{latestPinned.content}</Text>
+          <View style={[styles.pinnedBar, { backgroundColor: C.isDark ? 'rgba(245,158,11,0.08)' : 'rgba(245,158,11,0.1)' }]}>
+            <Ionicons name="pin" size={13} color="#F59E0B" style={{ marginRight: 6 }} />
+            <Text style={[styles.pinnedText, { color: C.isDark ? '#F59E0B' : '#92400E' }]} numberOfLines={1}>
+              {latestPinned.content}
+            </Text>
           </View>
         )}
 
-        {/* ── Message list ───────────────────────────────────────────── */}
-        <FlatList
-          ref={flatListRef}
-          data={messages as any[]}
-          renderItem={renderItem}
-          keyExtractor={(item: any) => item._id}
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
-          onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
-          onLayout={() => flatListRef.current?.scrollToEnd({ animated: false })}
-          ListEmptyComponent={
-            <View style={styles.empty}>
-              <View style={styles.emptyCircle}>
-                <Ionicons name="chatbubbles-outline" size={44} color={Colors.primary} />
+        {/* ── Message list with WhatsApp-style background ─────────── */}
+        <View style={[styles.chatArea, { backgroundColor: chatBg }]}>
+          {/* Subtle doodle-like pattern overlay */}
+          <View style={[StyleSheet.absoluteFill, { opacity: C.isDark ? 0.03 : 0.04 }]}>
+            <View style={styles.patternOverlay} />
+          </View>
+
+          <FlatList
+            ref={flatListRef}
+            data={messages as any[]}
+            renderItem={renderItem}
+            keyExtractor={(item: any) => item._id}
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+            onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
+            onLayout={() => flatListRef.current?.scrollToEnd({ animated: false })}
+            ListEmptyComponent={
+              <View style={styles.empty}>
+                <View style={[styles.emptyCircle, { backgroundColor: C.isDark ? 'rgba(198,34,41,0.12)' : 'rgba(198,34,41,0.08)' }]}>
+                  <Ionicons name="chatbubbles-outline" size={44} color={C.primary} />
+                </View>
+                <Text style={[styles.emptyTitle, { color: C.isDark ? '#D1D5DB' : '#374151' }]}>No messages yet</Text>
+                <Text style={[styles.emptySub, { color: C.isDark ? '#6B7280' : '#6B7280' }]}>Be the first to say something!</Text>
               </View>
-              <Text style={styles.emptyTitle}>No messages yet</Text>
-              <Text style={styles.emptySub}>Be the first to say something!</Text>
-            </View>
-          }
-        />
+            }
+          />
+        </View>
 
         {/* ── Quick emoji bar ────────────────────────────────────────── */}
-        <Animated.View style={[styles.emojiBar, { height: emojiAnim, overflow: "hidden" }]}>
+        <Animated.View style={[styles.emojiBar, { height: emojiAnim, overflow: "hidden", backgroundColor: C.bgTabBar }]}>
           <View style={styles.emojiBarInner}>
             {QUICK_EMOJIS.map((e) => (
               <TouchableOpacity
@@ -451,49 +594,67 @@ export default function CircleChatScreen() {
         </Animated.View>
 
         {/* ── Input row ──────────────────────────────────────────────── */}
-        <View style={[styles.inputRow, { paddingBottom: inputPaddingBottom }]}>
+        <View style={[styles.inputRow, { paddingBottom: inputPaddingBottom, backgroundColor: C.bgTabBar }]}>
+          {/* Emoji toggle */}
           <TouchableOpacity onPress={toggleEmojiBar} style={styles.inputIconBtn}>
             <Ionicons
               name={showEmojiBar ? "close-circle-outline" : "happy-outline"}
-              size={25}
-              color={Colors.textMuted}
+              size={24}
+              color="#9CA3AF"
             />
           </TouchableOpacity>
 
-          <TextInput
-            style={styles.input}
-            placeholder="Message…"
-            placeholderTextColor={Colors.textMuted}
-            value={messageText}
-            onChangeText={setMessageText}
-            onKeyPress={({ nativeEvent }) => {
-              if (nativeEvent.key === "Enter") {
-                handleSend();
-              }
-            }}
-            blurOnSubmit={false}
-            multiline
-            maxLength={2000}
-            accessibilityLabel="Message input"
-          />
+          {/* Text input */}
+          <View style={styles.inputContainer}>
+            <TextInput
+              style={styles.input}
+              placeholder="Message…"
+              placeholderTextColor="#6B7280"
+              value={messageText}
+              onChangeText={setMessageText}
+              onKeyPress={({ nativeEvent }) => {
+                if (nativeEvent.key === "Enter") handleSend();
+              }}
+              blurOnSubmit={false}
+              multiline
+              maxLength={2000}
+              accessibilityLabel="Message input"
+            />
 
+            {/* Attachment & camera inside input area */}
+            <TouchableOpacity
+              onPress={handleImagePick}
+              style={styles.inputAttachBtn}
+              disabled={isUploading}
+            >
+              <Ionicons name="attach" size={22} color="#9CA3AF" style={{ transform: [{ rotate: '45deg' }] }} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={handleCameraCapture}
+              style={styles.inputCameraBtn}
+              disabled={isUploading}
+            >
+              <Ionicons name="camera" size={20} color="#9CA3AF" />
+            </TouchableOpacity>
+          </View>
+
+          {/* Send button */}
           <TouchableOpacity
             style={[styles.sendBtn, (!messageText.trim() || isSending) && styles.sendBtnOff]}
             onPress={handleSend}
-            disabled={!messageText.trim() || isSending}
+            disabled={!messageText.trim() || isSending || isUploading}
             activeOpacity={0.8}
           >
-            {isSending
+            {isSending || isUploading
               ? <ActivityIndicator color="#fff" size="small" />
-              : <Ionicons name="send" size={19} color="#fff" style={{ marginLeft: 2 }} />}
+              : <Ionicons name="send" size={18} color="#fff" style={{ marginLeft: 2 }} />}
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
 
-      {/* ── Circle Menu Sheet — absolute overlay inside the card ──── */}
+      {/* ── Circle Menu Sheet ─────────────────────────────────────── */}
       {showMenu && (
         <>
-          {/* Backdrop */}
           <Pressable
             style={StyleSheet.absoluteFillObject}
             onPress={() => setShowMenu(false)}
@@ -501,28 +662,26 @@ export default function CircleChatScreen() {
             <View style={styles.menuBackdrop} />
           </Pressable>
 
-          {/* Sheet */}
-          <View style={styles.menuSheet}>
-            {/* Handle */}
-            <View style={styles.menuHandle} />
+          <View style={[styles.menuSheet, { backgroundColor: C.isDark ? '#1A1A2E' : '#FFFFFF', borderColor: C.borderDefault }]}>
+            <View style={[styles.menuHandle, { backgroundColor: C.isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.15)' }]} />
 
             {/* Circle info header */}
             <View style={styles.menuCircleHeader}>
-              <View style={styles.menuCircleAvatar}>
+              <View style={[styles.menuCircleAvatar, { borderColor: C.isDark ? 'rgba(198,34,41,0.3)' : 'rgba(198,34,41,0.2)' }]}>
                 {circle?.coverImage
                   ? <Image source={{ uri: circle.coverImage }} style={styles.menuCircleAvatarImg} />
-                  : <Ionicons name="people-circle-outline" size={32} color={Colors.primary} />
+                  : <Ionicons name="people-circle-outline" size={32} color={C.primary} />
                 }
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.menuCircleName}>{circle?.name}</Text>
-                <Text style={styles.menuCircleSub}>
+                <Text style={[styles.menuCircleName, { color: C.textPrimary }]}>{circle?.name}</Text>
+                <Text style={[styles.menuCircleSub, { color: C.textMuted }]}>
                   {circle?.currentMembers ?? 0} members · {circle?.type === "PRIVATE" ? "Private" : "Public"}
                 </Text>
               </View>
             </View>
 
-            <View style={styles.menuDivider} />
+            <View style={[styles.menuDivider, { backgroundColor: C.borderSubtle }]} />
 
             {/* Circle Details action */}
             <TouchableOpacity
@@ -533,19 +692,19 @@ export default function CircleChatScreen() {
               }}
               activeOpacity={0.7}
             >
-              <View style={[styles.menuActionIcon, { backgroundColor: Colors.bgPrimarySubtle }]}>
-                <Ionicons name="information-circle-outline" size={20} color={Colors.primary} />
+              <View style={[styles.menuActionIcon, { backgroundColor: C.bgPrimarySubtle }]}>
+                <Ionicons name="information-circle-outline" size={20} color={C.primary} />
               </View>
-              <Text style={styles.menuActionText}>Circle Details</Text>
-              <Ionicons name="chevron-forward" size={16} color={Colors.iconSecondary} />
+              <Text style={[styles.menuActionText, { color: C.textPrimary }]}>Circle Details</Text>
+              <Ionicons name="chevron-forward" size={16} color={C.iconSecondary} />
             </TouchableOpacity>
 
-            <View style={styles.menuDivider} />
+            <View style={[styles.menuDivider, { backgroundColor: C.borderSubtle }]} />
 
             {/* Members section */}
             <View style={styles.menuSectionHeader}>
-              <Ionicons name="people-outline" size={15} color={Colors.textMuted} />
-              <Text style={styles.menuSectionTitle}>
+              <Ionicons name="people-outline" size={15} color={C.textMuted} />
+              <Text style={[styles.menuSectionTitle, { color: C.textMuted }]}>
                 Participants · {membersResult?.total ?? circle?.currentMembers ?? 0}
               </Text>
             </View>
@@ -557,7 +716,7 @@ export default function CircleChatScreen() {
             >
               {membersResult === undefined ? (
                 <View style={styles.membersLoading}>
-                  <ActivityIndicator size="small" color={Colors.primary} />
+                  <ActivityIndicator size="small" color={C.primary} />
                 </View>
               ) : (
                 membersResult.members.map((m: any) => {
@@ -565,17 +724,17 @@ export default function CircleChatScreen() {
                   const initial = name[0]?.toUpperCase() ?? "?";
                   const roleInfo = ROLE_BADGE[m.role];
                   return (
-                    <View key={m._id} style={styles.memberRow}>
-                      <View style={styles.memberAvatar}>
+                    <View key={m._id} style={[styles.memberRow, { borderBottomColor: C.borderSubtle }]}>
+                      <View style={[styles.memberAvatar, { backgroundColor: C.isDark ? '#1A1A2E' : '#F3F4F6' }]}>
                         {m.profile?.avatar
                           ? <Image source={{ uri: m.profile.avatar }} style={styles.memberAvatarImg} />
-                          : <Text style={styles.memberAvatarInitial}>{initial}</Text>
+                          : <Text style={[styles.memberAvatarInitial, { color: C.textPrimary }]}>{initial}</Text>
                         }
                       </View>
                       <View style={{ flex: 1 }}>
-                        <Text style={styles.memberName} numberOfLines={1}>{name}</Text>
+                        <Text style={[styles.memberName, { color: C.textPrimary }]} numberOfLines={1}>{name}</Text>
                         {m.profile?.username && (
-                          <Text style={styles.memberUsername}>@{m.profile.username}</Text>
+                          <Text style={[styles.memberUsername, { color: C.textMuted }]}>@{m.profile.username}</Text>
                         )}
                       </View>
                       {roleInfo && (
@@ -589,26 +748,26 @@ export default function CircleChatScreen() {
               )}
             </ScrollView>
 
-            <View style={styles.menuDivider} />
+            <View style={[styles.menuDivider, { backgroundColor: C.borderSubtle }]} />
 
-            {/* Leave circle — always visible except for creator */}
+            {/* Leave circle */}
             {circle?.membership?.role !== "CREATOR" ? (
               <TouchableOpacity
                 style={styles.menuAction}
                 onPress={handleLeave}
                 activeOpacity={0.7}
               >
-                <View style={[styles.menuActionIcon, { backgroundColor: Colors.statusDangerBg }]}>
-                  <Ionicons name="exit-outline" size={20} color={Colors.statusDanger} />
+                <View style={[styles.menuActionIcon, { backgroundColor: 'rgba(239,68,68,0.1)' }]}>
+                  <Ionicons name="exit-outline" size={20} color="#EF4444" />
                 </View>
-                <Text style={[styles.menuActionText, { color: Colors.statusDanger }]}>Leave Circle</Text>
+                <Text style={[styles.menuActionText, { color: '#EF4444' }]}>Leave Circle</Text>
               </TouchableOpacity>
             ) : (
               <View style={styles.menuAction}>
-                <View style={[styles.menuActionIcon, { backgroundColor: Colors.bgElevated }]}>
-                  <Ionicons name="shield-checkmark-outline" size={20} color={Colors.textMuted} />
+                <View style={[styles.menuActionIcon, { backgroundColor: C.bgElevated }]}>
+                  <Ionicons name="shield-checkmark-outline" size={20} color={C.textMuted} />
                 </View>
-                <Text style={[styles.menuActionText, { color: Colors.textMuted }]}>You own this circle</Text>
+                <Text style={[styles.menuActionText, { color: C.textMuted }]}>You own this circle</Text>
               </View>
             )}
 
@@ -618,6 +777,22 @@ export default function CircleChatScreen() {
       )}
 
       </MobileCard>
+
+      {/* ── Fullscreen Image Viewer ── */}
+      <Modal visible={!!fullscreenImage} transparent animationType="fade" onRequestClose={() => setFullscreenImage(null)}>
+        <View style={styles.imageModalOverlay}>
+          <TouchableOpacity style={styles.imageModalClose} onPress={() => setFullscreenImage(null)} activeOpacity={0.8}>
+            <Ionicons name="close" size={28} color="#FFFFFF" />
+          </TouchableOpacity>
+          {fullscreenImage && (
+            <Image
+              source={{ uri: fullscreenImage }}
+              style={styles.imageModalFull}
+              resizeMode="contain"
+            />
+          )}
+        </View>
+      </Modal>
     </AppBackground>
   );
 }
@@ -638,19 +813,17 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
 
-  // Header
+  // Header — dark blue bar
   header: {
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 6,
-    paddingVertical: 8,
-    backgroundColor: Colors.bgSurface,
+    paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.borderSubtle,
-    gap: 6,
+    gap: 4,
   },
   headerIconBtn: {
-    width: 40, height: 40, borderRadius: 20,
+    width: 38, height: 38, borderRadius: 19,
     alignItems: "center", justifyContent: "center",
   },
   headerMain: {
@@ -658,160 +831,176 @@ const styles = StyleSheet.create({
   },
   headerAvatarWrap: { position: "relative" },
   headerAvatar: {
-    width: 40, height: 40, borderRadius: 20,
+    width: 38, height: 38, borderRadius: 19,
+    overflow: "hidden",
   },
   headerAvatarFallback: {
-    backgroundColor: Colors.bgPrimaryMid,
-    borderWidth: 1.5, borderColor: Colors.redBorder,
+    backgroundColor: 'rgba(198,34,41,0.15)',
+    borderWidth: 1.5, borderColor: 'rgba(198,34,41,0.3)',
     alignItems: "center", justifyContent: "center",
   },
-  onlineDot: {
-    position: "absolute", bottom: 1, right: 1,
-    width: 10, height: 10, borderRadius: 5,
-    backgroundColor: Colors.statusSuccess,
-    borderWidth: 2, borderColor: Colors.bgSurface,
-  },
-  headerTitle: { fontSize: 15, fontWeight: "700", color: Colors.textPrimary },
-  headerSub: { fontSize: 11, color: Colors.textMuted, marginTop: 1 },
+  headerTitle: { fontSize: 16, fontWeight: "700", color: "#FFFFFF" },
+  headerSub: { fontSize: 11, color: "#9CA3AF", marginTop: 1 },
 
   // Pinned banner
   pinnedBar: {
     flexDirection: "row", alignItems: "center",
     paddingHorizontal: 12, paddingVertical: 8,
-    backgroundColor: Colors.statusWarningBg,
-    borderBottomWidth: 1, borderBottomColor: Colors.amberBorder,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(245,158,11,0.2)',
   },
-  pinnedStripe: {
-    width: 3, height: "100%", borderRadius: 2,
-    backgroundColor: Colors.statusWarning, marginRight: 8,
+  pinnedText: { flex: 1, fontSize: 12, fontWeight: "500" },
+
+  // Chat area — WhatsApp background
+  chatArea: {
+    flex: 1,
+    position: "relative",
   },
-  pinnedText: { flex: 1, fontSize: 12, color: Colors.statusWarning, fontWeight: "500" },
+  patternOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    // Subtle pattern effect via border trick
+    borderWidth: 0,
+  },
 
   // List
   listContent: {
-    paddingHorizontal: 10,
-    paddingTop: 10,
-    paddingBottom: 10,
+    paddingHorizontal: 8,
+    paddingTop: 12,
+    paddingBottom: 12,
   },
 
-  // Date divider
+  // Date divider — WhatsApp-style centered pill
   dateDivider: {
-    flexDirection: "row", alignItems: "center",
-    marginVertical: 16, paddingHorizontal: 8, gap: 8,
+    alignItems: "center",
+    marginVertical: 14,
   },
-  divLine: { flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: Colors.borderDefault },
+  divPill: {
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 8,
+  },
   divLabel: {
-    fontSize: 11, fontWeight: "600", color: Colors.textMuted,
-    paddingHorizontal: 10, paddingVertical: 4,
-    backgroundColor: Colors.bgElevated,
-    borderRadius: 10, overflow: "hidden",
-    borderWidth: 1, borderColor: Colors.borderSubtle,
+    fontSize: 11,
+    fontWeight: "600",
   },
 
   // Empty
   empty: { flex: 1, paddingVertical: 80, alignItems: "center", gap: 12 },
   emptyCircle: {
     width: 80, height: 80, borderRadius: 40,
-    backgroundColor: Colors.bgPrimaryMid,
-    borderWidth: 1, borderColor: Colors.redBorder,
     alignItems: "center", justifyContent: "center",
   },
-  emptyTitle: { fontSize: 17, fontWeight: "700", color: Colors.textSecondary },
-  emptySub: { fontSize: 13, color: Colors.textMuted },
+  emptyTitle: { fontSize: 17, fontWeight: "700" },
+  emptySub: { fontSize: 13 },
 
   // Message row
   msgRow: {
     flexDirection: "row",
     alignItems: "flex-end",
-    paddingHorizontal: 2,
+    paddingHorizontal: 4,
   },
   msgRowOwn: { flexDirection: "row-reverse" },
 
-  // Avatar column — 36px always so own/other messages don't jump
-  avatarCol: { width: 36, alignItems: "center", justifyContent: "flex-end", marginRight: 6, marginBottom: 2 },
-  avatar: { width: 34, height: 34, borderRadius: 17 },
+  // Avatar column
+  avatarCol: { width: 32, alignItems: "center", justifyContent: "flex-end", marginRight: 4, marginBottom: 2 },
+  avatar: { width: 30, height: 30, borderRadius: 15 },
   avatarFallback: { alignItems: "center", justifyContent: "center" },
-  avatarInitial: { fontSize: 14, fontWeight: "800", color: "#fff" },
+  avatarInitial: { fontSize: 12, fontWeight: "800", color: "#fff" },
 
-  // Message body (name + bubble + reactions)
-  msgBody: { flex: 1, alignItems: "flex-start", maxWidth: "78%" },
+  // Message body
+  msgBody: { flex: 1, alignItems: "flex-start", maxWidth: "80%" },
   msgBodyOwn: { alignItems: "flex-end" },
 
   // Name + role row
   nameRow: {
     flexDirection: "row", alignItems: "center", gap: 5,
-    marginBottom: 3, marginLeft: 4,
+    marginBottom: 2, marginLeft: 4,
   },
   senderName: { fontSize: 12, fontWeight: "700" },
   roleBadge: {
     paddingHorizontal: 5, paddingVertical: 1,
-    borderRadius: 5, borderWidth: 1,
+    borderRadius: 4, borderWidth: 1,
   },
-  roleLabel: { fontSize: 9, fontWeight: "800", letterSpacing: 0.4 },
+  roleLabel: { fontSize: 8, fontWeight: "800", letterSpacing: 0.3 },
 
   // Reply preview
   replyPreview: {
     flexDirection: "row",
-    backgroundColor: "rgba(255,255,255,0.06)",
-    borderRadius: 10,
+    borderRadius: 8,
     overflow: "hidden",
     marginBottom: 3,
     maxWidth: "100%",
   },
-  replyPreviewOwn: { backgroundColor: "rgba(255,255,255,0.1)" },
   replyStripe: { width: 3, borderRadius: 0 },
-  replyFrom: { fontSize: 11, fontWeight: "700", paddingHorizontal: 8, paddingTop: 5 },
-  replyContent: { fontSize: 11, color: Colors.textMuted, paddingHorizontal: 8, paddingBottom: 5 },
+  replyFrom: { fontSize: 11, fontWeight: "700", paddingHorizontal: 8, paddingTop: 4 },
+  replyContent: { fontSize: 11, paddingHorizontal: 8, paddingBottom: 4 },
 
-  // Bubble
+  // Bubble — WhatsApp style
   bubble: {
-    paddingHorizontal: 12, paddingVertical: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    paddingBottom: 4,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.15,
+    shadowOpacity: 0.08,
     shadowRadius: 2,
-    elevation: 2,
+    elevation: 1,
+    minWidth: 80,
   },
-  bubbleOther: { backgroundColor: Colors.bgSurface },
-  bubbleOwn: { backgroundColor: Colors.bgPrimaryMid },
+  bubbleImage: {
+    padding: 3,
+    paddingBottom: 4,
+  },
+
+  // Image message
+  msgImage: {
+    width: SCREEN_WIDTH * 0.45,
+    height: SCREEN_WIDTH * 0.45 * 0.75,
+    borderRadius: 6,
+    marginBottom: 2,
+    maxWidth: 220,
+    maxHeight: 165,
+  },
 
   // Message text
-  msgText: { fontSize: 14, color: Colors.textSecondary, lineHeight: 21 },
-  msgTextOwn: { color: Colors.textPrimary },
+  msgText: { fontSize: 14, lineHeight: 20 },
 
-  // Meta (time + ticks)
+  // Meta (time + ticks) — WhatsApp-style bottom-right inside bubble
   metaRow: {
     flexDirection: "row", alignItems: "center", justifyContent: "flex-end",
-    marginTop: 3, gap: 2,
+    marginTop: 2, gap: 2,
   },
-  editedLabel: { fontSize: 10, color: Colors.textMuted, fontStyle: "italic" },
-  timeLabel: { fontSize: 10, color: Colors.textMuted },
-  metaOwn: { color: "rgba(255,255,255,0.5)" },
+  metaRowImage: {
+    position: "absolute",
+    bottom: 8,
+    right: 10,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    borderRadius: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  editedLabel: { fontSize: 10, fontStyle: "italic" },
+  timeLabel: { fontSize: 10 },
 
   // Reactions
   reactionsRow: {
     flexDirection: "row", flexWrap: "wrap",
-    gap: 4, marginTop: 4, marginLeft: 4,
+    gap: 4, marginTop: 3, marginLeft: 4,
   },
   reactionsRowOwn: { justifyContent: "flex-end", marginLeft: 0, marginRight: 4 },
   reactionChip: {
     flexDirection: "row", alignItems: "center", gap: 2,
-    paddingHorizontal: 7, paddingVertical: 3,
-    borderRadius: 12,
-    backgroundColor: Colors.bgElevated,
-    borderWidth: 1, borderColor: Colors.borderSubtle,
+    paddingHorizontal: 6, paddingVertical: 2,
+    borderRadius: 10,
+    borderWidth: 1,
   },
-  reactionChipActive: {
-    backgroundColor: Colors.bgPrimarySubtle,
-    borderColor: Colors.redBorder,
-  },
-  reactionEmoji: { fontSize: 14 },
-  reactionCount: { fontSize: 11, color: Colors.textMuted, fontWeight: "700" },
+  reactionEmoji: { fontSize: 13 },
+  reactionCount: { fontSize: 10, fontWeight: "700" },
 
   // Emoji bar
   emojiBar: {
-    backgroundColor: Colors.bgElevated,
-    borderTopWidth: 1, borderTopColor: Colors.borderSubtle,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(255,255,255,0.08)',
   },
   emojiBarInner: {
     flexDirection: "row", height: 52,
@@ -820,36 +1009,45 @@ const styles = StyleSheet.create({
   emojiBtn: { flex: 1, alignItems: "center", justifyContent: "center", height: 44 },
   emojiBtnText: { fontSize: 22 },
 
-  // Input row
+  // Input row — WhatsApp-style
   inputRow: {
     flexDirection: "row", alignItems: "flex-end", gap: 8,
-    paddingHorizontal: 10, paddingTop: 8,
-    backgroundColor: Colors.bgSurface,
-    borderTopWidth: 1, borderTopColor: Colors.borderSubtle,
+    paddingHorizontal: 8, paddingTop: 8,
   },
   inputIconBtn: {
-    width: 40, height: 40, borderRadius: 20,
-    alignItems: "center", justifyContent: "center", marginBottom: 2,
+    width: 36, height: 36, borderRadius: 18,
+    alignItems: "center", justifyContent: "center", marginBottom: 4,
+  },
+  inputContainer: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "flex-end",
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    paddingRight: 4,
   },
   input: {
-    flex: 1, maxHeight: 120,
-    borderRadius: 22,
-    backgroundColor: Colors.bgElevated,
-    borderWidth: 1.5, borderColor: Colors.borderDefault,
+    flex: 1, maxHeight: 100,
     paddingHorizontal: 14, paddingVertical: 9,
-    fontSize: 14, color: Colors.textPrimary, lineHeight: 20,
+    fontSize: 14, color: '#FFFFFF', lineHeight: 20,
+  },
+  inputAttachBtn: {
+    width: 34, height: 34, borderRadius: 17,
+    alignItems: "center", justifyContent: "center",
+  },
+  inputCameraBtn: {
+    width: 34, height: 34, borderRadius: 17,
+    alignItems: "center", justifyContent: "center", marginRight: 2,
   },
   sendBtn: {
-    width: 44, height: 44, borderRadius: 22,
-    backgroundColor: Colors.primary,
+    width: 42, height: 42, borderRadius: 21,
+    backgroundColor: '#C62229',
     alignItems: "center", justifyContent: "center",
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.45,
-    shadowRadius: 6,
-    elevation: 5,
+    marginBottom: 2,
   },
-  sendBtnOff: { opacity: 0.4, shadowOpacity: 0 },
+  sendBtnOff: { opacity: 0.4 },
 
   // ── Circle menu sheet ─────────────────────────────────────────────────────
   menuBackdrop: {
@@ -861,15 +1059,12 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: Colors.bgSurface,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     borderTopWidth: 1,
     borderLeftWidth: 1,
     borderRightWidth: 1,
-    borderColor: Colors.borderDefault,
     paddingTop: 12,
-    // shadow
     shadowColor: "#000",
     shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.3,
@@ -878,7 +1073,6 @@ const styles = StyleSheet.create({
   },
   menuHandle: {
     width: 40, height: 4, borderRadius: 2,
-    backgroundColor: Colors.borderDefault,
     alignSelf: "center",
     marginBottom: 16,
   },
@@ -891,21 +1085,15 @@ const styles = StyleSheet.create({
   },
   menuCircleAvatar: {
     width: 52, height: 52, borderRadius: 26,
-    backgroundColor: Colors.bgElevated,
-    borderWidth: 1.5, borderColor: Colors.redBorder,
+    borderWidth: 1.5,
     alignItems: "center", justifyContent: "center",
     overflow: "hidden",
   },
   menuCircleAvatarImg: { width: "100%", height: "100%" },
-  menuCircleName: {
-    fontSize: 16, fontWeight: "700", color: Colors.textPrimary,
-  },
-  menuCircleSub: {
-    fontSize: 12, color: Colors.textMuted, marginTop: 2,
-  },
+  menuCircleName: { fontSize: 16, fontWeight: "700" },
+  menuCircleSub: { fontSize: 12, marginTop: 2 },
   menuDivider: {
     height: StyleSheet.hairlineWidth,
-    backgroundColor: Colors.borderSubtle,
     marginHorizontal: 16,
   },
   menuAction: {
@@ -919,10 +1107,8 @@ const styles = StyleSheet.create({
     width: 38, height: 38, borderRadius: 19,
     alignItems: "center", justifyContent: "center",
   },
-  menuActionText: {
-    flex: 1,
-    fontSize: 15, fontWeight: "600", color: Colors.textPrimary,
-  },
+  menuActionText: { flex: 1, fontSize: 15, fontWeight: "600" },
+
   menuSectionHeader: {
     flexDirection: "row",
     alignItems: "center",
@@ -933,17 +1119,11 @@ const styles = StyleSheet.create({
   },
   menuSectionTitle: {
     fontSize: 12, fontWeight: "700",
-    color: Colors.textMuted,
     textTransform: "uppercase",
     letterSpacing: 0.6,
   },
-  membersList: {
-    maxHeight: 220,
-  },
-  membersLoading: {
-    paddingVertical: 20,
-    alignItems: "center",
-  },
+  membersList: { maxHeight: 220 },
+  membersLoading: { paddingVertical: 20, alignItems: "center" },
   memberRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -951,30 +1131,43 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: Colors.borderSubtle,
   },
   memberAvatar: {
     width: 38, height: 38, borderRadius: 19,
-    backgroundColor: Colors.bgPrimaryMid,
-    borderWidth: 1, borderColor: Colors.redBorder,
     alignItems: "center", justifyContent: "center",
     overflow: "hidden",
   },
   memberAvatarImg: { width: "100%", height: "100%" },
-  memberAvatarInitial: {
-    fontSize: 15, fontWeight: "800", color: Colors.textPrimary,
-  },
-  memberName: {
-    fontSize: 14, fontWeight: "600", color: Colors.textPrimary,
-  },
-  memberUsername: {
-    fontSize: 11, color: Colors.textMuted, marginTop: 1,
-  },
+  memberAvatarInitial: { fontSize: 15, fontWeight: "800" },
+  memberName: { fontSize: 14, fontWeight: "600" },
+  memberUsername: { fontSize: 11, marginTop: 1 },
   memberRoleBadge: {
     paddingHorizontal: 7, paddingVertical: 2,
     borderRadius: 6, borderWidth: 1,
   },
-  memberRoleText: {
-    fontSize: 10, fontWeight: "800", letterSpacing: 0.3,
+  memberRoleText: { fontSize: 10, fontWeight: "800", letterSpacing: 0.3 },
+
+  // ── Fullscreen image modal ──
+  imageModalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.95)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  imageModalClose: {
+    position: "absolute",
+    top: 50,
+    right: 20,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(255,255,255,0.15)",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 10,
+  },
+  imageModalFull: {
+    width: "92%",
+    height: "75%",
   },
 });

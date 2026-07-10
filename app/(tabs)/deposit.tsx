@@ -9,6 +9,7 @@ import { useAction, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "@/tokens/colors";
+import { useColors } from "@/hooks/useColors";
 import { typeScale } from "@/tokens/typography";
 import { spacing } from "@/tokens/spacing";
 import { AppBackground } from "@/components/AppBackground";
@@ -21,6 +22,7 @@ import {
   CURRENCIES, Currency, CURRENCY_SYMBOLS, CURRENCY_LABELS,
 } from "@/utils/currency";export default function DepositScreen() {
   const router = useRouter();
+  const C = useColors();
 
   // ── Data ──────────────────────────────────────────────────────────────────
   const profile = useQuery(api.profiles.getMyProfile);
@@ -122,9 +124,9 @@ import {
             />
           {/* Profile incomplete warning */}
           {!profileLoading && (!customerName || !customerEmail || !phoneNumber) && (
-            <View style={styles.warningCard}>
-              <Ionicons name="warning-outline" size={16} color={Colors.statusWarning} />
-              <Text style={styles.warningText}>
+            <View style={[styles.warningCard, { backgroundColor: C.statusWarningBg, borderColor: C.palette.amber }]}>
+              <Ionicons name="warning-outline" size={16} color={C.statusWarning} />
+              <Text style={[styles.warningText, { color: C.statusWarning }]}>
                 Please fill in the missing fields below to proceed with your deposit.
               </Text>
             </View>
@@ -132,10 +134,10 @@ import {
 
           {/* Customer Information */}
           <BaseCard style={styles.section}>
-            <Text style={styles.sectionTitle}>Customer Information</Text>
+            <Text style={[styles.sectionTitle, { color: C.textPrimary }]}>Customer Information</Text>
 
             {profileLoading ? (
-              <ActivityIndicator size="small" color={Colors.textMuted} style={{ marginBottom: 12 }} />
+              <ActivityIndicator size="small" color={C.textMuted} style={{ marginBottom: 12 }} />
             ) : !profileName ? (
               <AppInput
                 label="Full Name *"
@@ -171,48 +173,48 @@ import {
 
             {!profileLoading && profileName && profileEmail && profilePhone && (
               <View style={styles.profileConfirm}>
-                <Ionicons name="checkmark-circle" size={16} color={Colors.statusSuccess} />
-                <Text style={styles.profileConfirmText}>Using details from your profile</Text>
+                <Ionicons name="checkmark-circle" size={16} color={C.statusSuccess} />
+                <Text style={[styles.profileConfirmText, { color: C.statusSuccess }]}>Using details from your profile</Text>
               </View>
             )}
           </BaseCard>
 
           {/* Payment Details */}
           <BaseCard style={styles.section}>
-            <Text style={styles.sectionTitle}>Payment Details</Text>
+            <Text style={[styles.sectionTitle, { color: C.textPrimary }]}>Payment Details</Text>
 
-            <Text style={styles.fieldLabel}>Currency</Text>
+            <Text style={[styles.fieldLabel, { color: C.textMuted }]}>Currency</Text>
             <TouchableOpacity
-              style={styles.dropdownBtn}
+              style={[styles.dropdownBtn, { borderColor: C.borderDefault, backgroundColor: C.bgSurface }]}
               onPress={() => setCurrencyDropdownOpen((v) => !v)}
               activeOpacity={0.85}
             >
-              <Text style={styles.dropdownBtnText}>
+              <Text style={[styles.dropdownBtnText, { color: C.textSecondary }]}>
                 {CURRENCY_SYMBOLS[selectedCurrency]}{"  "}{selectedCurrency} — {CURRENCY_LABELS[selectedCurrency]}
               </Text>
               <Ionicons
                 name={currencyDropdownOpen ? "chevron-up" : "chevron-down"}
                 size={16}
-                color={Colors.textMuted}
+                color={C.textMuted}
               />
             </TouchableOpacity>
 
             {currencyDropdownOpen && (
-              <View style={styles.dropdownList}>
+              <View style={[styles.dropdownList, { backgroundColor: C.bgElevated, borderColor: C.borderDefault }]}>
                 {CURRENCIES.map((c) => (
                   <TouchableOpacity
                     key={c}
-                    style={[styles.dropdownItem, selectedCurrency === c && styles.dropdownItemActive]}
+                    style={[styles.dropdownItem, { borderBottomColor: C.borderSubtle }, selectedCurrency === c && [styles.dropdownItemActive, { backgroundColor: C.bgPrimarySubtle }]]}
                     onPress={() => { setSelectedCurrency(c); setCurrencyDropdownOpen(false); }}
                     activeOpacity={0.8}
                   >
-                    <Text style={styles.dropdownItemSymbol}>{CURRENCY_SYMBOLS[c]}</Text>
+                    <Text style={[styles.dropdownItemSymbol, { color: C.textPrimary }]}>{CURRENCY_SYMBOLS[c]}</Text>
                     <View style={styles.dropdownItemInfo}>
-                      <Text style={styles.dropdownItemCode}>{c}</Text>
-                      <Text style={styles.dropdownItemName}>{CURRENCY_LABELS[c]}</Text>
+                      <Text style={[styles.dropdownItemCode, { color: C.textPrimary }]}>{c}</Text>
+                      <Text style={[styles.dropdownItemName, { color: C.textMuted }]}>{CURRENCY_LABELS[c]}</Text>
                     </View>
                     {selectedCurrency === c && (
-                      <Ionicons name="checkmark" size={16} color={Colors.actionPrimary} />
+                      <Ionicons name="checkmark" size={16} color={C.actionPrimary} />
                     )}
                   </TouchableOpacity>
                 ))}
@@ -232,7 +234,7 @@ import {
 
           {/* Additional Settings */}
           <BaseCard style={styles.section}>
-            <Text style={styles.sectionTitle}>Additional Settings</Text>
+            <Text style={[styles.sectionTitle, { color: C.textPrimary }]}>Additional Settings</Text>
             <TextareaInput
               label="Description (Optional)"
               value={description}
@@ -243,11 +245,11 @@ import {
 
           {/* Summary */}
           {hasAmount && (
-            <View style={styles.summaryCard}>
-              <Ionicons name="information-circle-outline" size={16} color={Colors.statusInfo} />
-              <Text style={styles.summaryText}>
+            <View style={[styles.summaryCard, { backgroundColor: C.statusInfoBg, borderColor: C.palette.blue }]}>
+              <Ionicons name="information-circle-outline" size={16} color={C.statusInfo} />
+              <Text style={[styles.summaryText, { color: C.textMuted }]}>
                 You are depositing{" "}
-                <Text style={styles.summaryHighlight}>
+                <Text style={[styles.summaryHighlight, { color: C.textPrimary }]}>
                   {CURRENCY_SYMBOLS[selectedCurrency]}
                   {parsedAmount.toLocaleString("en-US", {
                     minimumFractionDigits: 2, maximumFractionDigits: 2,
@@ -269,7 +271,7 @@ import {
               onPress={handleDeposit}
               disabled={!isValid}
               loading={isSubmitting}
-              color={Colors.statusSuccess}
+              color={C.statusSuccess}
               icon={<Ionicons name="add-circle-outline" size={20} color="#FFFFFF" />}
             />
           </View>

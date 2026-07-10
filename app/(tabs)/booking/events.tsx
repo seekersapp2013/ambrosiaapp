@@ -177,7 +177,7 @@ export default function EventsScreen() {
     <AppBackground>
       <ScreenHeader
         title="My Events"
-        onBack={() => router.back()}
+        onBack={() => router.replace("/(tabs)/booking" as any)}
         trailing={
           isProvider ? (
             <TouchableOpacity onPress={() => setShowCreateSheet(true)}

@@ -24,7 +24,7 @@ import { api } from "@/convex/_generated/api";
 import { AppBackground } from "@/components/AppBackground";
 import { MobileCard } from "@/components/MobileCard";
 import { TopNav } from "@/components/TopNav";
-import { Colors } from "@/constants/Colors";
+import { useColors } from "@/hooks/useColors";
 import { MyCirclesRow } from "@/components/stream/MyCirclesRow";
 
 type ViewMode = "browse" | "my";
@@ -32,6 +32,7 @@ type AccessFilter = "ALL" | "FREE" | "PAID";
 
 export default function CircleScreen() {
   const router = useRouter();
+  const C = useColors();
 
   // ── State ──────────────────────────────────────────────────────────────────
   const [viewMode, setViewMode] = useState<ViewMode>("browse");
@@ -57,7 +58,7 @@ export default function CircleScreen() {
   const renderBrowseItem = useCallback(
     ({ item }: { item: any }) => (
       <TouchableOpacity
-        style={styles.listRow}
+        style={[styles.listRow, { backgroundColor: C.bgSurface, borderBottomColor: C.borderSubtle }]}
         onPress={() =>
           router.push({
             pathname: "/(tabs)/circle-detail",
@@ -69,20 +70,23 @@ export default function CircleScreen() {
         accessibilityLabel={`Circle: ${item.name}`}
       >
         {/* Avatar */}
-        <View style={styles.listAvatar}>
+        <View style={[styles.listAvatar, { backgroundColor: C.bgElevated, borderColor: C.redBorder }]}>
           {item.coverImage ? (
             <Image source={{ uri: item.coverImage }} style={styles.listAvatarImage} />
           ) : (
-            <Ionicons name="people-circle-outline" size={30} color={Colors.primary} />
+            <Ionicons name="people-circle-outline" size={30} color={C.primary} />
           )}
         </View>
 
         {/* Info */}
         <View style={styles.listInfo}>
           <View style={styles.listTopRow}>
-            <Text style={styles.listName} numberOfLines={1}>{item.name}</Text>
-            <View style={[styles.accessBadge, item.accessType === "PAID" ? styles.paidBadge : styles.freeBadge]}>
-              <Text style={[styles.accessBadgeText, item.accessType === "PAID" ? styles.paidBadgeText : styles.freeBadgeText]}>
+            <Text style={[styles.listName, { color: C.textPrimary }]} numberOfLines={1}>{item.name}</Text>
+            <View style={[styles.accessBadge, item.accessType === "PAID"
+              ? { backgroundColor: C.amberSurface, borderWidth: 1, borderColor: C.amberBorder }
+              : { backgroundColor: C.statusInfoBg, borderWidth: 1, borderColor: C.blueBorder }
+            ]}>
+              <Text style={[styles.accessBadgeText, { color: item.accessType === "PAID" ? C.statusWarning : C.statusInfo }]}>
                 {item.accessType === "PAID"
                   ? `${item.priceCurrency ?? ""}${item.price ?? ""}`.trim()
                   : "Free"}
@@ -91,44 +95,52 @@ export default function CircleScreen() {
           </View>
 
           <View style={styles.listBottomRow}>
-            <Text style={styles.listDesc} numberOfLines={1}>{item.description}</Text>
+            <Text style={[styles.listDesc, { color: C.textMuted }]} numberOfLines={1}>{item.description}</Text>
             {item.isMember && (
-              <View style={styles.joinedPill}>
-                <Ionicons name="checkmark-circle" size={10} color={Colors.statusSuccess} />
-                <Text style={styles.joinedPillText}>Joined</Text>
+              <View style={[styles.joinedPill, { backgroundColor: C.statusSuccessBg, borderColor: C.greenBorder }]}>
+                <Ionicons name="checkmark-circle" size={10} color={C.statusSuccess} />
+                <Text style={[styles.joinedPillText, { color: C.statusSuccess }]}>Joined</Text>
               </View>
             )}
           </View>
 
           <View style={styles.listMeta}>
-            <Ionicons name="people-outline" size={12} color={Colors.textMuted} />
-            <Text style={styles.listMetaText}>
+            <Ionicons name="people-outline" size={12} color={C.textMuted} />
+            <Text style={[styles.listMetaText, { color: C.textDisabled }]}>
               {item.currentMembers}{item.maxMembers ? `/${item.maxMembers}` : ""} members
             </Text>
             {item.tags?.slice(0, 1).map((tag: string) => (
-              <View key={tag} style={styles.tagChip}>
-                <Text style={styles.tagChipText}>#{tag}</Text>
+              <View key={tag} style={[styles.tagChip, { backgroundColor: C.bgPrimarySubtle, borderColor: C.redBorder }]}>
+                <Text style={[styles.tagChipText, { color: C.primary }]}>#{tag}</Text>
               </View>
             ))}
           </View>
         </View>
 
-        <Ionicons name="chevron-forward" size={16} color={Colors.iconSecondary} />
+        <Ionicons name="chevron-forward" size={16} color={C.iconSecondary} />
       </TouchableOpacity>
     ),
-    [router]
+    [router, C]
   );
 
   const renderMyCircleItem = useCallback(
     ({ item }: { item: any }) => (
       <MyCirclesRow
         circle={item}
-        onPress={() =>
-          router.push({
-            pathname: "/(tabs)/circle-detail",
-            params: { circleId: item._id },
-          } as any)
-        }
+        onPress={() => {
+          // Referral circles go straight to chat — user is always already a member
+          if (item.isReferralCircle) {
+            router.push({
+              pathname: "/(tabs)/circle-chat",
+              params: { circleId: item._id },
+            } as any);
+          } else {
+            router.push({
+              pathname: "/(tabs)/circle-detail",
+              params: { circleId: item._id },
+            } as any);
+          }
+        }}
       />
     ),
     [router]
@@ -139,33 +151,33 @@ export default function CircleScreen() {
       <MobileCard containerStyle={styles.cardContainer} style={styles.card}>
         {/* ── Fixed header ─────────────────────────────────────────────────── */}
         <TopNav hideNotifications />
-        <View style={styles.header}>
-          <View style={styles.toggleRow}>
+        <View style={[styles.header, { borderBottomColor: C.borderSubtle }]}>
+          <View style={[styles.toggleRow, { backgroundColor: C.bgElevated }]}>
             <TouchableOpacity
-              style={[styles.toggleBtn, viewMode === "browse" && styles.toggleBtnActive]}
+              style={[styles.toggleBtn, viewMode === "browse" && { backgroundColor: C.primary }]}
               onPress={() => setViewMode("browse")}
               activeOpacity={0.75}
               accessibilityRole="button"
               accessibilityState={{ selected: viewMode === "browse" }}
             >
-              <Text style={[styles.toggleText, viewMode === "browse" && styles.toggleTextActive]}>
+              <Text style={[styles.toggleText, { color: C.textMuted }, viewMode === "browse" && { color: C.textInverse }]}>
                 Browse
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.toggleBtn, viewMode === "my" && styles.toggleBtnActive]}
+              style={[styles.toggleBtn, viewMode === "my" && { backgroundColor: C.primary }]}
               onPress={() => setViewMode("my")}
               activeOpacity={0.75}
               accessibilityRole="button"
               accessibilityState={{ selected: viewMode === "my" }}
             >
-              <Text style={[styles.toggleText, viewMode === "my" && styles.toggleTextActive]}>
+              <Text style={[styles.toggleText, { color: C.textMuted }, viewMode === "my" && { color: C.textInverse }]}>
                 My Circles
               </Text>
             </TouchableOpacity>
           </View>
           <TouchableOpacity
-            style={styles.createBtn}
+            style={[styles.createBtn, { backgroundColor: C.statusSuccess }]}
             onPress={() => router.push("/(tabs)/create-circle" as any)}
             activeOpacity={0.8}
             accessibilityRole="button"
@@ -187,12 +199,12 @@ export default function CircleScreen() {
             contentContainerStyle={styles.listContent}
             ListHeaderComponent={
               <View style={styles.searchBlock}>
-                <View style={styles.searchInputWrap}>
-                  <Ionicons name="search-outline" size={15} color={Colors.textMuted} />
+                <View style={[styles.searchInputWrap, { backgroundColor: C.bgElevated, borderColor: C.borderSubtle }]}>
+                  <Ionicons name="search-outline" size={15} color={C.textMuted} />
                   <TextInput
-                    style={styles.searchInput}
+                    style={[styles.searchInput, { color: C.textPrimary }]}
                     placeholder="Search circles…"
-                    placeholderTextColor={Colors.textMuted}
+                    placeholderTextColor={C.textMuted}
                     value={searchTerm}
                     onChangeText={setSearchTerm}
                     returnKeyType="search"
@@ -200,7 +212,7 @@ export default function CircleScreen() {
                   />
                   {searchTerm.length > 0 && (
                     <TouchableOpacity onPress={() => setSearchTerm("")}>
-                      <Ionicons name="close-circle" size={15} color={Colors.textMuted} />
+                      <Ionicons name="close-circle" size={15} color={C.textMuted} />
                     </TouchableOpacity>
                   )}
                 </View>
@@ -212,11 +224,15 @@ export default function CircleScreen() {
                   {(["ALL", "FREE", "PAID"] as AccessFilter[]).map((f) => (
                     <TouchableOpacity
                       key={f}
-                      style={[styles.filterChip, accessFilter === f && styles.filterChipActive]}
+                      style={[
+                        styles.filterChip,
+                        { backgroundColor: C.bgElevated, borderColor: C.borderSubtle },
+                        accessFilter === f && { backgroundColor: C.bgPrimaryMid, borderColor: C.redBorder },
+                      ]}
                       onPress={() => setAccessFilter(f)}
                       activeOpacity={0.75}
                     >
-                      <Text style={[styles.filterChipText, accessFilter === f && styles.filterChipTextActive]}>
+                      <Text style={[styles.filterChipText, { color: C.textMuted }, accessFilter === f && { color: C.primary }]}>
                         {f}
                       </Text>
                     </TouchableOpacity>
@@ -227,18 +243,18 @@ export default function CircleScreen() {
             ListEmptyComponent={
               isLoadingBrowse ? (
                 <View style={styles.loadingWrap}>
-                  <ActivityIndicator color={Colors.primary} />
-                  <Text style={styles.loadingText}>Loading circles…</Text>
+                  <ActivityIndicator color={C.primary} />
+                  <Text style={[styles.loadingText, { color: C.textMuted }]}>Loading circles…</Text>
                 </View>
               ) : (
                 <View style={styles.emptyWrap}>
-                  <Ionicons name="people-circle-outline" size={48} color={Colors.textMuted} />
-                  <Text style={styles.emptyTitle}>No circles found</Text>
-                  <Text style={styles.emptySubtitle}>
+                  <Ionicons name="people-circle-outline" size={48} color={C.textMuted} />
+                  <Text style={[styles.emptyTitle, { color: C.textSecondary }]}>No circles found</Text>
+                  <Text style={[styles.emptySubtitle, { color: C.textMuted }]}>
                     {searchTerm ? "Try a different search term." : "Be the first to create one!"}
                   </Text>
                   <TouchableOpacity
-                    style={styles.emptyBtn}
+                    style={[styles.emptyBtn, { backgroundColor: C.primary }]}
                     onPress={() => router.push("/(tabs)/create-circle" as any)}
                     activeOpacity={0.8}
                   >
@@ -262,18 +278,18 @@ export default function CircleScreen() {
             ListEmptyComponent={
               isLoadingMy ? (
                 <View style={styles.loadingWrap}>
-                  <ActivityIndicator color={Colors.primary} />
-                  <Text style={styles.loadingText}>Loading your circles…</Text>
+                  <ActivityIndicator color={C.primary} />
+                  <Text style={[styles.loadingText, { color: C.textMuted }]}>Loading your circles…</Text>
                 </View>
               ) : (
                 <View style={styles.emptyWrap}>
-                  <Ionicons name="people-circle-outline" size={48} color={Colors.textMuted} />
-                  <Text style={styles.emptyTitle}>No circles yet</Text>
-                  <Text style={styles.emptySubtitle}>
+                  <Ionicons name="people-circle-outline" size={48} color={C.textMuted} />
+                  <Text style={[styles.emptyTitle, { color: C.textSecondary }]}>No circles yet</Text>
+                  <Text style={[styles.emptySubtitle, { color: C.textMuted }]}>
                     Join or create a circle to connect with your community.
                   </Text>
                   <TouchableOpacity
-                    style={styles.emptyBtn}
+                    style={[styles.emptyBtn, { backgroundColor: C.primary }]}
                     onPress={() => setViewMode("browse")}
                     activeOpacity={0.8}
                   >
@@ -310,19 +326,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.borderSubtle,
     gap: 8,
     flexWrap: "wrap",
   },
   headerTitle: {
     fontSize: 16,
     fontWeight: "700",
-    color: Colors.textPrimary,
     flex: 1,
   },
   toggleRow: {
     flexDirection: "row",
-    backgroundColor: Colors.bgElevated,
     borderRadius: 8,
     padding: 2,
   },
@@ -331,16 +344,9 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     borderRadius: 6,
   },
-  toggleBtnActive: {
-    backgroundColor: Colors.primary,
-  },
   toggleText: {
     fontSize: 12,
     fontWeight: "600",
-    color: Colors.textMuted,
-  },
-  toggleTextActive: {
-    color: Colors.textPrimary,
   },
   createBtn: {
     flexDirection: "row",
@@ -349,7 +355,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 7,
     borderRadius: 16,
-    backgroundColor: Colors.statusSuccess,
     gap: 3,
   },
   createBtnText: {
@@ -372,18 +377,15 @@ const styles = StyleSheet.create({
   searchInputWrap: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: Colors.bgElevated,
     borderRadius: 22,
     paddingHorizontal: 12,
     paddingVertical: 8,
     gap: 8,
     borderWidth: 1,
-    borderColor: Colors.borderSubtle,
   },
   searchInput: {
     flex: 1,
     fontSize: 13,
-    color: Colors.textPrimary,
     padding: 0,
   },
   filterScrollContent: {
@@ -395,24 +397,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 5,
     borderRadius: 20,
-    backgroundColor: Colors.bgElevated,
     borderWidth: 1,
-    borderColor: Colors.borderSubtle,
-  },
-  filterChipActive: {
-    backgroundColor: Colors.bgPrimaryMid,
-    borderColor: Colors.redBorder,
   },
   filterChipText: {
     fontSize: 12,
     fontWeight: "600",
-    color: Colors.textMuted,
   },
-  filterChipTextActive: {
-    color: Colors.primary,
-  },
-
-  // Grid (removed — now using list rows)
 
   // List row (browse)
   listContent: {
@@ -423,18 +413,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: 14,
     paddingHorizontal: 16,
-    backgroundColor: Colors.bgSurface,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: Colors.borderSubtle,
     gap: 14,
   },
   listAvatar: {
     width: 54,
     height: 54,
     borderRadius: 27,
-    backgroundColor: Colors.bgElevated,
     borderWidth: 1.5,
-    borderColor: Colors.redBorder,
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
@@ -458,7 +444,6 @@ const styles = StyleSheet.create({
   listName: {
     fontSize: 15,
     fontWeight: "700",
-    color: Colors.textPrimary,
     flex: 1,
   },
   listBottomRow: {
@@ -469,7 +454,6 @@ const styles = StyleSheet.create({
   },
   listDesc: {
     fontSize: 13,
-    color: Colors.textMuted,
     lineHeight: 18,
     flex: 1,
   },
@@ -481,19 +465,15 @@ const styles = StyleSheet.create({
   },
   listMetaText: {
     fontSize: 11,
-    color: Colors.textDisabled,
   },
   tagChip: {
     paddingHorizontal: 6,
     paddingVertical: 1,
     borderRadius: 6,
-    backgroundColor: Colors.bgPrimarySubtle,
     borderWidth: 1,
-    borderColor: Colors.redBorder,
   },
   tagChipText: {
     fontSize: 10,
-    color: Colors.primary,
     fontWeight: "600",
   },
   joinedPill: {
@@ -503,15 +483,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 7,
     paddingVertical: 2,
     borderRadius: 10,
-    backgroundColor: Colors.statusSuccessBg,
     borderWidth: 1,
-    borderColor: Colors.greenBorder,
     flexShrink: 0,
   },
   joinedPillText: {
     fontSize: 10,
     fontWeight: "700",
-    color: Colors.statusSuccess,
   },
   accessBadge: {
     paddingHorizontal: 8,
@@ -519,23 +496,11 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     flexShrink: 0,
   },
-  freeBadge: {
-    backgroundColor: Colors.statusInfoBg,
-    borderWidth: 1,
-    borderColor: Colors.blueBorder,
-  },
-  paidBadge: {
-    backgroundColor: Colors.amberSurface,
-    borderWidth: 1,
-    borderColor: Colors.amberBorder,
-  },
   accessBadgeText: {
     fontSize: 10,
     fontWeight: "700",
     letterSpacing: 0.3,
   },
-  freeBadgeText: { color: Colors.statusInfo },
-  paidBadgeText: { color: Colors.statusWarning },
 
   // ── Shared: loading / empty ────────────────────────────────────────────────
   loadingWrap: {
@@ -545,7 +510,6 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 13,
-    color: Colors.textMuted,
   },
   emptyWrap: {
     paddingVertical: 48,
@@ -556,11 +520,9 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 16,
     fontWeight: "700",
-    color: Colors.textSecondary,
   },
   emptySubtitle: {
     fontSize: 13,
-    color: Colors.textMuted,
     textAlign: "center",
     lineHeight: 20,
   },
@@ -571,12 +533,11 @@ const styles = StyleSheet.create({
     marginTop: 8,
     paddingHorizontal: 20,
     paddingVertical: 10,
-    backgroundColor: Colors.primary,
     borderRadius: 22,
   },
   emptyBtnText: {
     fontSize: 13,
     fontWeight: "700",
-    color: Colors.textPrimary,
+    color: "#fff",
   },
 });

@@ -22,6 +22,7 @@ export const REFERRAL_NOTIFICATION_TYPES = {
   REFERRAL_DECLINED:        "referral_declined",
   REFERRAL_COMPLETED:       "referral_completed",
   REFERRAL_SELECTED_EXPERT: "referral_selected_expert",
+  REFERRAL_CIRCLE_CREATED:  "referral_circle_created",
 } as const;
 
 // ─── Helper ───────────────────────────────────────────────────────────────────
@@ -87,13 +88,18 @@ export const notifyExpertPatientSelected = internalMutation({
       referral.selectedExpertId,
       "an expert"
     );
+    const referringExpertName = await getDisplayName(
+      ctx,
+      referral.referringExpertId,
+      "a colleague"
+    );
 
     // Notify the referring expert
     await ctx.db.insert("notifications", {
       userId: referral.referringExpertId,
       type: REFERRAL_NOTIFICATION_TYPES.REFERRAL_EXPERT_SELECTED,
       title: "Patient Selected an Expert",
-      message: `${patientName} has selected ${selectedExpertName} from your referral "${referral.title}". You will earn a 10% commission once they complete a session.`,
+      message: `${patientName} has selected ${selectedExpertName} from your referral "${referral.title}". A private circle has been created for all three of you. You will earn a 10% commission once they complete a session.`,
       category: "booking",
       priority: "medium",
       isRead: false,
@@ -106,6 +112,7 @@ export const notifyExpertPatientSelected = internalMutation({
         selectedExpertId: referral.selectedExpertId,
         selectedExpertName,
         commissionRate: referral.commissionRate,
+        circleId: referral.circleId,
       },
       createdAt: Date.now(),
     });
@@ -115,7 +122,7 @@ export const notifyExpertPatientSelected = internalMutation({
       userId: referral.selectedExpertId,
       type: REFERRAL_NOTIFICATION_TYPES.REFERRAL_SELECTED_EXPERT,
       title: "Referral — New Patient",
-      message: `${patientName} has selected you from a referral by ${await getDisplayName(ctx, referral.referringExpertId, "a colleague")}. They should be booking a session with you shortly.`,
+      message: `${patientName} has selected you from a referral by ${referringExpertName}. A private circle has been created where all three of you can connect. They should be booking a session with you shortly.`,
       category: "booking",
       priority: "medium",
       isRead: false,
@@ -126,6 +133,27 @@ export const notifyExpertPatientSelected = internalMutation({
         patientId: referral.patientId,
         patientName,
         referringExpertId: referral.referringExpertId,
+        circleId: referral.circleId,
+      },
+      createdAt: Date.now(),
+    });
+
+    // Notify the patient that their circle is ready
+    await ctx.db.insert("notifications", {
+      userId: referral.patientId,
+      type: REFERRAL_NOTIFICATION_TYPES.REFERRAL_CIRCLE_CREATED,
+      title: "Your Referral Circle is Ready",
+      message: `A private circle has been created for you, ${referringExpertName}, and ${selectedExpertName}. Open it from your referral to connect with both providers.`,
+      category: "booking",
+      priority: "high",
+      isRead: false,
+      actorUserId: referral.referringExpertId,
+      metadata: {
+        referralId: referral._id,
+        referralTitle: referral.title,
+        referringExpertId: referral.referringExpertId,
+        selectedExpertId: referral.selectedExpertId,
+        circleId: referral.circleId,
       },
       createdAt: Date.now(),
     });

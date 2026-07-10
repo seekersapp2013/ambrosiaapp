@@ -1,11 +1,13 @@
 /**
  * LoadingSpinner
  * Centered activity indicator with optional label.
+ *
+ * ✅ Phase 0: Uses useColors() for theme-aware rendering.
  */
 
 import React from "react";
 import { ActivityIndicator, View, Text, StyleSheet } from "react-native";
-import { Colors } from "@/constants/Colors";
+import { useColors } from "@/hooks/useColors";
 
 interface LoadingSpinnerProps {
   label?: string;
@@ -13,10 +15,12 @@ interface LoadingSpinnerProps {
 }
 
 export function LoadingSpinner({ label, size = "large" }: LoadingSpinnerProps) {
+  const C = useColors();
+
   return (
     <View style={styles.container}>
-      <ActivityIndicator size={size} color={Colors.primary} />
-      {label ? <Text style={styles.label}>{label}</Text> : null}
+      <ActivityIndicator size={size} color={C.actionPrimary} />
+      {label ? <Text style={[styles.label, { color: C.textMuted }]}>{label}</Text> : null}
     </View>
   );
 }
@@ -31,7 +35,6 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 14,
-    color: Colors.textMuted,
     textAlign: "center",
   },
 });

@@ -177,6 +177,17 @@ export const getMessages = query({
           }
         }
 
+        // Resolve image URL if message is an image type
+        let imageUrl: string | undefined = undefined;
+        if (message.messageType === "image" && message.content) {
+          try {
+            const url = await ctx.storage.getUrl(message.content);
+            if (url) imageUrl = url;
+          } catch {
+            // storage ID might be invalid, ignore
+          }
+        }
+
         return {
           ...message,
           sender: {
@@ -188,6 +199,7 @@ export const getMessages = query({
           },
           reactions: reactionsList,
           replyTo,
+          imageUrl,
         };
       })
     );

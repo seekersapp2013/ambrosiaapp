@@ -13,7 +13,7 @@ import {
   StyleSheet,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { Colors } from "@/constants/Colors";
+import { useColors } from "@/hooks/useColors";
 
 type Role = "CREATOR" | "ADMIN" | "MODERATOR" | "MEMBER";
 
@@ -29,16 +29,13 @@ interface MyCirclesRowProps {
       content?: string;
       createdAt?: number;
     } | null;
+    /** True when this circle was auto-created by the referral system */
+    isReferralCircle?: boolean;
+    /** The referral this circle belongs to — used for deep-linking */
+    referralId?: string | null;
   };
   onPress: () => void;
 }
-
-const ROLE_COLORS: Record<Role, { bg: string; border: string; text: string }> = {
-  CREATOR: { bg: "rgba(139,92,246,0.12)", border: Colors.purpleBorder, text: Colors.purple },
-  ADMIN: { bg: Colors.statusInfoBg, border: Colors.blueBorder, text: Colors.statusInfo },
-  MODERATOR: { bg: Colors.statusSuccessBg, border: Colors.greenBorder, text: Colors.statusSuccess },
-  MEMBER: { bg: Colors.bgElevated, border: Colors.borderSubtle, text: Colors.textMuted },
-};
 
 function timeAgo(ts?: number): string {
   if (!ts) return "";
@@ -52,50 +49,71 @@ function timeAgo(ts?: number): string {
 }
 
 export function MyCirclesRow({ circle, onPress }: MyCirclesRowProps) {
+  const C = useColors();
+
+  const ROLE_COLORS: Record<Role, { bg: string; border: string; text: string }> = {
+    CREATOR: { bg: "rgba(139,92,246,0.12)", border: C.purpleBorder, text: C.purple },
+    ADMIN: { bg: C.statusInfoBg, border: C.blueBorder, text: C.statusInfo },
+    MODERATOR: { bg: C.statusSuccessBg, border: C.greenBorder, text: C.statusSuccess },
+    MEMBER: { bg: C.bgElevated, border: C.borderSubtle, text: C.textMuted },
+  };
+
   const role = (circle.membership?.role ?? "MEMBER") as Role;
   const roleStyle = ROLE_COLORS[role] ?? ROLE_COLORS.MEMBER;
   const lastContent = circle.lastMessage?.content ?? "No messages yet";
+  const isReferral = circle.isReferralCircle === true;
 
   return (
     <TouchableOpacity
-      style={styles.row}
+      style={[styles.row, { backgroundColor: C.bgSurface, borderBottomColor: C.borderSubtle }]}
       onPress={onPress}
       activeOpacity={0.8}
       accessibilityRole="button"
       accessibilityLabel={`Circle: ${circle.name}`}
     >
-      {/* Avatar placeholder */}
-      <View style={styles.avatar}>
-        <Ionicons name="people-circle-outline" size={26} color={Colors.primary} />
+      {/* Avatar placeholder — referral circles use a distinct icon */}
+      <View style={[styles.avatar, { backgroundColor: C.bgElevated, borderColor: C.redBorder }, isReferral && [styles.avatarReferral, { borderColor: C.amberBorder, backgroundColor: C.amberSurface }]]}>
+        <Ionicons
+          name={isReferral ? "git-network-outline" : "people-circle-outline"}
+          size={26}
+          color={isReferral ? C.statusWarning : C.primary}
+        />
       </View>
 
       {/* Content */}
       <View style={styles.content}>
         <View style={styles.topRow}>
-          <Text style={styles.name} numberOfLines={1}>
+          <Text style={[styles.name, { color: C.textPrimary }]} numberOfLines={1}>
             {circle.name}
           </Text>
-          <Text style={styles.time}>{timeAgo(circle.lastMessage?.createdAt)}</Text>
+          <Text style={[styles.time, { color: C.textMuted }]}>{timeAgo(circle.lastMessage?.createdAt)}</Text>
         </View>
 
         <View style={styles.bottomRow}>
-          {/* Role badge */}
-          <View style={[styles.roleBadge, { backgroundColor: roleStyle.bg, borderColor: roleStyle.border }]}>
-            <Text style={[styles.roleText, { color: roleStyle.text }]}>{role}</Text>
-          </View>
+          {/* Referral badge — shown instead of (or alongside) role badge */}
+          {isReferral ? (
+            <View style={[styles.referralBadge, { borderColor: C.amberBorder, backgroundColor: C.amberSurface }]}>
+              <Ionicons name="git-network-outline" size={9} color={C.statusWarning} />
+              <Text style={[styles.referralBadgeText, { color: C.statusWarning }]}>Referral</Text>
+            </View>
+          ) : (
+            <View style={[styles.roleBadge, { backgroundColor: roleStyle.bg, borderColor: roleStyle.border }]}>
+              <Text style={[styles.roleText, { color: roleStyle.text }]}>{role}</Text>
+            </View>
+          )}
 
           {/* Last message */}
-          <Text style={styles.lastMessage} numberOfLines={1}>
+          <Text style={[styles.lastMessage, { color: C.textMuted }]} numberOfLines={1}>
             {lastContent.replace(/<[^>]*>/g, "").slice(0, 60)}
           </Text>
         </View>
 
-        <Text style={styles.memberCount}>
-          <Ionicons name="people-outline" size={11} color={Colors.textMuted} /> {circle.currentMembers} members
+        <Text style={[styles.memberCount, { color: C.textDisabled }]}>
+          <Ionicons name="people-outline" size={11} color={C.textMuted} /> {circle.currentMembers} members
         </Text>
       </View>
 
-      <Ionicons name="chevron-forward" size={16} color={Colors.iconSecondary} />
+      <Ionicons name="chevron-forward" size={16} color={C.iconSecondary} />
     </TouchableOpacity>
   );
 }
@@ -106,22 +124,20 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: 14,
     paddingHorizontal: 16,
-    backgroundColor: Colors.bgSurface,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: Colors.borderSubtle,
     gap: 14,
   },
   avatar: {
     width: 54,
     height: 54,
     borderRadius: 27,
-    backgroundColor: Colors.bgElevated,
     borderWidth: 1.5,
-    borderColor: Colors.redBorder,
     alignItems: "center",
     justifyContent: "center",
     flexShrink: 0,
   },
+  // Referral circles get an amber border to distinguish them
+  avatarReferral: {},
   content: {
     flex: 1,
     gap: 4,
@@ -136,12 +152,10 @@ const styles = StyleSheet.create({
   name: {
     fontSize: 15,
     fontWeight: "700",
-    color: Colors.textPrimary,
     flex: 1,
   },
   time: {
     fontSize: 12,
-    color: Colors.textMuted,
     flexShrink: 0,
   },
   bottomRow: {
@@ -164,12 +178,26 @@ const styles = StyleSheet.create({
   },
   lastMessage: {
     fontSize: 13,
-    color: Colors.textMuted,
     flex: 1,
     lineHeight: 18,
   },
   memberCount: {
     fontSize: 11,
-    color: Colors.textDisabled,
+  },
+  // Referral badge
+  referralBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+    flexShrink: 0,
+  },
+  referralBadgeText: {
+    fontSize: 10,
+    fontWeight: "700",
+    letterSpacing: 0.3,
   },
 });

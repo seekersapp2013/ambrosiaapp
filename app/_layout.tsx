@@ -10,6 +10,7 @@ import { ErrorBoundary } from "./ErrorBoundary";
 import { useEffect } from "react";
 import { LogBox, Platform } from "react-native";
 import { NavigationHistoryProvider } from "@/context/NavigationHistoryContext";
+import { ThemeProvider } from "@/context/ThemeContext";
 
 // LiveKit's registerGlobals() patches the JS environment with WebRTC primitives.
 // It must only run on native — it calls requireNativeComponent which doesn't
@@ -57,27 +58,29 @@ export default function RootLayout() {
 
   return (
     <ErrorBoundary>
-      <TamaguiProvider config={tamaguiConfig}>
-        <Toasts>
-          <ConvexAuthProvider
-            client={convex}
-            storage={
-              typeof window !== "undefined" && window.localStorage
-                ? window.localStorage
-                : secureStorage
-            }
-            storageNamespace="ambrosia_auth"
-          >
-            <NavigationHistoryProvider>
-              <Stack>
-                <Stack.Screen name="index" options={{ headerShown: false }} />
-                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-                <Stack.Screen name="auth" options={{ headerShown: false }} />
-              </Stack>
-            </NavigationHistoryProvider>
-          </ConvexAuthProvider>
-        </Toasts>
-      </TamaguiProvider>
+      <ThemeProvider>
+        <TamaguiProvider config={tamaguiConfig}>
+          <Toasts>
+            <ConvexAuthProvider
+              client={convex}
+              storage={
+                typeof window !== "undefined" && window.localStorage
+                  ? window.localStorage
+                  : secureStorage
+              }
+              storageNamespace="ambrosia_auth"
+            >
+              <NavigationHistoryProvider>
+                <Stack>
+                  <Stack.Screen name="index" options={{ headerShown: false }} />
+                  <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                  <Stack.Screen name="auth" options={{ headerShown: false }} />
+                </Stack>
+              </NavigationHistoryProvider>
+            </ConvexAuthProvider>
+          </Toasts>
+        </TamaguiProvider>
+      </ThemeProvider>
     </ErrorBoundary>
   );
 }

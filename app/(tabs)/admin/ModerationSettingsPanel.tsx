@@ -1,6 +1,7 @@
 /**
  * ModerationSettingsPanel — React Native
- * Phase 5: Switch rows for each content type approval requirement.
+ * Phase 5 + Light/Dark mode overhaul
+ * Switch rows for each content type approval requirement.
  */
 
 import React from 'react';
@@ -16,7 +17,7 @@ import {
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '@/tokens/colors';
+import { useColors } from '@/hooks/useColors';
 import { typeScale } from '@/tokens/typography';
 import { spacing } from '@/tokens/spacing';
 import { radius } from '@/tokens/radius';
@@ -26,20 +27,21 @@ interface SettingRowProps {
   description: string;
   value: boolean;
   onChange: (val: boolean) => void;
+  C: ReturnType<typeof useColors>;
 }
 
-function SettingRow({ label, description, value, onChange }: SettingRowProps) {
+function SettingRow({ label, description, value, onChange, C }: SettingRowProps) {
   return (
     <View style={styles.settingRow}>
       <View style={styles.settingText}>
-        <Text style={styles.settingLabel}>{label}</Text>
-        <Text style={styles.settingDescription}>{description}</Text>
+        <Text style={[styles.settingLabel, { color: C.textPrimary }]}>{label}</Text>
+        <Text style={[styles.settingDescription, { color: C.textMuted }]}>{description}</Text>
       </View>
       <Switch
         value={value}
         onValueChange={onChange}
-        trackColor={{ false: Colors.bgElevated, true: Colors.actionPrimary }}
-        thumbColor={Colors.textPrimary}
+        trackColor={{ false: C.isDark ? C.bgElevated : C.bgInput, true: C.actionPrimary }}
+        thumbColor="#FFFFFF"
         accessibilityLabel={label}
         accessibilityRole="switch"
         accessibilityState={{ checked: value }}
@@ -49,6 +51,7 @@ function SettingRow({ label, description, value, onChange }: SettingRowProps) {
 }
 
 export function ModerationSettingsPanel() {
+  const C = useColors();
   const settings = useQuery(api.moderationSettings.getModerationSettings);
   const updateSettings = useMutation(api.moderationSettings.updateModerationSettings);
 
@@ -63,7 +66,7 @@ export function ModerationSettingsPanel() {
   if (settings === undefined) {
     return (
       <View style={styles.loaderWrap}>
-        <ActivityIndicator color={Colors.actionPrimary} size="large" />
+        <ActivityIndicator color={C.actionPrimary} size="large" />
       </View>
     );
   }
@@ -74,49 +77,54 @@ export function ModerationSettingsPanel() {
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
     >
-      <Text style={styles.sectionTitle}>Moderation Settings</Text>
+      <Text style={[styles.sectionTitle, { color: C.textPrimary }]}>Moderation Settings</Text>
 
-      <View style={styles.card}>
+      <View style={[styles.card, { backgroundColor: C.bgElevated, borderColor: C.borderSubtle }]}>
         <SettingRow
           label="Articles Require Approval"
           description="New articles must be approved before being published"
           value={settings.articlesRequireApproval}
           onChange={val => handleToggle('articlesRequireApproval', val)}
+          C={C}
         />
-        <View style={styles.divider} />
+        <View style={[styles.divider, { backgroundColor: C.borderSubtle }]} />
         <SettingRow
           label="Reels Require Approval"
           description="New reels must be approved before being published"
           value={settings.reelsRequireApproval}
           onChange={val => handleToggle('reelsRequireApproval', val)}
+          C={C}
         />
-        <View style={styles.divider} />
+        <View style={[styles.divider, { backgroundColor: C.borderSubtle }]} />
         <SettingRow
           label="Circles Require Approval"
           description="New circles must be approved before being created"
           value={settings.circlesRequireApproval}
           onChange={val => handleToggle('circlesRequireApproval', val)}
+          C={C}
         />
-        <View style={styles.divider} />
+        <View style={[styles.divider, { backgroundColor: C.borderSubtle }]} />
         <SettingRow
           label="Expert Requests Require Approval"
           description="New expert requests must be approved before being posted"
           value={settings.expertRequestsRequireApproval}
           onChange={val => handleToggle('expertRequestsRequireApproval', val)}
+          C={C}
         />
-        <View style={styles.divider} />
+        <View style={[styles.divider, { backgroundColor: C.borderSubtle }]} />
         <SettingRow
           label="Booking Subscribers Require Approval"
           description="Users must be approved before becoming booking providers"
           value={settings.bookingSubscribersRequireApproval}
           onChange={val => handleToggle('bookingSubscribersRequireApproval', val)}
+          C={C}
         />
       </View>
 
       {/* Info note */}
-      <View style={styles.infoRow}>
-        <Ionicons name="information-circle-outline" size={16} color={Colors.statusInfo} />
-        <Text style={styles.infoText}>
+      <View style={[styles.infoRow, { backgroundColor: C.statusInfoBg, borderColor: C.isDark ? C.blueBorder : 'rgba(37,99,235,0.2)' }]}>
+        <Ionicons name="information-circle-outline" size={16} color={C.statusInfo} />
+        <Text style={[styles.infoText, { color: C.textMuted }]}>
           Changes take effect immediately. Content created while approval is disabled will not
           require approval.
         </Text>
@@ -126,28 +134,14 @@ export function ModerationSettingsPanel() {
 }
 
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-  },
-  content: {
-    padding: spacing.screenPaddingH,
-    paddingBottom: spacing.scrollBottomPadding,
-  },
-  loaderWrap: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  sectionTitle: {
-    ...typeScale.headingLG,
-    color: Colors.textPrimary,
-    marginBottom: spacing.space4,
-  },
+  root: { flex: 1 },
+  content: { padding: spacing.screenPaddingH, paddingBottom: spacing.scrollBottomPadding },
+  loaderWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  sectionTitle: { ...typeScale.headingLG, marginBottom: spacing.space4 },
+
   card: {
-    backgroundColor: Colors.bgSurface,
     borderRadius: radius.radiusLG,
     borderWidth: 1,
-    borderColor: Colors.borderSubtle,
     overflow: 'hidden',
   },
   settingRow: {
@@ -156,38 +150,19 @@ const styles = StyleSheet.create({
     padding: spacing.space4,
     gap: spacing.space3,
   },
-  settingText: {
-    flex: 1,
-  },
-  settingLabel: {
-    ...typeScale.headingSM,
-    fontSize: 14,
-    color: Colors.textPrimary,
-    marginBottom: 4,
-  },
-  settingDescription: {
-    ...typeScale.bodySM,
-    color: Colors.textMuted,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: Colors.borderSubtle,
-    marginHorizontal: spacing.space4,
-  },
+  settingText: { flex: 1 },
+  settingLabel: { ...typeScale.headingSM, fontSize: 14, marginBottom: 4 },
+  settingDescription: { ...typeScale.bodySM },
+  divider: { height: 1, marginHorizontal: spacing.space4 },
+
   infoRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: spacing.space2,
     marginTop: spacing.space4,
     padding: spacing.space3,
-    backgroundColor: Colors.statusInfoBg,
     borderRadius: radius.radiusMD,
     borderWidth: 1,
-    borderColor: Colors.blueBorder,
   },
-  infoText: {
-    ...typeScale.bodySM,
-    color: Colors.textMuted,
-    flex: 1,
-  },
+  infoText: { ...typeScale.bodySM, flex: 1 },
 });

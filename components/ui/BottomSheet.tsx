@@ -19,7 +19,8 @@ import {
   type ViewStyle,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Colors } from '@/tokens/colors';
+import { useColors } from '@/hooks/useColors';
+import { ForceDarkMode } from '@/context/ThemeContext';
 import { radius } from '@/tokens/radius';
 import { typeScale } from '@/tokens/typography';
 import { spacing } from '@/tokens/spacing';
@@ -53,7 +54,13 @@ export function BottomSheet({
 }: BottomSheetProps) {
   const insets = useSafeAreaInsets();
   const cardInsets = useCardInsets();
+  const C = useColors();
   const isDialog = variant === 'dialog';
+
+  // Header uses dark navy, body uses themed surface
+  const headerBg = '#0F0F1E';
+  const headerText = '#FFFFFF';
+  const headerBorder = 'rgba(255,255,255,0.08)';
 
   // Sheet animation
   const translateY = useRef(new Animated.Value(600)).current;
@@ -147,6 +154,7 @@ export function BottomSheet({
             style={[
               styles.dialog,
               elevation.elevation4,
+              { backgroundColor: C.bgSurface, borderColor: C.borderSubtle },
               {
                 opacity: dialogOpacity,
                 transform: [{ scale: dialogScale }],
@@ -155,12 +163,12 @@ export function BottomSheet({
             ]}
           >
             {title ? (
-              <Text style={styles.sheetTitle} allowFontScaling={false}>
+              <Text style={[styles.sheetTitle, { color: C.textPrimary }]} allowFontScaling={false}>
                 {title}
               </Text>
             ) : null}
             {body ? (
-              <Text style={styles.sheetBody} allowFontScaling={true}>
+              <Text style={[styles.sheetBody, { color: C.textMuted }]} allowFontScaling={true}>
                 {body}
               </Text>
             ) : null}
@@ -204,18 +212,23 @@ export function BottomSheet({
           style,
         ]}
       >
-        <View style={styles.handle} />
-        {title ? (
-          <Text style={styles.sheetTitle} allowFontScaling={false}>
-            {title}
-          </Text>
-        ) : null}
-        {body ? (
-          <Text style={styles.sheetBody} allowFontScaling={true}>
-            {body}
-          </Text>
-        ) : null}
-        {children}
+        {/* Dark header section with handle + title */}
+        <View style={styles.sheetHeaderSection}>
+          <View style={styles.handle} />
+          {title ? (
+            <Text style={[styles.sheetTitle, { color: headerText }]} allowFontScaling={false}>
+              {title}
+            </Text>
+          ) : null}
+        </View>
+        <ForceDarkMode>
+          {body ? (
+            <Text style={[styles.sheetBody, { color: C.textMuted }]} allowFontScaling={true}>
+              {body}
+            </Text>
+          ) : null}
+          {children}
+        </ForceDarkMode>
       </Animated.View>
     </Modal>
   );
@@ -224,7 +237,7 @@ export function BottomSheet({
 const styles = StyleSheet.create({
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: Colors.bgOverlay,
+    backgroundColor: 'rgba(0,0,0,0.60)',
     zIndex: zIndex.overlay,
   },
 
@@ -234,11 +247,21 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: Colors.bgSurface,
+    backgroundColor: '#0F0F1E',
     borderTopLeftRadius: radius.radius2XL,
     borderTopRightRadius: radius.radius2XL,
     paddingHorizontal: spacing.screenPaddingH,
+    paddingTop: 0,
+  },
+  sheetHeaderSection: {
+    marginHorizontal: -spacing.screenPaddingH,
+    paddingHorizontal: spacing.screenPaddingH,
     paddingTop: spacing.space3,
+    paddingBottom: spacing.space3,
+    borderBottomWidth: 1,
+    borderTopLeftRadius: radius.radius2XL,
+    borderTopRightRadius: radius.radius2XL,
+    marginBottom: spacing.space3,
   },
   handle: {
     width: 40,
@@ -246,13 +269,10 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     backgroundColor: 'rgba(255,255,255,0.20)',
     alignSelf: 'center',
-    marginBottom: spacing.space4,
+    marginBottom: spacing.space3,
   },
 
   // ── Centered dialog ──
-  // Sits above the overlay using absolute positioning + flex centering.
-  // pointerEvents="box-none" on the wrapper lets overlay touches pass through
-  // while the card itself still receives touches normally.
   dialogCentering: {
     ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
@@ -262,26 +282,22 @@ const styles = StyleSheet.create({
   },
   dialog: {
     width: '100%',
-    backgroundColor: Colors.bgSurface,
     borderRadius: radius.radiusXL,
     paddingHorizontal: spacing.screenPaddingH,
     paddingTop: spacing.space6,
     paddingBottom: spacing.space5,
     borderWidth: 1,
-    borderColor: Colors.borderSubtle,
   },
 
   // ── Shared text ──
   sheetTitle: {
     ...typeScale.headingMD,
     fontWeight: '700',
-    color: Colors.textPrimary,
     textAlign: 'center',
     marginBottom: spacing.space2,
   },
   sheetBody: {
     ...typeScale.bodyMD,
-    color: Colors.textMuted,
     textAlign: 'center',
     marginBottom: spacing.space6,
   },

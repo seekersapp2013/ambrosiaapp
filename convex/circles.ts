@@ -153,6 +153,9 @@ export const getCircleById = query({
       },
       membership,
       isMember: !!membership,
+      // Referral circle context — exposed so referral-detail and circle screens can deep-link
+      isReferralCircle: circle.isReferralCircle ?? false,
+      referralId: circle.referralId ?? null,
       canPost: membership && (
         circle.postingPermission === "EVERYONE" || 
         membership.role === "CREATOR" || 
@@ -322,6 +325,10 @@ export const getMyCircles = query({
           },
           membership,
           lastMessage,
+          // Referral circle context — passed through so circle cards can badge
+          // and deep-link back to the originating referral
+          isReferralCircle: circle.isReferralCircle ?? false,
+          referralId: circle.referralId ?? null,
           canPost: membership && (
             circle.postingPermission === "EVERYONE" || 
             membership.role === "CREATOR" || 
