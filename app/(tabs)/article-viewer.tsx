@@ -34,6 +34,7 @@ import { LoadingSpinner } from "@/components/stream/LoadingSpinner";
 import { EmptyState } from "@/components/stream/EmptyState";
 import { ContentPaywallSheet } from "@/components/ContentPaywallSheet";
 import { ArticleEngagementBar } from "@/components/ArticleEngagementBar";
+import { CommunityBadge } from "@/components/CommunityBadge";
 import { useColors } from "@/hooks/useColors";
 import { useTabBarHeight } from "@/utils/useDeviceClass";
 import { useNavigationHistory } from "@/context/NavigationHistoryContext";
@@ -406,6 +407,11 @@ export default function ArticleViewerScreen() {
               ) : null}
             </View>
 
+            {/* ── Community badge (for circle content) ──────────── */}
+            {(article as any).circleInfo && (
+              <CommunityBadge circleInfo={(article as any).circleInfo} variant="banner" />
+            )}
+
             {/* ── Tags ─────────────────────────────────────────── */}
             {article.tags && article.tags.length > 0 && (
               <View style={styles.tagsRow}>
@@ -481,6 +487,7 @@ export default function ArticleViewerScreen() {
             articleId={articleId as Id<"articles">}
             title={article.title}
             authorUsername={(article as any).author?.username}
+            authorId={(article as any).author?.id ?? (article as any).authorId}
             isGated={isGated}
             hasAccess={resolvedAccess}
           />

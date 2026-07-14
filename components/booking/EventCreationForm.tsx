@@ -1,12 +1,12 @@
 /**
- * EventCreationForm
+ * EventCreationForm — Multi-step wizard
  * Provider-only form to create a new booking event.
- * Rendered inside a BottomSheet or pushed screen.
  *
- * Fields:
- *   title, description, date (custom calendar), time (custom picker),
- *   duration, max participants, price, currency, tags, public/private,
- *   audio-only toggle → audio settings (maxSpeakers, allowHandRaise, recordAudio)
+ * Steps:
+ *   1. Event Details — title, description
+ *   2. Schedule — date (calendar), time, duration
+ *   3. Capacity & Pricing — max participants, price, currency
+ *   4. Settings — visibility, audio-only toggle, audio settings, tags
  */
 
 import React, { useState, useRef } from "react";
@@ -18,9 +18,10 @@ import {
   ScrollView,
   Modal,
   FlatList,
+  Animated,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useMutation } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Colors } from "@/tokens/colors";
 import { typeScale } from "@/tokens/typography";
@@ -32,7 +33,11 @@ import { AppSwitch } from "@/components/ui/Toggle";
 import { CURRENCIES, Currency, CURRENCY_SYMBOLS, CURRENCY_LABELS } from "@/utils/currency";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const DURATIONS  = [30, 60, 90, 120, 180];
+type WizardStep = 1 | 2 | 3 | 4;
+const TOTAL_STEPS = 4;
+const STEP_LABELS = ["Event Details", "Schedule", "Capacity & Pricing", "Settings"];
+
+const DURATIONS = [30, 60, 90, 120, 180];
 const MONTH_NAMES = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
 const TIME_OPTIONS: string[] = [];
@@ -53,7 +58,7 @@ function todayYMD(): string { return toYMD(new Date()); }
 function daysInMonth(y: number, m: number): number { return new Date(y, m+1, 0).getDate(); }
 function firstDayOfMonth(y: number, m: number): number { return new Date(y, m, 1).getDay(); }
 
-// ─── Mini inline calendar (date-only picker) ──────────────────────────────────
+// ─── Mini inline calendar ─────────────────────────────────────────────────────
 function MiniCalendar({ value, onChange, minDate }: {
   value: string; onChange: (d: string) => void; minDate: string;
 }) {
@@ -113,7 +118,7 @@ const calStyles = StyleSheet.create({
   weekRow: { flexDirection:"row", marginBottom:4 },
   weekLabel: { flex:1, textAlign:"center", ...typeScale.caption, color:Colors.textMuted, fontWeight:"600" },
   grid: { flexDirection:"row", flexWrap:"wrap" },
-  cell: { width:`${100/7}%`, aspectRatio:1, alignItems:"center", justifyContent:"center", borderRadius:20 },
+  cell: { width:`${100/7}%` as any, aspectRatio:1, alignItems:"center", justifyContent:"center", borderRadius:20 },
   cellSel: { backgroundColor:Colors.actionPrimary },
   cellPast: { opacity:0.3 },
   cellText: { ...typeScale.labelSM, color:Colors.textPrimary },
@@ -138,17 +143,14 @@ function DropdownPicker<T extends string>({ visible, options, value, onSelect, o
               <Ionicons name="close" size={22} color={Colors.iconPrimary}/>
             </TouchableOpacity>
           </View>
-          <FlatList
-            data={options}
-            keyExtractor={i=>i}
-            showsVerticalScrollIndicator={false}
+          <FlatList data={options} keyExtractor={i=>i} showsVerticalScrollIndicator={false}
             contentContainerStyle={{paddingBottom:spacing.space6}}
             renderItem={({item}) => {
               const active = item === value;
               return (
                 <TouchableOpacity style={[dpStyles.option, active && dpStyles.optionActive]}
-                  onPress={() => { onSelect(item); onClose(); }}
-                  activeOpacity={0.8} accessibilityRole="button" accessibilityState={{selected:active}}>
+                  onPress={() => { onSelect(item); onClose(); }} activeOpacity={0.8}
+                  accessibilityRole="button" accessibilityState={{selected:active}}>
                   <Text style={[dpStyles.optionText, active && dpStyles.optionTextActive]} allowFontScaling={false}>
                     {renderLabel ? renderLabel(item) : item}
                   </Text>
@@ -174,9 +176,39 @@ const dpStyles = StyleSheet.create({
   optionTextActive: { color:Colors.actionPrimary, fontWeight:"600" },
 });
 
-// ─── Main Form ────────────────────────────────────────────────────────────────
+// ─── Progress Bar ─────────────────────────────────────────────────────────────
+function WizardProgress({ step, total }: { step: number; total: number }) {
+  const progress = (step / total) * 100;
+  return (
+    <View style={progressStyles.wrap}>
+      <View style={progressStyles.labelRow}>
+        <Text style={progressStyles.stepLabel} allowFontScaling={false}>
+          Step {step} of {total}
+        </Text>
+        <Text style={progressStyles.stepName} allowFontScaling={false}>
+          {STEP_LABELS[step - 1]}
+        </Text>
+      </View>
+      <View style={progressStyles.track}>
+        <Animated.View style={[progressStyles.fill, { width: `${progress}%` as any }]} />
+      </View>
+    </View>
+  );
+}
+
+const progressStyles = StyleSheet.create({
+  wrap: { marginBottom: spacing.space5 },
+  labelRow: { flexDirection:"row", justifyContent:"space-between", marginBottom: spacing.space2 },
+  stepLabel: { ...typeScale.labelSM, color:Colors.textSecondary, fontWeight:"600" },
+  stepName: { ...typeScale.labelSM, color:Colors.textMuted },
+  track: { height:6, borderRadius:3, backgroundColor:Colors.bgElevated, overflow:"hidden" },
+  fill: { height:"100%", borderRadius:3, backgroundColor:Colors.actionPrimary },
+});
+
+// ─── Main Form (Wizard) ───────────────────────────────────────────────────────
 interface EventCreationFormProps {
-  existingEvent?: any;   // pass for edit mode
+  existingEvent?: any;
+  circleId?: string;
   onSuccess: () => void;
   onCancel:  () => void;
 }
@@ -187,13 +219,14 @@ interface FormErrors {
   audioSpeakers?: string;
 }
 
-export function EventCreationForm({ existingEvent, onSuccess, onCancel }: EventCreationFormProps) {
+export function EventCreationForm({ existingEvent, circleId, onSuccess, onCancel }: EventCreationFormProps) {
   const isEditing = !!existingEvent;
   const createEvent = useMutation(api.events.createEvent);
   const updateEvent = useMutation(api.events.updateEvent);
-
-  // Wallet — default currency for new events
   const walletQuery = useQuery((api as any)["wallets/getWalletBalance"].getWalletBalance, {});
+
+  // ── Wizard step ────────────────────────────────────────────────────────────
+  const [currentStep, setCurrentStep] = useState<WizardStep>(1);
 
   // ── Form state ─────────────────────────────────────────────────────────────
   const [title,          setTitle]          = useState(existingEvent?.title          ?? "");
@@ -205,15 +238,6 @@ export function EventCreationForm({ existingEvent, onSuccess, onCancel }: EventC
   const [price,          setPrice]          = useState(String(existingEvent?.pricePerPerson ?? "0"));
   const [currency,       setCurrency]       = useState<string>(existingEvent?.priceCurrency ?? "USD");
   const [tagsInput,      setTagsInput]      = useState((existingEvent?.tags ?? []).join(", "));
-
-  // Sync wallet primary currency into currency once loaded (only for new events)
-  const walletSynced = useRef(false);
-  React.useEffect(() => {
-    if (!isEditing && !walletSynced.current && walletQuery?.primaryCurrency) {
-      setCurrency(walletQuery.primaryCurrency);
-      walletSynced.current = true;
-    }
-  }, [walletQuery, isEditing]);
   const [isPublic,       setIsPublic]       = useState(existingEvent?.isPublic ?? true);
   const [isAudioOnly,    setIsAudioOnly]    = useState(existingEvent?.eventType === "AUDIO_ONLY");
   const [maxSpeakers,    setMaxSpeakers]    = useState(String(existingEvent?.audioSettings?.maxSpeakers ?? "5"));
@@ -228,18 +252,45 @@ export function EventCreationForm({ existingEvent, onSuccess, onCancel }: EventC
 
   const today = todayYMD();
 
-  // ── Validate ───────────────────────────────────────────────────────────────
-  function validate(): boolean {
+  // Sync wallet primary currency
+  const walletSynced = useRef(false);
+  React.useEffect(() => {
+    if (!isEditing && !walletSynced.current && walletQuery?.primaryCurrency) {
+      setCurrency(walletQuery.primaryCurrency);
+      walletSynced.current = true;
+    }
+  }, [walletQuery, isEditing]);
+
+  // ── Per-step validation ────────────────────────────────────────────────────
+  function validateStep1(): boolean {
     const e: FormErrors = {};
-    if (!title.trim())       e.title       = "Title is required";
+    if (!title.trim())       e.title = "Title is required";
     if (!description.trim()) e.description = "Description is required";
-    if (!date)               e.date        = "Select a date";
-    if (date < today)        e.date        = "Date must be in the future";
-    if (!time)               e.time        = "Select a time";
+    setErrors(e);
+    return Object.keys(e).length === 0;
+  }
+
+  function validateStep2(): boolean {
+    const e: FormErrors = {};
+    if (!date)        e.date = "Select a date";
+    if (date < today) e.date = "Date must be in the future";
+    if (!time)        e.time = "Select a time";
+    setErrors(e);
+    return Object.keys(e).length === 0;
+  }
+
+  function validateStep3(): boolean {
+    const e: FormErrors = {};
     const mp = parseInt(maxParticipants, 10);
     if (isNaN(mp) || mp < 2) e.maxParticipants = "Minimum 2 participants";
     const pr = parseFloat(price);
     if (isNaN(pr) || pr < 0) e.price = "Enter a valid price (0 for free)";
+    setErrors(e);
+    return Object.keys(e).length === 0;
+  }
+
+  function validateStep4(): boolean {
+    const e: FormErrors = {};
     if (isAudioOnly) {
       const ms = parseInt(maxSpeakers, 10);
       if (isNaN(ms) || ms < 2) e.audioSpeakers = "Minimum 2 speakers";
@@ -248,9 +299,21 @@ export function EventCreationForm({ existingEvent, onSuccess, onCancel }: EventC
     return Object.keys(e).length === 0;
   }
 
+  // ── Navigation ─────────────────────────────────────────────────────────────
+  function handleNext() {
+    if (currentStep === 1 && validateStep1()) setCurrentStep(2);
+    else if (currentStep === 2 && validateStep2()) setCurrentStep(3);
+    else if (currentStep === 3 && validateStep3()) setCurrentStep(4);
+  }
+
+  function handleBack() {
+    if (currentStep === 1) onCancel();
+    else setCurrentStep((currentStep - 1) as WizardStep);
+  }
+
   // ── Submit ─────────────────────────────────────────────────────────────────
   async function handleSubmit() {
-    if (!validate()) return;
+    if (!validateStep4()) return;
     setSubmitting(true);
     setSubmitErr("");
 
@@ -284,6 +347,8 @@ export function EventCreationForm({ existingEvent, onSuccess, onCancel }: EventC
           priceCurrency:   currency,
           tags,
           isPublic,
+          circleId:        circleId ? (circleId as any) : undefined,
+          isCircleExclusive: circleId ? true : undefined,
           eventType:       isAudioOnly ? "AUDIO_ONLY" : "LIVE_STREAM",
           audioSettings:   isAudioOnly ? {
             maxSpeakers:          parseInt(maxSpeakers,10),
@@ -301,159 +366,232 @@ export function EventCreationForm({ existingEvent, onSuccess, onCancel }: EventC
     }
   }
 
+  // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <ScrollView style={efStyles.scroll} contentContainerStyle={efStyles.content}
-      showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+    <View style={efStyles.root}>
+      {/* Progress bar */}
+      <View style={efStyles.progressWrap}>
+        <WizardProgress step={currentStep} total={TOTAL_STEPS} />
+      </View>
 
-      {/* ── Basic info ─────────────────────────────────────────── */}
-      <Text style={efStyles.sectionLabel}>Event Details</Text>
-      <AppInput label="Title" placeholder="e.g. Anxiety Management Workshop"
-        value={title} onChangeText={setTitle} error={errors.title} returnKeyType="next"
-        accessibilityLabel="Event title"/>
-      <TextareaInput label="Description" placeholder="Tell attendees what this session covers…"
-        value={description} onChangeText={setDescription} error={errors.description}
-        maxLength={600} accessibilityLabel="Event description"/>
+      <ScrollView style={efStyles.scroll} contentContainerStyle={efStyles.content}
+        showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
 
-      {/* ── Date ──────────────────────────────────────────────── */}
-      <Text style={efStyles.sectionLabel}>Date</Text>
-      {errors.date && <Text style={efStyles.fieldError}>{errors.date}</Text>}
-      <View style={efStyles.calCard}>
-        <MiniCalendar value={date} onChange={setDate} minDate={today}/>
-        {date && (
-          <View style={efStyles.selectedDate}>
-            <Ionicons name="calendar-outline" size={14} color={Colors.actionPrimary}/>
-            <Text style={efStyles.selectedDateText} allowFontScaling={false}>{date}</Text>
+        {/* ── Step 1: Event Details ──────────────────────────────── */}
+        {currentStep === 1 && (
+          <View>
+            <Text style={efStyles.stepTitle} allowFontScaling={false}>
+              What's your event about?
+            </Text>
+            <Text style={efStyles.stepSub} allowFontScaling={false}>
+              Give your event a clear title and description so attendees know what to expect.
+            </Text>
+            <AppInput label="Title" placeholder="e.g. Anxiety Management Workshop"
+              value={title} onChangeText={setTitle} error={errors.title} returnKeyType="next"
+              accessibilityLabel="Event title"/>
+            <TextareaInput label="Description" placeholder="Tell attendees what this session covers…"
+              value={description} onChangeText={setDescription} error={errors.description}
+              maxLength={600} accessibilityLabel="Event description"/>
           </View>
         )}
-      </View>
 
-      {/* ── Time ──────────────────────────────────────────────── */}
-      <Text style={efStyles.sectionLabel}>Time</Text>
-      <TouchableOpacity style={[efStyles.pickerBtn, errors.time && efStyles.pickerBtnError]}
-        onPress={() => setShowTimePicker(true)} activeOpacity={0.8}
-        accessibilityRole="button" accessibilityLabel={`Session time: ${displayTime(time)}`}>
-        <Ionicons name="time-outline" size={18} color={Colors.iconSecondary}/>
-        <Text style={efStyles.pickerBtnText} allowFontScaling={false}>{displayTime(time)}</Text>
-        <Ionicons name="chevron-down" size={16} color={Colors.iconSecondary}/>
-      </TouchableOpacity>
-      {errors.time && <Text style={efStyles.fieldError}>{errors.time}</Text>}
-
-      {/* ── Duration ──────────────────────────────────────────── */}
-      <Text style={efStyles.sectionLabel}>Duration</Text>
-      <View style={efStyles.chipRow}>
-        {DURATIONS.map(d => (
-          <TouchableOpacity key={d} style={[efStyles.chip, duration===d && efStyles.chipActive]}
-            onPress={() => setDuration(d)} activeOpacity={0.8}
-            accessibilityRole="button" accessibilityState={{selected:duration===d}}>
-            <Text style={[efStyles.chipText, duration===d && efStyles.chipTextActive]} allowFontScaling={false}>
-              {d} min
+        {/* ── Step 2: Schedule ────────────────────────────────────── */}
+        {currentStep === 2 && (
+          <View>
+            <Text style={efStyles.stepTitle} allowFontScaling={false}>
+              When is the event?
             </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
+            <Text style={efStyles.stepSub} allowFontScaling={false}>
+              Pick a date, time, and how long the session will run.
+            </Text>
 
-      {/* ── Capacity & Pricing ────────────────────────────────── */}
-      <Text style={efStyles.sectionLabel}>Capacity & Pricing</Text>
-      <View style={efStyles.twoCol}>
-        <View style={efStyles.colField}>
-          <AppInput label="Max Participants" placeholder="10"
-            value={maxParticipants} onChangeText={setMaxParticipants}
-            error={errors.maxParticipants} keyboardType="number-pad"
-            accessibilityLabel="Maximum number of participants"/>
-        </View>
-        <View style={efStyles.colField}>
-          <AppInput label="Price Per Person" placeholder="0"
-            value={price} onChangeText={setPrice} error={errors.price}
-            keyboardType="decimal-pad" leadingIcon={<Text style={efStyles.currencySymbol}>$</Text>}
-            accessibilityLabel="Price per person"/>
-        </View>
-      </View>
+            {errors.date && <Text style={efStyles.fieldError}>{errors.date}</Text>}
+            <View style={efStyles.calCard}>
+              <MiniCalendar value={date} onChange={setDate} minDate={today}/>
+              {date && (
+                <View style={efStyles.selectedDate}>
+                  <Ionicons name="calendar-outline" size={14} color={Colors.actionPrimary}/>
+                  <Text style={efStyles.selectedDateText} allowFontScaling={false}>{date}</Text>
+                </View>
+              )}
+            </View>
 
-      {/* Currency picker */}
-      <TouchableOpacity style={efStyles.pickerBtn} onPress={() => setShowCurrencyPicker(true)}
-        activeOpacity={0.8} accessibilityRole="button" accessibilityLabel={`Currency: ${currency}`}>
-        <Ionicons name="cash-outline" size={18} color={Colors.iconSecondary}/>
-        <Text style={efStyles.pickerBtnText} allowFontScaling={false}>
-          {CURRENCY_SYMBOLS[currency as Currency] ?? ""} {currency} — {CURRENCY_LABELS[currency as Currency] ?? currency}
-        </Text>
-        <Ionicons name="chevron-down" size={16} color={Colors.iconSecondary}/>
-      </TouchableOpacity>
+            <Text style={efStyles.sectionLabel}>Time</Text>
+            <TouchableOpacity style={[efStyles.pickerBtn, errors.time && efStyles.pickerBtnError]}
+              onPress={() => setShowTimePicker(true)} activeOpacity={0.8}
+              accessibilityRole="button" accessibilityLabel={`Session time: ${displayTime(time)}`}>
+              <Ionicons name="time-outline" size={18} color={Colors.iconSecondary}/>
+              <Text style={efStyles.pickerBtnText} allowFontScaling={false}>{displayTime(time)}</Text>
+              <Ionicons name="chevron-down" size={16} color={Colors.iconSecondary}/>
+            </TouchableOpacity>
+            {errors.time && <Text style={efStyles.fieldError}>{errors.time}</Text>}
 
-      {/* ── Tags ──────────────────────────────────────────────── */}
-      <Text style={efStyles.sectionLabel}>Tags (comma-separated)</Text>
-      <AppInput label="" placeholder="e.g. anxiety, wellness, mindfulness"
-        value={tagsInput} onChangeText={setTagsInput} returnKeyType="done"
-        accessibilityLabel="Tags, comma separated"/>
+            <Text style={efStyles.sectionLabel}>Duration</Text>
+            <View style={efStyles.chipRow}>
+              {DURATIONS.map(d => (
+                <TouchableOpacity key={d} style={[efStyles.chip, duration===d && efStyles.chipActive]}
+                  onPress={() => setDuration(d)} activeOpacity={0.8}
+                  accessibilityRole="button" accessibilityState={{selected:duration===d}}>
+                  <Text style={[efStyles.chipText, duration===d && efStyles.chipTextActive]} allowFontScaling={false}>
+                    {d} min
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        )}
 
-      {/* ── Visibility ────────────────────────────────────────── */}
-      <Text style={efStyles.sectionLabel}>Visibility</Text>
-      <View style={efStyles.toggleRow}>
-        <View style={efStyles.toggleInfo}>
-          <Text style={efStyles.toggleLabel} allowFontScaling={false}>
-            {isPublic ? "Public Event" : "Private Event"}
-          </Text>
-          <Text style={efStyles.toggleSub} allowFontScaling={false}>
-            {isPublic ? "Visible in the public events feed" : "Only reachable via direct link"}
-          </Text>
-        </View>
-        <AppSwitch value={isPublic} onValueChange={setIsPublic} accessibilityLabel="Toggle event visibility"/>
-      </View>
+        {/* ── Step 3: Capacity & Pricing ──────────────────────────── */}
+        {currentStep === 3 && (
+          <View>
+            <Text style={efStyles.stepTitle} allowFontScaling={false}>
+              Capacity & Pricing
+            </Text>
+            <Text style={efStyles.stepSub} allowFontScaling={false}>
+              Set how many people can join and how much they'll pay.
+            </Text>
 
-      {/* ── Audio only ────────────────────────────────────────── */}
-      {!isEditing && (
-        <>
-          <View style={efStyles.toggleRow}>
-            <View style={efStyles.toggleInfo}>
-              <Text style={efStyles.toggleLabel} allowFontScaling={false}>Audio-Only Room</Text>
-              <Text style={efStyles.toggleSub} allowFontScaling={false}>
-                Podcast-style with speakers and listeners instead of video
+            <View style={efStyles.twoCol}>
+              <View style={efStyles.colField}>
+                <AppInput label="Max Participants" placeholder="10"
+                  value={maxParticipants} onChangeText={setMaxParticipants}
+                  error={errors.maxParticipants} keyboardType="number-pad"
+                  accessibilityLabel="Maximum number of participants"/>
+              </View>
+              <View style={efStyles.colField}>
+                <AppInput label="Price Per Person" placeholder="0"
+                  value={price} onChangeText={setPrice} error={errors.price}
+                  keyboardType="decimal-pad" leadingIcon={<Text style={efStyles.currencySymbol}>$</Text>}
+                  accessibilityLabel="Price per person"/>
+              </View>
+            </View>
+
+            <Text style={efStyles.sectionLabel}>Currency</Text>
+            <TouchableOpacity style={efStyles.pickerBtn} onPress={() => setShowCurrencyPicker(true)}
+              activeOpacity={0.8} accessibilityRole="button" accessibilityLabel={`Currency: ${currency}`}>
+              <Ionicons name="cash-outline" size={18} color={Colors.iconSecondary}/>
+              <Text style={efStyles.pickerBtnText} allowFontScaling={false}>
+                {CURRENCY_SYMBOLS[currency as Currency] ?? ""} {currency} — {CURRENCY_LABELS[currency as Currency] ?? currency}
+              </Text>
+              <Ionicons name="chevron-down" size={16} color={Colors.iconSecondary}/>
+            </TouchableOpacity>
+
+            <View style={efStyles.pricingHint}>
+              <Ionicons name="information-circle-outline" size={14} color={Colors.statusInfo}/>
+              <Text style={efStyles.pricingHintText} allowFontScaling={false}>
+                Set price to 0 for a free event.
               </Text>
             </View>
-            <AppSwitch value={isAudioOnly} onValueChange={setIsAudioOnly} accessibilityLabel="Toggle audio-only mode"/>
           </View>
+        )}
 
-          {isAudioOnly && (
-            <View style={efStyles.audioCard}>
-              <Text style={efStyles.audioCardTitle} allowFontScaling={false}>Audio Room Settings</Text>
-              <AppInput label="Max Speakers" placeholder="5"
-                value={maxSpeakers} onChangeText={setMaxSpeakers}
-                error={errors.audioSpeakers} keyboardType="number-pad"
-                accessibilityLabel="Maximum number of speakers"/>
-              <View style={efStyles.toggleRow}>
-                <View style={efStyles.toggleInfo}>
-                  <Text style={efStyles.toggleLabel} allowFontScaling={false}>Allow Hand Raise</Text>
-                  <Text style={efStyles.toggleSub} allowFontScaling={false}>Listeners can request to speak</Text>
-                </View>
-                <AppSwitch value={allowHandRaise} onValueChange={setAllowHandRaise} accessibilityLabel="Allow hand raise"/>
+        {/* ── Step 4: Settings ────────────────────────────────────── */}
+        {currentStep === 4 && (
+          <View>
+            <Text style={efStyles.stepTitle} allowFontScaling={false}>
+              Final Settings
+            </Text>
+            <Text style={efStyles.stepSub} allowFontScaling={false}>
+              Configure visibility, tags, and session type.
+            </Text>
+
+            {/* Tags */}
+            <Text style={efStyles.sectionLabel}>Tags (comma-separated)</Text>
+            <AppInput label="" placeholder="e.g. anxiety, wellness, mindfulness"
+              value={tagsInput} onChangeText={setTagsInput} returnKeyType="done"
+              accessibilityLabel="Tags, comma separated"/>
+
+            {/* Visibility */}
+            <View style={efStyles.toggleRow}>
+              <View style={efStyles.toggleInfo}>
+                <Text style={efStyles.toggleLabel} allowFontScaling={false}>
+                  {isPublic ? "Public Event" : "Private Event"}
+                </Text>
+                <Text style={efStyles.toggleSub} allowFontScaling={false}>
+                  {isPublic ? "Visible in the public events feed" : "Only reachable via direct link"}
+                </Text>
               </View>
-              <View style={[efStyles.toggleRow, {borderBottomWidth:0}]}>
-                <View style={efStyles.toggleInfo}>
-                  <Text style={efStyles.toggleLabel} allowFontScaling={false}>Record Audio</Text>
-                  <Text style={efStyles.toggleSub} allowFontScaling={false}>Save a recording for later download</Text>
-                </View>
-                <AppSwitch value={recordAudio} onValueChange={setRecordAudio} accessibilityLabel="Record audio"/>
-              </View>
+              <AppSwitch value={isPublic} onValueChange={setIsPublic} accessibilityLabel="Toggle event visibility"/>
             </View>
-          )}
-        </>
-      )}
 
-      {/* ── Submit error ───────────────────────────────────────── */}
-      {submitErr !== "" && (
-        <View style={efStyles.submitError}>
-          <Ionicons name="alert-circle-outline" size={16} color={Colors.statusDanger}/>
-          <Text style={efStyles.submitErrorText} allowFontScaling={false}>{submitErr}</Text>
-        </View>
-      )}
+            {/* Audio only (new events only) */}
+            {!isEditing && (
+              <>
+                <View style={efStyles.toggleRow}>
+                  <View style={efStyles.toggleInfo}>
+                    <Text style={efStyles.toggleLabel} allowFontScaling={false}>Audio-Only Room</Text>
+                    <Text style={efStyles.toggleSub} allowFontScaling={false}>
+                      Podcast-style with speakers and listeners instead of video
+                    </Text>
+                  </View>
+                  <AppSwitch value={isAudioOnly} onValueChange={setIsAudioOnly} accessibilityLabel="Toggle audio-only mode"/>
+                </View>
 
-      {/* ── Buttons ───────────────────────────────────────────── */}
-      <View style={efStyles.btnRow}>
-        <SecondaryButton label="Cancel" onPress={onCancel} style={efStyles.btnCancel} accessibilityLabel="Cancel"/>
-        <PrimaryButton
-          label={isEditing ? "Save Changes" : "Create Event"}
-          onPress={handleSubmit} loading={submitting} style={efStyles.btnSubmit}
-          icon={<Ionicons name={isEditing ? "save-outline" : "add-circle-outline"} size={18} color="#FFFFFF"/>}
-          accessibilityLabel={isEditing ? "Save event changes" : "Create event"}/>
+                {isAudioOnly && (
+                  <View style={efStyles.audioCard}>
+                    <Text style={efStyles.audioCardTitle} allowFontScaling={false}>Audio Room Settings</Text>
+                    <AppInput label="Max Speakers" placeholder="5"
+                      value={maxSpeakers} onChangeText={setMaxSpeakers}
+                      error={errors.audioSpeakers} keyboardType="number-pad"
+                      accessibilityLabel="Maximum number of speakers"/>
+                    <View style={efStyles.toggleRow}>
+                      <View style={efStyles.toggleInfo}>
+                        <Text style={efStyles.toggleLabel} allowFontScaling={false}>Allow Hand Raise</Text>
+                        <Text style={efStyles.toggleSub} allowFontScaling={false}>Listeners can request to speak</Text>
+                      </View>
+                      <AppSwitch value={allowHandRaise} onValueChange={setAllowHandRaise} accessibilityLabel="Allow hand raise"/>
+                    </View>
+                    <View style={[efStyles.toggleRow, {borderBottomWidth:0}]}>
+                      <View style={efStyles.toggleInfo}>
+                        <Text style={efStyles.toggleLabel} allowFontScaling={false}>Record Audio</Text>
+                        <Text style={efStyles.toggleSub} allowFontScaling={false}>Save a recording for later download</Text>
+                      </View>
+                      <AppSwitch value={recordAudio} onValueChange={setRecordAudio} accessibilityLabel="Record audio"/>
+                    </View>
+                  </View>
+                )}
+              </>
+            )}
+
+            {/* Submit error */}
+            {submitErr !== "" && (
+              <View style={efStyles.submitError}>
+                <Ionicons name="alert-circle-outline" size={16} color={Colors.statusDanger}/>
+                <Text style={efStyles.submitErrorText} allowFontScaling={false}>{submitErr}</Text>
+              </View>
+            )}
+          </View>
+        )}
+      </ScrollView>
+
+      {/* ── Navigation buttons ─────────────────────────────────── */}
+      <View style={efStyles.navBar}>
+        <SecondaryButton
+          label={currentStep === 1 ? "Cancel" : "Back"}
+          onPress={handleBack}
+          icon={currentStep > 1 ? <Ionicons name="chevron-back" size={18} color={Colors.textSecondary}/> : undefined}
+          style={efStyles.navBtnBack}
+          disabled={submitting}
+          accessibilityLabel={currentStep === 1 ? "Cancel" : "Go back"}
+        />
+        {currentStep < TOTAL_STEPS ? (
+          <PrimaryButton
+            label="Next"
+            onPress={handleNext}
+            icon={<Ionicons name="chevron-forward" size={18} color="#FFFFFF"/>}
+            style={efStyles.navBtnNext}
+            accessibilityLabel="Go to next step"
+          />
+        ) : (
+          <PrimaryButton
+            label={isEditing ? "Save Changes" : "Create Event"}
+            onPress={handleSubmit}
+            loading={submitting}
+            icon={<Ionicons name={isEditing ? "save-outline" : "add-circle-outline"} size={18} color="#FFFFFF"/>}
+            style={efStyles.navBtnNext}
+            accessibilityLabel={isEditing ? "Save event changes" : "Create event"}
+          />
+        )}
       </View>
 
       {/* Pickers */}
@@ -466,27 +604,52 @@ export function EventCreationForm({ existingEvent, onSuccess, onCancel }: EventC
         onSelect={(v) => setCurrency(v)} onClose={() => setShowCurrencyPicker(false)}
         label="Pricing Currency"
         renderLabel={(v) => `${CURRENCY_SYMBOLS[v as Currency] ?? ""} ${v} — ${CURRENCY_LABELS[v as Currency] ?? v}`}/>
-    </ScrollView>
+    </View>
   );
 }
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 const efStyles = StyleSheet.create({
+  root: { flex:1 },
+  progressWrap: { paddingHorizontal:spacing.space4, paddingTop:spacing.space3 },
   scroll: { flex:1 },
-  content: { paddingHorizontal:spacing.space4, paddingBottom:spacing.space10 },
+  content: { paddingHorizontal:spacing.space4, paddingBottom:spacing.space6 },
+
+  stepTitle: {
+    ...typeScale.headingMD, color:Colors.textPrimary, fontWeight:"700",
+    marginBottom:spacing.space2,
+  },
+  stepSub: {
+    ...typeScale.bodyMD, color:Colors.textMuted, lineHeight:20,
+    marginBottom:spacing.space5,
+  },
 
   sectionLabel: {
     ...typeScale.labelSM, color:Colors.textSecondary, fontWeight:"700",
     textTransform:"uppercase", letterSpacing:0.7,
     marginBottom:spacing.space2, marginTop:spacing.space4,
   },
-  fieldError: { ...typeScale.caption, color:Colors.statusDanger, marginBottom:spacing.space2, marginTop:-spacing.space2 },
+  fieldError: {
+    ...typeScale.caption, color:Colors.statusDanger,
+    marginBottom:spacing.space2, marginTop:-spacing.space2,
+  },
 
-  calCard: { backgroundColor:Colors.bgElevated, borderRadius:radius.radiusMD, borderWidth:1, borderColor:Colors.borderSubtle, padding:spacing.space3, marginBottom:spacing.space3 },
-  selectedDate: { flexDirection:"row", alignItems:"center", gap:spacing.space2, paddingTop:spacing.space2, borderTopWidth:1, borderTopColor:Colors.borderSubtle },
+  calCard: {
+    backgroundColor:Colors.bgElevated, borderRadius:radius.radiusMD,
+    borderWidth:1, borderColor:Colors.borderSubtle, padding:spacing.space3,
+    marginBottom:spacing.space3,
+  },
+  selectedDate: {
+    flexDirection:"row", alignItems:"center", gap:spacing.space2,
+    paddingTop:spacing.space2, borderTopWidth:1, borderTopColor:Colors.borderSubtle,
+  },
   selectedDateText: { ...typeScale.labelSM, color:Colors.actionPrimary, fontWeight:"600" },
 
-  pickerBtn: { flexDirection:"row", alignItems:"center", gap:spacing.space2, height:56, borderRadius:radius.radiusMD, borderWidth:1.5, borderColor:Colors.borderDefault, backgroundColor:Colors.bgSurface, paddingHorizontal:spacing.space4, marginBottom:spacing.space3 },
+  pickerBtn: {
+    flexDirection:"row", alignItems:"center", gap:spacing.space2, height:56,
+    borderRadius:radius.radiusMD, borderWidth:1.5, borderColor:Colors.borderDefault,
+    backgroundColor:Colors.bgSurface, paddingHorizontal:spacing.space4, marginBottom:spacing.space3,
+  },
   pickerBtnError: { borderColor:Colors.borderError },
   pickerBtnText: { ...typeScale.bodyMD, color:Colors.textPrimary, flex:1 },
 
@@ -500,18 +663,43 @@ const efStyles = StyleSheet.create({
   colField: { flex:1 },
   currencySymbol: { ...typeScale.bodyMD, color:Colors.textMuted, fontWeight:"600" },
 
-  toggleRow: { flexDirection:"row", alignItems:"center", justifyContent:"space-between", paddingVertical:spacing.space3, borderBottomWidth:1, borderBottomColor:Colors.borderSubtle },
+  pricingHint: {
+    flexDirection:"row", alignItems:"center", gap:spacing.space2,
+    backgroundColor:Colors.statusInfoBg, borderRadius:radius.radiusMD,
+    padding:spacing.space3, marginBottom:spacing.space3,
+  },
+  pricingHintText: { ...typeScale.bodySM, color:Colors.statusInfo, flex:1 },
+
+  toggleRow: {
+    flexDirection:"row", alignItems:"center", justifyContent:"space-between",
+    paddingVertical:spacing.space3, borderBottomWidth:1, borderBottomColor:Colors.borderSubtle,
+  },
   toggleInfo: { flex:1, marginRight:spacing.space4 },
   toggleLabel: { ...typeScale.bodyMD, color:Colors.textPrimary, fontWeight:"500" },
   toggleSub: { ...typeScale.caption, color:Colors.textMuted, marginTop:2 },
 
-  audioCard: { backgroundColor:Colors.statusInfoBg, borderRadius:radius.radiusMD, borderWidth:1, borderColor:Colors.borderSubtle, padding:spacing.space4, marginBottom:spacing.space4 },
+  audioCard: {
+    backgroundColor:Colors.statusInfoBg, borderRadius:radius.radiusMD,
+    borderWidth:1, borderColor:Colors.borderSubtle, padding:spacing.space4,
+    marginTop:spacing.space3, marginBottom:spacing.space4,
+  },
   audioCardTitle: { ...typeScale.headingSM, color:Colors.statusInfo, fontWeight:"700", marginBottom:spacing.space3 },
 
-  submitError: { flexDirection:"row", alignItems:"flex-start", gap:spacing.space2, backgroundColor:Colors.statusDangerBg, borderRadius:radius.radiusMD, borderWidth:1, borderColor:Colors.statusDanger, padding:spacing.space3, marginBottom:spacing.space4 },
+  submitError: {
+    flexDirection:"row", alignItems:"flex-start", gap:spacing.space2,
+    backgroundColor:Colors.statusDangerBg, borderRadius:radius.radiusMD,
+    borderWidth:1, borderColor:Colors.statusDanger, padding:spacing.space3,
+    marginTop:spacing.space4,
+  },
   submitErrorText: { ...typeScale.bodySM, color:Colors.statusDanger, flex:1, lineHeight:18 },
 
-  btnRow: { flexDirection:"row", gap:spacing.space3, marginTop:spacing.space4 },
-  btnCancel: { flex:1 },
-  btnSubmit: { flex:2 },
+  // Navigation bar
+  navBar: {
+    flexDirection:"row", gap:spacing.space3,
+    paddingHorizontal:spacing.space4, paddingVertical:spacing.space4,
+    borderTopWidth:1, borderTopColor:Colors.borderSubtle,
+    backgroundColor:Colors.bgSurface,
+  },
+  navBtnBack: { flex:1 },
+  navBtnNext: { flex:2 },
 });

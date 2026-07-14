@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { Id } from "./_generated/dataModel";
+import { ensureNotBanned } from "./moderationHelpers";
 
 // Send message to circle
 export const sendMessage = mutation({
@@ -16,6 +17,7 @@ export const sendMessage = mutation({
     if (!userId) {
       throw new Error("Not authenticated");
     }
+    await ensureNotBanned(ctx, userId);
 
     const circle = await ctx.db.get(args.circleId);
     if (!circle || !circle.isActive) {

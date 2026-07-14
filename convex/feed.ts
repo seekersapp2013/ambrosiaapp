@@ -110,29 +110,100 @@ async function batchCourseInfo(
   return result;
 }
 
+/**
+ * Resolve circleInfo for a batch of circleIds.
+ * Returns a map from circleId → { circleId, circleName, parentCircleId?, parentCircleName?, coverImage? }
+ */
+async function batchCircleInfo(
+  ctx: any,
+  circleIds: string[]
+): Promise<Map<string, { circleId: string; circleName: string; parentCircleId?: string; parentCircleName?: string; coverImage?: string }>> {
+  const unique = [...new Set(circleIds)];
+  if (unique.length === 0) return new Map();
+
+  const circles = await Promise.all(
+    unique.map((id) => ctx.db.get(id as Id<"circles">))
+  );
+
+  // Collect parent circle IDs for sub-circles
+  const parentIds = circles
+    .filter((c: any) => c?.parentCircleId)
+    .map((c: any) => c.parentCircleId as string);
+  const uniqueParentIds = [...new Set(parentIds)];
+  const parents = await Promise.all(
+    uniqueParentIds.map((id) => ctx.db.get(id as Id<"circles">))
+  );
+  const parentMap = new Map<string, any>();
+  uniqueParentIds.forEach((id, i) => {
+    if (parents[i]) parentMap.set(id, parents[i]);
+  });
+
+  // Resolve cover images
+  const coverUrls = await Promise.all(
+    circles.map((c: any) => storageUrl(ctx, c?.coverImage))
+  );
+
+  const result = new Map<string, any>();
+  unique.forEach((id, i) => {
+    const circle = circles[i];
+    if (!circle) return;
+
+    const parentCircle = circle.parentCircleId ? parentMap.get(circle.parentCircleId) : null;
+
+    // For display: if this is a sub-circle, show parent info; otherwise show own info
+    const displayCircleId = parentCircle ? parentCircle._id : circle._id;
+    const displayCircleName = parentCircle ? parentCircle.name : circle.name;
+
+    result.set(id, {
+      circleId: displayCircleId as string,
+      circleName: displayCircleName,
+      parentCircleId: parentCircle ? (parentCircle._id as string) : undefined,
+      parentCircleName: parentCircle ? parentCircle.name : undefined,
+      coverImage: coverUrls[i],
+    });
+  });
+
+  return result;
+}
+
 // ─── Query ────────────────────────────────────────────────────────────────────
 
 export const listUnifiedFeed = query({
   args: { limit: v.optional(v.number()) },
   handler: async (ctx, args) => {
     const limit = args.limit ?? 20;
-    // Fetch half-limit each so merged total = limit
+    // Fetch third-limit each so merged total ≈ limit
+    const third = Math.ceil(limit / 3);
     const half = Math.ceil(limit / 2);
 
     // ── 1. Fetch raw rows ────────────────────────────────────────────────────
-    const [articles, reels] = await Promise.all([
+    const [articles, reels, circleEvents] = await Promise.all([
       ctx.db
         .query("articles")
         .withIndex("by_status", (q: any) => q.eq("status", "PUBLISHED"))
         .order("desc")
         .take(half),
       ctx.db.query("reels").order("desc").take(half),
+      // Fetch upcoming circle-exclusive events (publicly visible in feed)
+      ctx.db
+        .query("events")
+        .withIndex("by_status", (q: any) => q.eq("status", "ACTIVE"))
+        .order("desc")
+        .take(third),
     ]);
+
+    // Filter out circle-only content UNLESS it has a circleId (community content shows with badge)
+    // Circle-only articles/reels appear in the feed as teasers with CommunityBadge
+    const filteredArticles = articles;
+    const filteredReels = reels;
+    // Only include circle-exclusive events in the feed (non-circle events are in booking section)
+    const filteredEvents = circleEvents.filter((e: any) => e.isCircleExclusive && e.circleId);
 
     // ── 2. Collect all author IDs and batch-fetch users + profiles ───────────
     const allAuthorIds = [
-      ...articles.map((a: any) => a.authorId as string),
-      ...reels.map((r: any) => r.authorId as string),
+      ...filteredArticles.map((a: any) => a.authorId as string),
+      ...filteredReels.map((r: any) => r.authorId as string),
+      ...filteredEvents.map((e: any) => e.providerId as string),
     ];
 
     const [userMap, profileMap] = await Promise.all([
@@ -142,9 +213,9 @@ export const listUnifiedFeed = query({
 
     // ── 3. Collect all storage IDs and resolve URLs in one parallel batch ────
     // Article cover images + avatar storage IDs
-    const articleCoverIds = articles.map((a: any) => a.coverImage as string | undefined);
-    const reelPosterIds   = reels.map((r: any)    => r.poster  as string | undefined);
-    const reelVideoIds    = reels.map((r: any)    => r.video   as string | undefined);
+    const articleCoverIds = filteredArticles.map((a: any) => a.coverImage as string | undefined);
+    const reelPosterIds   = filteredReels.map((r: any)    => r.poster  as string | undefined);
+    const reelVideoIds    = filteredReels.map((r: any)    => r.video   as string | undefined);
 
     // Avatar IDs per unique author (profiles)
     const profileAvatarIds = allAuthorIds.map(
@@ -163,8 +234,8 @@ export const listUnifiedFeed = query({
     );
 
     // Slice resolved URLs back into their buckets
-    const aLen = articles.length;
-    const rLen = reels.length;
+    const aLen = filteredArticles.length;
+    const rLen = filteredReels.length;
     let offset = 0;
     const articleCoverUrls  = resolvedUrls.slice(offset, offset + aLen); offset += aLen;
     const reelPosterUrls    = resolvedUrls.slice(offset, offset + rLen); offset += rLen;
@@ -182,12 +253,19 @@ export const listUnifiedFeed = query({
 
     // ── 4. Batch-resolve course info ─────────────────────────────────────────
     const courseInfoMap = await batchCourseInfo(ctx, [
-      ...articles.map((a: any) => ({ contentType: "article" as const, contentId: a._id as string })),
-      ...reels.map((r: any)    => ({ contentType: "reel"    as const, contentId: r._id as string })),
+      ...filteredArticles.map((a: any) => ({ contentType: "article" as const, contentId: a._id as string })),
+      ...filteredReels.map((r: any)    => ({ contentType: "reel"    as const, contentId: r._id as string })),
+    ]);
+
+    // ── 4b. Batch-resolve circle info for community content ──────────────────
+    const circleInfoMap = await batchCircleInfo(ctx, [
+      ...filteredArticles.filter((a: any) => a.circleId).map((a: any) => a.circleId as string),
+      ...filteredReels.filter((r: any) => r.circleId).map((r: any) => r.circleId as string),
+      ...filteredEvents.filter((e: any) => e.circleId).map((e: any) => e.circleId as string),
     ]);
 
     // ── 5. Assemble output ───────────────────────────────────────────────────
-    const articlesOut = articles.map((article: any, i: number) => {
+    const articlesOut = filteredArticles.map((article: any, i: number) => {
       const uid     = article.authorId as string;
       const user    = userMap.get(uid);
       const profile = profileMap.get(uid);
@@ -196,6 +274,7 @@ export const listUnifiedFeed = query({
         contentType:    "article" as const,
         coverImageUrl:  articleCoverUrls[i],
         courseInfo:     courseInfoMap.get(article._id as string) ?? undefined,
+        circleInfo:    article.circleId ? circleInfoMap.get(article.circleId as string) ?? null : null,
         author: {
           id:       user?._id,
           name:     user?.name ?? profile?.name,
@@ -205,7 +284,7 @@ export const listUnifiedFeed = query({
       };
     });
 
-    const reelsOut = reels.map((reel: any, i: number) => {
+    const reelsOut = filteredReels.map((reel: any, i: number) => {
       const uid     = reel.authorId as string;
       const user    = userMap.get(uid);
       const profile = profileMap.get(uid);
@@ -215,6 +294,25 @@ export const listUnifiedFeed = query({
         posterUrl:   reelPosterUrls[i],
         videoUrl:    reelVideoUrls[i],
         courseInfo:  courseInfoMap.get(reel._id as string) ?? undefined,
+        circleInfo:  reel.circleId ? circleInfoMap.get(reel.circleId as string) ?? null : null,
+        author: {
+          id:       user?._id,
+          name:     user?.name ?? profile?.name,
+          username: profile?.username,
+          avatar:   avatarUrlByAuthor.get(uid) ?? profile?.avatar,
+        },
+      };
+    });
+
+    const eventsOut = filteredEvents.map((event: any) => {
+      const uid     = event.providerId as string;
+      const user    = userMap.get(uid);
+      const profile = profileMap.get(uid);
+      return {
+        ...event,
+        contentType: "event" as const,
+        circleInfo:  event.circleId ? circleInfoMap.get(event.circleId as string) ?? null : null,
+        availableSpots: event.maxParticipants - event.currentParticipants,
         author: {
           id:       user?._id,
           name:     user?.name ?? profile?.name,
@@ -225,7 +323,7 @@ export const listUnifiedFeed = query({
     });
 
     // ── 6. Merge, sort by recency, trim to limit ─────────────────────────────
-    return [...articlesOut, ...reelsOut]
+    return [...articlesOut, ...reelsOut, ...eventsOut]
       .sort((a, b) => b.createdAt - a.createdAt)
       .slice(0, limit);
   },

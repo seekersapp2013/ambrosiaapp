@@ -22,6 +22,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
 import { ArticleEngagementRow } from "./ArticleEngagementRow";
+import { CommunityBadge } from "@/components/CommunityBadge";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -44,6 +45,8 @@ export interface ArticleCardItem {
   authorId?: string;
   /** If this article is part of a course, contains the course title and 1-based position */
   courseInfo?: { courseTitle: string; order: number };
+  /** If this article belongs to a circle, contains community attribution info */
+  circleInfo?: { circleId: string; circleName: string; parentCircleId?: string; parentCircleName?: string; coverImage?: string } | null;
   author?: {
     name?: string;
     username?: string;
@@ -282,11 +285,16 @@ export function ArticleCard({ article, onPress, onGatedPress, isOwnContent, onDe
                 <Text style={[styles.readTime, { color: C.textMuted }]}>{article.readTimeMin} min read</Text>
               </>
             ) : null}
-            {/* Follow pill — only for other people's content */}
-            {!isOwnContent && article.authorId && (
+            {/* Follow pill or Community badge — only for other people's content */}
+            {!isOwnContent && article.authorId && !article.circleInfo && (
               <FollowPill authorId={article.authorId} />
             )}
           </View>
+
+          {/* Community badge — shown for circle content */}
+          {article.circleInfo && (
+            <CommunityBadge circleInfo={article.circleInfo} variant="inline" />
+          )}
 
           {/* Tags */}
           {article.tags && article.tags.length > 0 && (

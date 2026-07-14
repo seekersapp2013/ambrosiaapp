@@ -33,6 +33,8 @@ interface MyCirclesRowProps {
     isReferralCircle?: boolean;
     /** The referral this circle belongs to — used for deep-linking */
     referralId?: string | null;
+    /** True when this circle was auto-created by the consultation system */
+    isConsultationCircle?: boolean;
   };
   onPress: () => void;
 }
@@ -62,6 +64,7 @@ export function MyCirclesRow({ circle, onPress }: MyCirclesRowProps) {
   const roleStyle = ROLE_COLORS[role] ?? ROLE_COLORS.MEMBER;
   const lastContent = circle.lastMessage?.content ?? "No messages yet";
   const isReferral = circle.isReferralCircle === true;
+  const isConsultation = circle.isConsultationCircle === true;
 
   return (
     <TouchableOpacity
@@ -71,12 +74,17 @@ export function MyCirclesRow({ circle, onPress }: MyCirclesRowProps) {
       accessibilityRole="button"
       accessibilityLabel={`Circle: ${circle.name}`}
     >
-      {/* Avatar placeholder — referral circles use a distinct icon */}
-      <View style={[styles.avatar, { backgroundColor: C.bgElevated, borderColor: C.redBorder }, isReferral && [styles.avatarReferral, { borderColor: C.amberBorder, backgroundColor: C.amberSurface }]]}>
+      {/* Avatar placeholder — referral/consultation circles use distinct icons */}
+      <View style={[
+        styles.avatar,
+        { backgroundColor: C.bgElevated, borderColor: C.redBorder },
+        isReferral && [styles.avatarReferral, { borderColor: C.amberBorder, backgroundColor: C.amberSurface }],
+        isConsultation && { borderColor: C.blueBorder, backgroundColor: C.statusInfoBg },
+      ]}>
         <Ionicons
-          name={isReferral ? "git-network-outline" : "people-circle-outline"}
+          name={isReferral ? "git-network-outline" : isConsultation ? "chatbubble-ellipses-outline" : "people-circle-outline"}
           size={26}
-          color={isReferral ? C.statusWarning : C.primary}
+          color={isReferral ? C.statusWarning : isConsultation ? C.statusInfo : C.primary}
         />
       </View>
 
@@ -95,6 +103,11 @@ export function MyCirclesRow({ circle, onPress }: MyCirclesRowProps) {
             <View style={[styles.referralBadge, { borderColor: C.amberBorder, backgroundColor: C.amberSurface }]}>
               <Ionicons name="git-network-outline" size={9} color={C.statusWarning} />
               <Text style={[styles.referralBadgeText, { color: C.statusWarning }]}>Referral</Text>
+            </View>
+          ) : isConsultation ? (
+            <View style={[styles.referralBadge, { borderColor: C.blueBorder, backgroundColor: C.statusInfoBg }]}>
+              <Ionicons name="chatbubble-ellipses-outline" size={9} color={C.statusInfo} />
+              <Text style={[styles.referralBadgeText, { color: C.statusInfo }]}>Consultation</Text>
             </View>
           ) : (
             <View style={[styles.roleBadge, { backgroundColor: roleStyle.bg, borderColor: roleStyle.border }]}>

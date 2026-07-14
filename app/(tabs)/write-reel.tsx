@@ -22,10 +22,11 @@ import {
   Platform,
   KeyboardAvoidingView,
 } from "react-native";
-import { useRouter, Redirect } from "expo-router";
+import { useRouter, Redirect, useLocalSearchParams } from "expo-router";
 import { useMutation, useQuery } from "convex/react";
 import { Authenticated, Unauthenticated, AuthLoading } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import { Id } from "@/convex/_generated/dataModel";
 import * as ImagePicker from "expo-image-picker";
 import { VideoView, useVideoPlayer } from "expo-video";
 import { Ionicons } from "@expo/vector-icons";
@@ -55,6 +56,7 @@ const STEP_SUBTITLES = [
 function WriteReelContent() {
   const router  = useRouter();
   const history = useNavigationHistory();
+  const { circleId: paramCircleId } = useLocalSearchParams<{ circleId?: string }>();
   const insets       = useSafeAreaInsets();
   const tabBarHeight = useTabBarHeight();
   const bottomPad    = tabBarHeight + insets.bottom + spacing.space8;
@@ -77,6 +79,18 @@ function WriteReelContent() {
   const [coverMime,     setCoverMime]     = useState("image/jpeg");
   const [submitting,    setSubmitting]    = useState(false);
   const [currencyOpen,  setCurrencyOpen]  = useState(false);
+
+  // ── Circle-only content ───────────────────────────────────────────────────
+  type ReelVisMode = "public" | "course-only" | "circle-only";
+  const [reelVisMode, setReelVisMode] = useState<ReelVisMode>(paramCircleId ? "circle-only" : "public");
+  const [selectedCircleId, setSelectedCircleId] = useState<string | null>(paramCircleId ?? null);
+
+  // Get circles where user is admin (for picker)
+  const myAdminCircles = useQuery(api.circles.getMyCircles);
+  const adminCircles = (myAdminCircles as any[] ?? []).filter(
+    (c: any) => (c.membership?.role === "CREATOR" || c.membership?.role === "ADMIN")
+      && !c.isConsultationCircle && !c.isReferralCircle
+  );
 
   const generateUploadUrl = useMutation(api.files.generateUploadUrl);
   const createReel        = useMutation(api.reels.createReel);
@@ -160,6 +174,8 @@ function WriteReelContent() {
         priceToken: isGated ? priceCurrency : undefined,
         priceAmount: isGated ? parsedPrice : undefined,
         isSensitive, isPublic,
+        circleId: reelVisMode === "circle-only" && selectedCircleId ? selectedCircleId as Id<"circles"> : undefined,
+        isCircleOnly: reelVisMode === "circle-only" ? true : undefined,
       });
       Alert.alert("Published!", "Your reel has been submitted and will appear once approved.", [
         { text: "OK", onPress: () => router.replace("/(tabs)/pulse") },
@@ -327,19 +343,25 @@ function WriteReelContent() {
                   <Text style={styles.fieldLabel} allowFontScaling={false}>Visibility</Text>
                   <View style={styles.radioGroup}>
                     {[
-                      { value: true,  label: "Public",      sub: "Shows in the Reels feed" },
-                      { value: false, label: "Course-only", sub: "Only available in courses" },
+                      { value: "public" as ReelVisMode,      label: "Public",      sub: "Shows in the Reels feed" },
+                      { value: "course-only" as ReelVisMode, label: "Course-only", sub: "Only available in courses" },
+                      { value: "circle-only" as ReelVisMode, label: "Circle-only", sub: "Only circle members" },
                     ].map(({ value, label, sub }) => (
                       <TouchableOpacity
-                        key={String(value)}
-                        style={[styles.radioRow, isPublic === value && styles.radioRowActive]}
-                        onPress={() => setIsPublic(value)}
+                        key={value}
+                        style={[styles.radioRow, reelVisMode === value && styles.radioRowActive]}
+                        onPress={() => {
+                          setReelVisMode(value);
+                          if (value === "public") { setIsPublic(true); setSelectedCircleId(null); }
+                          else if (value === "course-only") { setIsPublic(false); setSelectedCircleId(null); }
+                          else { setIsPublic(false); }
+                        }}
                         activeOpacity={0.8}
                         accessibilityRole="radio"
-                        accessibilityState={{ checked: isPublic === value }}
+                        accessibilityState={{ checked: reelVisMode === value }}
                       >
-                        <View style={[styles.radioCircle, isPublic === value && styles.radioCircleActive]}>
-                          {isPublic === value && <View style={styles.radioDot} />}
+                        <View style={[styles.radioCircle, reelVisMode === value && styles.radioCircleActive]}>
+                          {reelVisMode === value && <View style={styles.radioDot} />}
                         </View>
                         <View style={styles.radioText}>
                           <Text style={styles.radioLabel} allowFontScaling={false}>{label}</Text>
@@ -348,6 +370,44 @@ function WriteReelContent() {
                       </TouchableOpacity>
                     ))}
                   </View>
+
+                  {/* Circle picker when circle-only selected */}
+                  {reelVisMode === "circle-only" && (
+                    <View style={{ marginTop: 10, gap: 8 }}>
+                      {selectedCircleId ? (
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                          <View style={{ flex: 1, flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: Colors.bgElevated, borderRadius: 8, padding: 10, borderWidth: 1, borderColor: Colors.borderDefault }}>
+                            <Ionicons name="people-circle" size={20} color={Colors.primary} />
+                            <Text style={{ fontSize: 13, fontWeight: "600", color: Colors.textPrimary, flex: 1 }} numberOfLines={1}>
+                              {adminCircles.find((c: any) => c._id === selectedCircleId)?.name ?? "Selected circle"}
+                            </Text>
+                          </View>
+                          <TouchableOpacity onPress={() => setSelectedCircleId(null)} style={{ padding: 8 }}>
+                            <Text style={{ fontSize: 12, fontWeight: "600", color: Colors.primary }}>Change</Text>
+                          </TouchableOpacity>
+                        </View>
+                      ) : (
+                        <View style={{ gap: 6 }}>
+                          {adminCircles.slice(0, 5).map((c: any) => (
+                            <TouchableOpacity
+                              key={c._id}
+                              style={{ flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: Colors.bgElevated, borderRadius: 8, padding: 10, borderWidth: 1, borderColor: Colors.borderDefault }}
+                              onPress={() => setSelectedCircleId(c._id)}
+                            >
+                              <Ionicons name="people-circle-outline" size={18} color={Colors.textMuted} />
+                              <Text style={{ fontSize: 13, color: Colors.textPrimary, flex: 1 }} numberOfLines={1}>{c.name}</Text>
+                              <Text style={{ fontSize: 11, color: Colors.textMuted }}>{c.currentMembers} members</Text>
+                            </TouchableOpacity>
+                          ))}
+                          {adminCircles.length === 0 && (
+                            <Text style={{ fontSize: 12, color: Colors.textMuted, textAlign: "center", padding: 10 }}>
+                              No circles available. Create a circle first.
+                            </Text>
+                          )}
+                        </View>
+                      )}
+                    </View>
+                  )}
                 </View>
               </View>
             )}

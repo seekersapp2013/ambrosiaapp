@@ -19,8 +19,10 @@ import {
   StyleSheet,
   Share,
   ActivityIndicator,
+  Alert,
 } from "react-native";
 import { useMutation, useQuery } from "convex/react";
+import { useRouter } from "expo-router";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { Ionicons } from "@expo/vector-icons";
@@ -28,11 +30,13 @@ import { useColors } from "@/hooks/useColors";
 import { typeScale } from "@/tokens/typography";
 import { spacing } from "@/tokens/spacing";
 import { ArticleCommentsSheet } from "@/components/ArticleCommentsSheet";
+import { ConsultationPaymentSheet } from "@/components/ConsultationPaymentSheet";
 
 interface ArticleEngagementBarProps {
   articleId: Id<"articles">;
   title?: string;
   authorUsername?: string;
+  authorId?: Id<"users">;
   isGated?: boolean;
   /** True when the current user has paid for or owns the article */
   hasAccess?: boolean;
@@ -42,13 +46,24 @@ export function ArticleEngagementBar({
   articleId,
   title,
   authorUsername,
+  authorId,
   isGated = false,
   hasAccess = false,
 }: ArticleEngagementBarProps) {
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [clapLoading, setClapLoading]   = useState(false);
   const [shareLoading, setShareLoading] = useState(false);
+  const [askLoading, setAskLoading]     = useState(false);
+  const [showPayment, setShowPayment]   = useState(false);
+  const [consultationData, setConsultationData] = useState<{
+    circleId: string;
+    fee: number;
+    currency: string;
+    expertName: string;
+    specialization?: string | null;
+  } | null>(null);
   const C = useColors();
+  const router = useRouter();
 
   // For free articles: require a read record before engagement is unlocked
   const hasReadResult = useQuery(
@@ -72,6 +87,7 @@ export function ArticleEngagementBar({
   const clapArticle     = useMutation(api.engagement.clapArticle);
   const likeArticle     = useMutation(api.engagement.likeArticle);
   const bookmarkArticle = useMutation(api.engagement.bookmarkArticle);
+  const startConsultation = useMutation(api.consultations.startConsultation);
 
   // ── Handlers (only reachable when unlocked) ───────────────────────────────
   const handleClap = useCallback(async () => {
@@ -90,6 +106,40 @@ export function ArticleEngagementBar({
   const handleBookmark = useCallback(async () => {
     try { await bookmarkArticle({ articleId }); } catch { /* silent */ }
   }, [articleId, bookmarkArticle]);
+
+  const handleAskQuestion = useCallback(async () => {
+    if (!authorId || askLoading) return;
+    setAskLoading(true);
+    try {
+      const result = await startConsultation({
+        expertId: authorId,
+        contentType: "article",
+        contentId: articleId,
+      });
+
+      if (result.requiresPayment) {
+        // Need to fetch expert info for the payment sheet
+        setConsultationData({
+          circleId: result.circleId,
+          fee: result.fee ?? 0,
+          currency: result.currency ?? "USD",
+          expertName: authorUsername ?? "Expert",
+          specialization: null,
+        });
+        setShowPayment(true);
+      } else {
+        // Navigate directly to the consultation circle chat
+        router.push({
+          pathname: "/(tabs)/circle-chat",
+          params: { circleId: result.circleId },
+        } as any);
+      }
+    } catch (e: any) {
+      Alert.alert("Error", e.message ?? "Could not start consultation.");
+    } finally {
+      setAskLoading(false);
+    }
+  }, [authorId, articleId, askLoading, startConsultation, authorUsername, router]);
 
   const handleShare = useCallback(async () => {
     if (shareLoading) return;
@@ -181,6 +231,20 @@ export function ArticleEngagementBar({
           </Text>
         </Btn>
 
+        {/* Ask a Question */}
+        {authorId && (
+          <Btn onPress={handleAskQuestion} label="Ask a question">
+            {askLoading ? (
+              <ActivityIndicator size="small" color={C.actionPrimary} />
+            ) : (
+              <Ionicons name="chatbubbles-outline" size={22} color={engIcon} />
+            )}
+            <Text style={[styles.btnLabel, { color: engText }]} allowFontScaling={false}>
+              Ask
+            </Text>
+          </Btn>
+        )}
+
         {/* Bookmark */}
         <Btn onPress={handleBookmark} label={isBookmarked ? "Remove bookmark" : "Bookmark"}>
           <Ionicons
@@ -218,6 +282,26 @@ export function ArticleEngagementBar({
           articleId={articleId}
           visible={commentsOpen}
           onClose={() => setCommentsOpen(false)}
+        />
+      )}
+
+      {/* Consultation payment sheet */}
+      {consultationData && (
+        <ConsultationPaymentSheet
+          visible={showPayment}
+          circleId={consultationData.circleId}
+          expertName={consultationData.expertName}
+          specialization={consultationData.specialization}
+          fee={consultationData.fee}
+          currency={consultationData.currency}
+          onClose={() => setShowPayment(false)}
+          onSuccess={(circleId) => {
+            setShowPayment(false);
+            router.push({
+              pathname: "/(tabs)/circle-chat",
+              params: { circleId },
+            } as any);
+          }}
         />
       )}
     </View>

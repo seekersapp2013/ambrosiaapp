@@ -94,11 +94,12 @@ interface BubbleProps {
   onLongPress: () => void;
   onReact: (emoji: string) => void;
   onImagePress: (uri: string) => void;
+  onContentLinkPress?: (contentType: string, contentId: string) => void;
   isDark: boolean;
 }
 
 const MessageBubble = memo(({
-  msg, isOwn, showAvatar, showName, isFirst, isLast, onLongPress, onReact, onImagePress, isDark,
+  msg, isOwn, showAvatar, showName, isFirst, isLast, onLongPress, onReact, onImagePress, onContentLinkPress, isDark,
 }: BubbleProps) => {
   const C = useColors();
   const nameColor = senderColor(msg.sender?.id ?? "");
@@ -165,6 +166,14 @@ const MessageBubble = memo(({
         {/* Bubble */}
         <TouchableOpacity
           onLongPress={onLongPress}
+          onPress={() => {
+            if (msg.messageType === "content_link" && onContentLinkPress) {
+              try {
+                const data = JSON.parse(msg.content);
+                onContentLinkPress(data.contentType, data.contentId);
+              } catch {}
+            }
+          }}
           activeOpacity={0.85}
           style={[
             styles.bubble,
@@ -190,6 +199,35 @@ const MessageBubble = memo(({
               {msg.content}
             </Text>
           )}
+
+          {/* Content link message (auto-posted announcement for new articles/pulse) */}
+          {msg.messageType === "content_link" && (() => {
+            try {
+              const data = JSON.parse(msg.content);
+              return (
+                <View style={styles.contentLinkCard}>
+                  <View style={styles.contentLinkIcon}>
+                    <Ionicons
+                      name={data.contentType === "article" ? "document-text" : "play-circle"}
+                      size={18}
+                      color="#fff"
+                    />
+                  </View>
+                  <View style={styles.contentLinkInfo}>
+                    <Text style={styles.contentLinkType}>
+                      📢 New {data.contentType === "article" ? "Article" : "Pulse"}
+                    </Text>
+                    <Text style={styles.contentLinkTitle} numberOfLines={2}>
+                      {data.title || "Untitled"}
+                    </Text>
+                    <Text style={styles.contentLinkCta}>Tap to view →</Text>
+                  </View>
+                </View>
+              );
+            } catch {
+              return <Text style={[styles.msgText, { color: otherTextColor }]}>{msg.content}</Text>;
+            }
+          })()}
 
           {/* Meta row: edited + time + read ticks */}
           <View style={[styles.metaRow, isImage && styles.metaRowImage]}>
@@ -257,6 +295,35 @@ export default function CircleChatScreen() {
     circleId ? { circleId: circleId as Id<"circles"> } : "skip");
   const membersResult = useQuery(api.circleMembers.getCircleMembers,
     circleId && showMenu ? { circleId: circleId as Id<"circles">, limit: 100 } : "skip");
+
+  // ── Consultation context — fetch the article/reel that triggered this chat ─
+  const isConsultation = (circle as any)?.isConsultationCircle === true;
+  const consultationContentType = (circle as any)?.consultationContentType as string | undefined;
+  const consultationContentId = (circle as any)?.consultationContentId as string | undefined;
+
+  const contextArticle = useQuery(
+    api.articles.getArticleById,
+    isConsultation && consultationContentType === "article" && consultationContentId
+      ? { articleId: consultationContentId as Id<"articles"> }
+      : "skip"
+  );
+  const contextReel = useQuery(
+    api.reels.getReelById,
+    isConsultation && consultationContentType === "reel" && consultationContentId
+      ? { reelId: consultationContentId as Id<"reels"> }
+      : "skip"
+  );
+
+  // ── Referral context — fetch the referral that created this circle ─────────
+  const isReferral = (circle as any)?.isReferralCircle === true;
+  const referralId = (circle as any)?.referralId as string | undefined;
+
+  const contextReferral = useQuery(
+    api.referrals.getReferralById,
+    isReferral && referralId
+      ? { referralId: referralId as Id<"referrals"> }
+      : "skip"
+  );
 
   const sendMessage    = useMutation(api.circleMessages.sendMessage);
   const deleteMsg      = useMutation(api.circleMessages.deleteMessage);
@@ -468,6 +535,15 @@ export default function CircleChatScreen() {
           onLongPress={() => handleLongPress(msg, isOwn)}
           onReact={(emoji) => handleReact(msg._id, emoji)}
           onImagePress={(uri) => setFullscreenImage(uri)}
+          onContentLinkPress={(contentType, contentId) => {
+            if (contentType === "article") {
+              router.push({ pathname: "/(tabs)/article-viewer", params: { articleId: contentId } } as any);
+            } else if (contentType === "event") {
+              router.push({ pathname: "/(tabs)/booking/event-detail", params: { eventId: contentId } } as any);
+            } else if (contentType === "reel") {
+              router.push({ pathname: "/(tabs)/pulse", params: { reelId: contentId } } as any);
+            }
+          }}
           isDark={C.isDark}
         />
       </View>
@@ -530,8 +606,14 @@ export default function CircleChatScreen() {
               }
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.headerTitle} numberOfLines={1}>{circle?.name ?? "Circle"}</Text>
-              <Text style={styles.headerSub}>{circle?.currentMembers ?? 0} members</Text>
+              <Text style={styles.headerTitle} numberOfLines={1}>
+                {circle?.parentCircleId ? `${circle?.name ?? "Sub-circle"}` : (circle?.name ?? "Circle")}
+              </Text>
+              <Text style={styles.headerSub}>
+                {circle?.parentCircleId
+                  ? `${circle?.currentMembers ?? 0} members`
+                  : `${circle?.currentMembers ?? 0} members`}
+              </Text>
             </View>
           </TouchableOpacity>
 
@@ -566,6 +648,65 @@ export default function CircleChatScreen() {
             showsVerticalScrollIndicator={false}
             onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
             onLayout={() => flatListRef.current?.scrollToEnd({ animated: false })}
+            ListHeaderComponent={
+              isConsultation && (contextArticle || contextReel) ? (
+                <TouchableOpacity
+                  style={[styles.contextBanner, { backgroundColor: C.isDark ? 'rgba(59,130,246,0.1)' : 'rgba(59,130,246,0.08)', borderColor: C.isDark ? 'rgba(59,130,246,0.25)' : 'rgba(59,130,246,0.2)' }]}
+                  activeOpacity={0.75}
+                  onPress={() => {
+                    if (consultationContentType === "article" && consultationContentId) {
+                      router.push({ pathname: "/(tabs)/article-viewer", params: { articleId: consultationContentId } } as any);
+                    } else if (consultationContentType === "reel" && consultationContentId) {
+                      router.push({ pathname: "/(tabs)/reel-viewer", params: { reelId: consultationContentId } } as any);
+                    }
+                  }}
+                  accessibilityRole="link"
+                  accessibilityLabel={`View the ${consultationContentType} that started this conversation`}
+                >
+                  <View style={[styles.contextIcon, { backgroundColor: C.isDark ? 'rgba(59,130,246,0.2)' : 'rgba(59,130,246,0.12)' }]}>
+                    <Ionicons
+                      name={consultationContentType === "article" ? "document-text-outline" : "videocam-outline"}
+                      size={18}
+                      color="#3B82F6"
+                    />
+                  </View>
+                  <View style={styles.contextInfo}>
+                    <Text style={[styles.contextLabel, { color: C.isDark ? '#93C5FD' : '#2563EB' }]}>
+                      Conversation started from {consultationContentType === "article" ? "an article" : "a pulse"}
+                    </Text>
+                    <Text style={[styles.contextTitle, { color: C.isDark ? '#E5E7EB' : '#1F2937' }]} numberOfLines={1}>
+                      {consultationContentType === "article"
+                        ? (contextArticle as any)?.title ?? "Article"
+                        : (contextReel as any)?.caption ?? "Pulse"}
+                    </Text>
+                  </View>
+                  <Ionicons name="open-outline" size={14} color={C.isDark ? '#93C5FD' : '#2563EB'} />
+                </TouchableOpacity>
+              ) : isReferral && contextReferral ? (
+                <TouchableOpacity
+                  style={[styles.contextBanner, { backgroundColor: C.isDark ? 'rgba(245,158,11,0.1)' : 'rgba(245,158,11,0.08)', borderColor: C.isDark ? 'rgba(245,158,11,0.25)' : 'rgba(245,158,11,0.2)' }]}
+                  activeOpacity={0.75}
+                  onPress={() => {
+                    router.push({ pathname: "/(tabs)/booking/referral-detail", params: { referralId: referralId! } } as any);
+                  }}
+                  accessibilityRole="link"
+                  accessibilityLabel="View the referral that started this conversation"
+                >
+                  <View style={[styles.contextIcon, { backgroundColor: C.isDark ? 'rgba(245,158,11,0.2)' : 'rgba(245,158,11,0.12)' }]}>
+                    <Ionicons name="git-network-outline" size={18} color="#F59E0B" />
+                  </View>
+                  <View style={styles.contextInfo}>
+                    <Text style={[styles.contextLabel, { color: C.isDark ? '#FCD34D' : '#92400E' }]}>
+                      Conversation started from a referral
+                    </Text>
+                    <Text style={[styles.contextTitle, { color: C.isDark ? '#E5E7EB' : '#1F2937' }]} numberOfLines={1}>
+                      {(contextReferral as any)?.title ?? (contextReferral as any)?.referralTitle ?? "Referral"}
+                    </Text>
+                  </View>
+                  <Ionicons name="open-outline" size={14} color={C.isDark ? '#FCD34D' : '#92400E'} />
+                </TouchableOpacity>
+              ) : null
+            }
             ListEmptyComponent={
               <View style={styles.empty}>
                 <View style={[styles.emptyCircle, { backgroundColor: C.isDark ? 'rgba(198,34,41,0.12)' : 'rgba(198,34,41,0.08)' }]}>
@@ -593,7 +734,33 @@ export default function CircleChatScreen() {
           </View>
         </Animated.View>
 
+        {/* ── Write Announcement button (for admins in Announcement sub-circles) ── */}
+        {(circle as any)?.subCircleType === "ANNOUNCEMENT" && isAdmin && (
+          <TouchableOpacity
+            style={[styles.writeAnnouncementBtn, { backgroundColor: C.isDark ? 'rgba(198,34,41,0.12)' : 'rgba(198,34,41,0.08)' }]}
+            activeOpacity={0.8}
+            onPress={() =>
+              router.push({
+                pathname: "/(tabs)/write-article",
+                params: { circleId: circleId, fromAnnouncement: "true" },
+              } as any)
+            }
+          >
+            <Ionicons name="create-outline" size={16} color={C.primary} />
+            <Text style={[styles.writeAnnouncementText, { color: C.primary }]}>Write Announcement</Text>
+          </TouchableOpacity>
+        )}
+
         {/* ── Input row ──────────────────────────────────────────────── */}
+        {/* Hide input for non-admins in ADMINS_ONLY circles (e.g. Announcements) */}
+        {(circle as any)?.postingPermission === "ADMINS_ONLY" && !isAdmin ? (
+          <View style={[styles.inputRow, { paddingBottom: inputPaddingBottom, backgroundColor: C.bgTabBar, justifyContent: "center" }]}>
+            <View style={styles.adminOnlyNotice}>
+              <Ionicons name="lock-closed-outline" size={14} color={C.textMuted} />
+              <Text style={[styles.adminOnlyText, { color: C.textMuted }]}>Only admins can post in this circle</Text>
+            </View>
+          </View>
+        ) : (
         <View style={[styles.inputRow, { paddingBottom: inputPaddingBottom, backgroundColor: C.bgTabBar }]}>
           {/* Emoji toggle */}
           <TouchableOpacity onPress={toggleEmojiBar} style={styles.inputIconBtn}>
@@ -650,6 +817,7 @@ export default function CircleChatScreen() {
               : <Ionicons name="send" size={18} color="#fff" style={{ marginLeft: 2 }} />}
           </TouchableOpacity>
         </View>
+        )}
       </KeyboardAvoidingView>
 
       {/* ── Circle Menu Sheet ─────────────────────────────────────── */}
@@ -798,7 +966,7 @@ export default function CircleChatScreen() {
 }
 
 // ── Styles ────────────────────────────────────────────────────────────────────
-const styles = StyleSheet.create({
+const styles = StyleSheet.create<any>({
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
 
   // MobileCard layout
@@ -850,6 +1018,39 @@ const styles = StyleSheet.create({
     borderBottomColor: 'rgba(245,158,11,0.2)',
   },
   pinnedText: { flex: 1, fontSize: 12, fontWeight: "500" },
+
+  // Context banner — shown at top of consultation chats
+  contextBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginHorizontal: 4,
+    marginBottom: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    gap: 10,
+  },
+  contextIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  contextInfo: {
+    flex: 1,
+    gap: 2,
+  },
+  contextLabel: {
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  contextTitle: {
+    fontSize: 13,
+    fontWeight: "700",
+  },
 
   // Chat area — WhatsApp background
   chatArea: {
@@ -1014,6 +1215,17 @@ const styles = StyleSheet.create({
     flexDirection: "row", alignItems: "flex-end", gap: 8,
     paddingHorizontal: 8, paddingTop: 8,
   },
+  adminOnlyNotice: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+  },
+  adminOnlyText: {
+    fontSize: 13,
+    fontWeight: "500",
+  },
   inputIconBtn: {
     width: 36, height: 36, borderRadius: 18,
     alignItems: "center", justifyContent: "center", marginBottom: 4,
@@ -1169,5 +1381,59 @@ const styles = StyleSheet.create({
   imageModalFull: {
     width: "92%",
     height: "75%",
+  },
+
+  // ── Content link card (announcement auto-posts) ──
+  contentLinkCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingVertical: 4,
+    paddingRight: 4,
+  },
+  contentLinkIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    backgroundColor: "rgba(198,34,41,0.8)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  contentLinkInfo: {
+    flex: 1,
+    gap: 2,
+  },
+  contentLinkType: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: "rgba(255,255,255,0.7)",
+  },
+  contentLinkTitle: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#FFFFFF",
+    lineHeight: 18,
+  },
+  contentLinkCta: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: "rgba(255,255,255,0.5)",
+    marginTop: 2,
+  },
+
+  // ── Write Announcement button ──
+  writeAnnouncementBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 10,
+    marginHorizontal: 12,
+    marginBottom: 4,
+    borderRadius: 8,
+  },
+  writeAnnouncementText: {
+    fontSize: 13,
+    fontWeight: "700",
   },
 });

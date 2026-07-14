@@ -20,6 +20,7 @@ import { Colors } from "@/tokens/colors";
 import { typeScale } from "@/tokens/typography";
 import { spacing } from "@/tokens/spacing";
 import { radius } from "@/tokens/radius";
+import { CommunityBadge } from "@/components/CommunityBadge";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 export interface EventData {
@@ -37,6 +38,15 @@ export interface EventData {
   status: string;
   tags?: string[];
   eventType?: string;
+  circleId?: string;
+  isCircleExclusive?: boolean;
+  circleInfo?: {
+    circleId: string;
+    circleName: string;
+    parentCircleId?: string;
+    parentCircleName?: string;
+    coverImage?: string;
+  } | null;
   provider?: {
     subscription?: { jobTitle?: string } | null;
     profile?: { name?: string; username?: string; avatar?: string } | null;
@@ -220,6 +230,11 @@ export function EventCard({
             </View>
           ))}
         </View>
+      )}
+
+      {/* ── Circle community badge (for circle-exclusive events) ─── */}
+      {event.circleInfo && (
+        <CommunityBadge circleInfo={event.circleInfo} variant="inline" />
       )}
 
       {/* ── Footer: price + join button ──────────────────────────────── */}

@@ -15,6 +15,15 @@ import { useQuery } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 
 // ─────────────────────────────────────────────────────────────────────────────
+// useIsBanned
+// True if the current user has an active platform-wide ban.
+// Returns undefined while loading, false if not banned, true if banned.
+// ─────────────────────────────────────────────────────────────────────────────
+export function useIsBanned(): boolean | undefined {
+  return useQuery(api.adminUsers.isUserBanned);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // useIsModerator
 // True if the current user has any active moderation assignment.
 // ─────────────────────────────────────────────────────────────────────────────

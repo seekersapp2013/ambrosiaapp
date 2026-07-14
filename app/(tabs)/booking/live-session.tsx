@@ -37,9 +37,10 @@ import { ScreenHeader } from "@/components/ui/ScreenHeader";
 import { PrimaryButton, SecondaryButton, DestructiveButton } from "@/components/ui/Button";
 import { LiveStreamRoom } from "@/components/booking/LiveStreamRoom";
 import { AudioRoomView } from "@/components/booking/AudioRoomView";
+import { MediaTestView } from "@/components/booking/MediaTestView";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-type SessionView = "join" | "connecting" | "live" | "ended";
+type SessionView = "join" | "testing" | "connecting" | "live" | "ended";
 
 interface TokenData {
   token: string;
@@ -94,8 +95,9 @@ function formatTime(t: string): string {
 // ─── Runtime permission helper (Android 6+) ───────────────────────────────────
 /**
  * Requests CAMERA + RECORD_AUDIO on Android at runtime.
- * Returns true if both are granted (or if we're on iOS where no runtime
- * request is needed for these via LiveKit RN).
+ * Also requests BLUETOOTH_CONNECT on Android 12+ for Bluetooth headset support.
+ * Returns true if all required permissions are granted (or if we're on iOS where
+ * no runtime request is needed for these via LiveKit RN).
  */
 async function requestMediaPermissions(audioOnly: boolean): Promise<boolean> {
   if (Platform.OS !== "android") return true;
@@ -106,13 +108,22 @@ async function requestMediaPermissions(audioOnly: boolean): Promise<boolean> {
       permissions.push(PermissionsAndroid.PERMISSIONS.CAMERA);
     }
 
+    // Android 12+ (API 31+) requires BLUETOOTH_CONNECT for Bluetooth audio devices
+    if (Number(Platform.Version) >= 31) {
+      permissions.push(PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT);
+    }
+
     const results = await PermissionsAndroid.requestMultiple(permissions as any);
 
-    const allGranted = permissions.every(
+    // BLUETOOTH_CONNECT is nice-to-have — don't block session if denied
+    const requiredPermissions = [PermissionsAndroid.PERMISSIONS.RECORD_AUDIO];
+    if (!audioOnly) requiredPermissions.push(PermissionsAndroid.PERMISSIONS.CAMERA);
+
+    const allRequired = requiredPermissions.every(
       (p) => results[p as keyof typeof results] === PermissionsAndroid.RESULTS.GRANTED
     );
 
-    if (!allGranted) {
+    if (!allRequired) {
       Alert.alert(
         "Permissions Required",
         audioOnly
@@ -122,7 +133,7 @@ async function requestMediaPermissions(audioOnly: boolean): Promise<boolean> {
       );
     }
 
-    return allGranted;
+    return allRequired;
   } catch {
     return false;
   }
@@ -352,6 +363,17 @@ export default function LiveSessionScreen() {
     }
   }
 
+  // ── TESTING view — pre-call device test ───────────────────────────────────
+  if (view === "testing") {
+    return (
+      <MediaTestView
+        audioOnly={isAudioEvent}
+        onJoin={handleJoin}
+        onBack={() => setView("join")}
+      />
+    );
+  }
+
   // ── CONNECTING view ────────────────────────────────────────────────────────
   if (view === "connecting") {
     return (
@@ -538,13 +560,22 @@ export default function LiveSessionScreen() {
                 accessibilityLabel="Go back to bookings"
               />
             ) : (
-              <PrimaryButton
-                label={isAudioEvent ? "Join Audio Room" : "Join Session"}
-                onPress={handleJoin}
-                disabled={!canJoin}
-                icon={<Ionicons name={isAudioEvent ? "mic-outline" : "videocam-outline"} size={20} color="#FFFFFF" />}
-                accessibilityLabel={canJoin ? "Join the session" : "Session not yet joinable"}
-              />
+              <>
+                <PrimaryButton
+                  label={isAudioEvent ? "Join Audio Room" : "Join Session"}
+                  onPress={handleJoin}
+                  disabled={!canJoin}
+                  icon={<Ionicons name={isAudioEvent ? "mic-outline" : "videocam-outline"} size={20} color="#FFFFFF" />}
+                  accessibilityLabel={canJoin ? "Join the session" : "Session not yet joinable"}
+                />
+                <SecondaryButton
+                  label={isAudioEvent ? "Test Microphone" : "Test Audio & Video"}
+                  onPress={() => setView("testing")}
+                  icon={<Ionicons name="hardware-chip-outline" size={18} color={Colors.textPrimary} />}
+                  style={styles.testBtn}
+                  accessibilityLabel="Test your camera and microphone before joining"
+                />
+              </>
             )}
           </View>
         </MobileCard>
@@ -750,6 +781,10 @@ const styles = StyleSheet.create({
   actionWrap: {
     paddingHorizontal: spacing.space4,
     paddingBottom: spacing.space5,
+    gap: spacing.space3,
+  },
+  testBtn: {
+    marginTop: 0,
   },
 
   // Ended view

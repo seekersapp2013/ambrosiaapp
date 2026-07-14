@@ -17,10 +17,45 @@ export const createReel = mutation({
     isGated: v.boolean(),
     priceToken: v.optional(v.string()),
     priceAmount: v.optional(v.number()),
+    // Circle content fields
+    circleId: v.optional(v.id("circles")),
+    isCircleOnly: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not authenticated");
+
+    // Validate circle content permissions
+    let resolvedCircleId = args.circleId;
+    let resolvedIsCircleOnly = args.isCircleOnly ?? false;
+    if (args.circleId) {
+      const circle = await ctx.db.get(args.circleId);
+      if (!circle) throw new Error("Circle not found");
+
+      let circleToCheck = args.circleId;
+      if (circle.subCircleType === "ANNOUNCEMENT" && circle.parentCircleId) {
+        circleToCheck = circle.parentCircleId;
+      }
+
+      const membership = await ctx.db
+        .query("circleMembers")
+        .withIndex("by_circle_user", (q) =>
+          q.eq("circleId", circleToCheck).eq("userId", userId)
+        )
+        .first();
+
+      if (
+        !membership ||
+        !membership.isActive ||
+        (membership.role !== "CREATOR" && membership.role !== "ADMIN")
+      ) {
+        throw new Error("Only circle CREATOR or ADMIN can create circle content");
+      }
+
+      if (circle.subCircleType === "ANNOUNCEMENT") {
+        resolvedIsCircleOnly = false;
+      }
+    }
 
     // Check if reels require approval
     const settings = await ctx.db.query("moderationSettings").first();
@@ -41,6 +76,9 @@ export const createReel = mutation({
       priceToken: args.priceToken,
       priceAmount: args.priceAmount,
       views: 0,
+      // Circle content fields
+      circleId: resolvedCircleId,
+      isCircleOnly: resolvedIsCircleOnly || undefined,
       // Moderation fields
       approvalStatus: requiresApproval ? "PENDING" : "NOT_REQUIRED",
       approvalRequestedAt: requiresApproval ? now : undefined,
@@ -72,6 +110,76 @@ export const createReel = mutation({
           relatedContentType: 'reel',
           relatedContentId: reelId,
         });
+      }
+    }
+
+    // Auto-post announcement to the circle's Announcements sub-circle
+    if (resolvedCircleId && !requiresApproval) {
+      try {
+        const circle = await ctx.db.get(resolvedCircleId);
+        if (circle) {
+          let announcementsCircleId: typeof resolvedCircleId | null = null;
+
+          if (circle.subCircleType === "ANNOUNCEMENT") {
+            announcementsCircleId = resolvedCircleId;
+          } else if (circle.parentCircleId) {
+            const parentAnnouncements = await ctx.db
+              .query("circles")
+              .withIndex("by_parent", (q) => q.eq("parentCircleId", circle.parentCircleId!))
+              .filter((q) => q.eq(q.field("subCircleType"), "ANNOUNCEMENT"))
+              .first();
+            if (parentAnnouncements) announcementsCircleId = parentAnnouncements._id;
+          } else {
+            const ownAnnouncements = await ctx.db
+              .query("circles")
+              .withIndex("by_parent", (q) => q.eq("parentCircleId", resolvedCircleId!))
+              .filter((q) => q.eq(q.field("subCircleType"), "ANNOUNCEMENT"))
+              .first();
+            if (ownAnnouncements) announcementsCircleId = ownAnnouncements._id;
+          }
+
+          if (announcementsCircleId) {
+            await ctx.db.insert("circleMessages", {
+              circleId: announcementsCircleId,
+              senderId: userId,
+              messageType: "content_link",
+              content: JSON.stringify({
+                contentType: "reel",
+                contentId: reelId,
+                title: args.caption || "New Pulse",
+                coverImage: args.poster,
+              }),
+              isEdited: false,
+              isPinned: false,
+              createdAt: now,
+            });
+
+            // Notify all circle members about the new content
+            const parentCircleId = circle.parentCircleId ?? resolvedCircleId!;
+            const circleMembers = await ctx.db
+              .query("circleMembers")
+              .withIndex("by_circle", (q) => q.eq("circleId", parentCircleId))
+              .filter((q) => q.eq(q.field("isActive"), true))
+              .collect();
+
+            for (const member of circleMembers) {
+              if (member.userId !== userId) {
+                try {
+                  await ctx.scheduler.runAfter(0, internal.notifications.processNotificationEvent, {
+                    type: "NEW_CONTENT",
+                    recipientUserId: member.userId,
+                    actorUserId: userId,
+                    relatedContentType: "reel",
+                    relatedContentId: reelId as string,
+                    metadata: { circleName: circle.parentCircleId ? undefined : circle.name },
+                  });
+                } catch (_) {}
+              }
+            }
+          }
+        }
+      } catch (e) {
+        console.error("Failed to auto-post announcement:", e);
       }
     }
 
@@ -150,6 +258,11 @@ export const listReels = query({
         q.or(
           q.eq(q.field("approvalStatus"), "APPROVED"),
           q.eq(q.field("approvalStatus"), "NOT_REQUIRED")
+        ),
+        // Exclude circle-only content (private to their circle)
+        q.or(
+          q.eq(q.field("isCircleOnly"), undefined),
+          q.eq(q.field("isCircleOnly"), false)
         )
       ))
       .take(limit);

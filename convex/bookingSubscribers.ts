@@ -490,12 +490,39 @@ export const getProvidersWithPagination = query({
 
     if (args.searchTerm) {
       const searchLower = args.searchTerm.toLowerCase();
-      filteredSubscribers = filteredSubscribers.filter(sub =>
+      // First pass: filter by subscriber fields
+      const subscriberFieldMatches = filteredSubscribers.filter(sub =>
         sub.jobTitle.toLowerCase().includes(searchLower) ||
         sub.specialization.toLowerCase().includes(searchLower) ||
         sub.aboutUser.toLowerCase().includes(searchLower) ||
         sub.offerDescription.toLowerCase().includes(searchLower)
       );
+
+      // If no subscriber-field matches, do a second pass including profile name/username
+      if (subscriberFieldMatches.length > 0) {
+        filteredSubscribers = subscriberFieldMatches;
+      } else {
+        // Fetch profiles for remaining subscribers and match against name/username
+        const withProfiles = await Promise.all(
+          filteredSubscribers.map(async (sub) => {
+            const profile = await ctx.db
+              .query("profiles")
+              .withIndex("by_userId", (q) => q.eq("userId", sub.userId))
+              .first();
+            return { sub, profile };
+          })
+        );
+        filteredSubscribers = withProfiles
+          .filter(({ sub, profile }) =>
+            sub.jobTitle.toLowerCase().includes(searchLower) ||
+            sub.specialization.toLowerCase().includes(searchLower) ||
+            sub.aboutUser.toLowerCase().includes(searchLower) ||
+            sub.offerDescription.toLowerCase().includes(searchLower) ||
+            (profile?.name?.toLowerCase().includes(searchLower) ?? false) ||
+            (profile?.username?.toLowerCase().includes(searchLower) ?? false)
+          )
+          .map(({ sub }) => sub);
+      }
     }
 
     // Sort by creation date (newest first)

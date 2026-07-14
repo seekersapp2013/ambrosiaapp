@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { api, internal } from "./_generated/api";
+import { Id } from "./_generated/dataModel";
 import { hasPermission } from "./moderationHelpers";
 
 // Create a new article
@@ -18,10 +19,47 @@ export const createArticle = mutation({
     isGated: v.boolean(),
     priceToken: v.optional(v.string()),
     priceAmount: v.optional(v.number()),
+    // Circle content fields
+    circleId: v.optional(v.id("circles")),
+    isCircleOnly: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not authenticated");
+
+    // Validate circle content permissions
+    let resolvedCircleId = args.circleId;
+    let resolvedIsCircleOnly = args.isCircleOnly ?? false;
+    if (args.circleId) {
+      const circle = await ctx.db.get(args.circleId);
+      if (!circle) throw new Error("Circle not found");
+
+      // Check user is CREATOR/ADMIN of the circle (or its parent for announcements)
+      let circleToCheck = args.circleId;
+      if (circle.subCircleType === "ANNOUNCEMENT" && circle.parentCircleId) {
+        circleToCheck = circle.parentCircleId;
+      }
+
+      const membership = await ctx.db
+        .query("circleMembers")
+        .withIndex("by_circle_user", (q) =>
+          q.eq("circleId", circleToCheck).eq("userId", userId)
+        )
+        .first();
+
+      if (
+        !membership ||
+        !membership.isActive ||
+        (membership.role !== "CREATOR" && membership.role !== "ADMIN")
+      ) {
+        throw new Error("Only circle CREATOR or ADMIN can create circle content");
+      }
+
+      // Announcements are always public (not circle-only)
+      if (circle.subCircleType === "ANNOUNCEMENT") {
+        resolvedIsCircleOnly = false;
+      }
+    }
 
     // Validate required fields
     if (!args.title.trim()) {
@@ -81,6 +119,9 @@ export const createArticle = mutation({
       priceToken: args.priceToken,
       priceAmount: args.priceAmount,
       views: 0,
+      // Circle content fields
+      circleId: resolvedCircleId,
+      isCircleOnly: resolvedIsCircleOnly || undefined,
       // Moderation fields
       approvalStatus: requiresApproval ? "PENDING" : "NOT_REQUIRED",
       approvalRequestedAt: requiresApproval ? now : undefined,
@@ -116,6 +157,81 @@ export const createArticle = mutation({
           relatedContentType: 'article',
           relatedContentId: articleId,
         });
+      }
+    }
+
+    // Auto-post announcement to the circle's Announcements sub-circle
+    if (resolvedCircleId && !requiresApproval) {
+      try {
+        const circle = await ctx.db.get(resolvedCircleId);
+        if (circle) {
+          // Find the Announcements sub-circle
+          let announcementsCircleId: Id<"circles"> | null = null;
+
+          if (circle.subCircleType === "ANNOUNCEMENT") {
+            // Content is being created directly in the Announcements sub-circle
+            announcementsCircleId = resolvedCircleId;
+          } else if (circle.parentCircleId) {
+            // Circle is a sub-circle — find the parent's Announcements
+            const parentAnnouncements = await ctx.db
+              .query("circles")
+              .withIndex("by_parent", (q) => q.eq("parentCircleId", circle.parentCircleId!))
+              .filter((q) => q.eq(q.field("subCircleType"), "ANNOUNCEMENT"))
+              .first();
+            if (parentAnnouncements) announcementsCircleId = parentAnnouncements._id;
+          } else {
+            // Circle is a top-level circle — find its own Announcements sub-circle
+            const ownAnnouncements = await ctx.db
+              .query("circles")
+              .withIndex("by_parent", (q) => q.eq("parentCircleId", resolvedCircleId!))
+              .filter((q) => q.eq(q.field("subCircleType"), "ANNOUNCEMENT"))
+              .first();
+            if (ownAnnouncements) announcementsCircleId = ownAnnouncements._id;
+          }
+
+          if (announcementsCircleId) {
+            await ctx.db.insert("circleMessages", {
+              circleId: announcementsCircleId,
+              senderId: userId,
+              messageType: "content_link",
+              content: JSON.stringify({
+                contentType: "article",
+                contentId: articleId,
+                title: args.title,
+                coverImage: args.coverImage,
+              }),
+              isEdited: false,
+              isPinned: false,
+              createdAt: now,
+            });
+
+            // Notify all circle members about the new content
+            const parentCircleId = circle.parentCircleId ?? resolvedCircleId!;
+            const circleMembers = await ctx.db
+              .query("circleMembers")
+              .withIndex("by_circle", (q) => q.eq("circleId", parentCircleId))
+              .filter((q) => q.eq(q.field("isActive"), true))
+              .collect();
+
+            for (const member of circleMembers) {
+              if (member.userId !== userId) {
+                try {
+                  await ctx.scheduler.runAfter(0, internal.notifications.processNotificationEvent, {
+                    type: "NEW_CONTENT",
+                    recipientUserId: member.userId,
+                    actorUserId: userId,
+                    relatedContentType: "article",
+                    relatedContentId: articleId as string,
+                    metadata: { circleName: circle.parentCircleId ? undefined : circle.name },
+                  });
+                } catch (_) {}
+              }
+            }
+          }
+        }
+      } catch (e) {
+        // Non-critical: don't fail article creation if announcement fails
+        console.error("Failed to auto-post announcement:", e);
       }
     }
 
@@ -199,7 +315,49 @@ export const getArticleById = query({
         username: profile?.username,
         avatar: avatarUrl ?? profile?.avatar,
       },
+      // Circle info for community badge
+      circleInfo: null as {
+        circleId: string;
+        circleName: string;
+        parentCircleId?: string;
+        parentCircleName?: string;
+        coverImage?: string;
+      } | null,
     };
+
+    // Resolve circle info if article belongs to a circle
+    if (article.circleId) {
+      const circle = await ctx.db.get(article.circleId);
+      if (circle) {
+        let parentCircleName: string | undefined;
+        let parentCircleId: string | undefined;
+        let displayCircleId = circle._id as string;
+        let displayCircleName = circle.name;
+
+        if (circle.parentCircleId) {
+          const parentCircle = await ctx.db.get(circle.parentCircleId);
+          if (parentCircle) {
+            parentCircleName = parentCircle.name;
+            parentCircleId = parentCircle._id as string;
+            // For display purposes, show the parent circle info
+            displayCircleId = parentCircle._id as string;
+            displayCircleName = parentCircle.name;
+          }
+        }
+
+        const circleCoverUrl = circle.coverImage
+          ? await ctx.storage.getUrl(circle.coverImage)
+          : null;
+
+        result.circleInfo = {
+          circleId: displayCircleId,
+          circleName: displayCircleName,
+          parentCircleId,
+          parentCircleName,
+          coverImage: circleCoverUrl ?? undefined,
+        };
+      }
+    }
 
     console.log("Retrieved article:", {
       id: result._id,
@@ -280,6 +438,11 @@ export const listFeed = query({
         q.or(
           q.eq(q.field("approvalStatus"), "APPROVED"),
           q.eq(q.field("approvalStatus"), "NOT_REQUIRED")
+        ),
+        // Exclude circle-only content (private to their circle)
+        q.or(
+          q.eq(q.field("isCircleOnly"), undefined),
+          q.eq(q.field("isCircleOnly"), false)
         )
       ))
       .order("desc")

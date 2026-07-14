@@ -22,6 +22,7 @@ import { MobileCard } from "@/components/MobileCard";
 import { TopNav } from "@/components/TopNav";
 import { PrimaryButton } from "@/components/ui/Button";
 import { EmptyStateCard } from "@/components/ui/Card";
+import { CommunityBadge } from "@/components/CommunityBadge";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type BookingTab = "upcoming" | "completed" | "cancelled";
@@ -152,6 +153,10 @@ function BookingCard({ booking, onPress, onJoin }: {
           <Text style={[styles.metaText, { color: C.textMuted }]} allowFontScaling={false}>{booking.totalAmount} {booking.currency}</Text>
         </View>
       </View>
+      {/* Circle badge for circle-scoped bookings */}
+      {booking.circleId && booking.circleInfo && (
+        <CommunityBadge circleInfo={booking.circleInfo} variant="inline" />
+      )}
       <View style={styles.cardFooter}>
         <View style={[styles.categoryChip, { backgroundColor: C.bgPrimarySubtle, borderColor: C.borderFilled }]}>
           <Text style={[styles.categoryText, { color: C.actionPrimary }]} allowFontScaling={false}>

@@ -28,6 +28,9 @@ const TABS = [
   { name: "booking/index",  label: "Booking",  icon: "calendar-outline"      as const },
 ] as const;
 
+// ── Hidden routes that should NOT show the tab bar ────────────────────────────
+const HIDE_TAB_BAR_ROUTES = ["booking/live-session"];
+
 // ── Custom tab bar that sits inside the card boundary ─────────────────────────
 function CardTabBar({ state, descriptors, navigation }: any) {
   const insets = useSafeAreaInsets();
@@ -36,6 +39,12 @@ function CardTabBar({ state, descriptors, navigation }: any) {
   const paddingBottom = Platform.OS === "android" ? insets.bottom + 4 : 8;
   const barHeight = baseHeight + (Platform.OS === "android" ? insets.bottom : 0);
   const screenWidth = Dimensions.get("window").width;
+
+  // Hide tab bar for full-screen routes (e.g. live-session)
+  const currentRoute = state.routes[state.index];
+  if (HIDE_TAB_BAR_ROUTES.includes(currentRoute?.name)) {
+    return null;
+  }
 
   // Mirror the card's maxWidth + horizontal padding from MobileCard
   const cardMaxWidth = 500;
@@ -219,6 +228,7 @@ export default function TabsLayout() {
           <Tabs.Screen name="booking/booking-detail"  options={{ href: null, headerShown: false }} />
           <Tabs.Screen name="booking/[id]"            options={{ href: null, headerShown: false }} />
           <Tabs.Screen name="booking/live-session"    options={{ href: null, headerShown: false }} />
+          <Tabs.Screen name="booking/event-detail"    options={{ href: null, headerShown: false }} />
           <Tabs.Screen name="booking/recordings"      options={{ href: null, headerShown: false }} />
           <Tabs.Screen name="booking/referrals"        options={{ href: null, headerShown: false }} />
           <Tabs.Screen name="booking/referral-detail" options={{ href: null, headerShown: false }} />
@@ -238,7 +248,6 @@ export default function TabsLayout() {
           <Tabs.Screen name="circle-members"   options={{ href: null, headerShown: false }} />
           <Tabs.Screen name="circle-settings"  options={{ href: null, headerShown: false }} />
           <Tabs.Screen name="circle-events"    options={{ href: null, headerShown: false }} />
-          <Tabs.Screen name="expert-requests"  options={{ href: null, headerShown: false }} />
           {/* Learn sub-screens */}
           <Tabs.Screen name="create-course"           options={{ href: null, headerShown: false }} />
           <Tabs.Screen name="edit-course"             options={{ href: null, headerShown: false }} />

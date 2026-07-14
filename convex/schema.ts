@@ -143,6 +143,9 @@ export default defineSchema({
     priceAmount: v.optional(v.number()),
     sellerAddress: v.optional(v.string()), // TEMPORARY: Remove after migration
     views: v.number(),
+    // Circle content fields
+    circleId: v.optional(v.id("circles")), // Links article to a circle
+    isCircleOnly: v.optional(v.boolean()), // If true, only visible within that circle
     // Moderation fields
     approvalStatus: v.optional(v.string()), // "PENDING" | "APPROVED" | "REJECTED" | "NOT_REQUIRED"
     approvalRequestedAt: v.optional(v.number()),
@@ -159,7 +162,8 @@ export default defineSchema({
     .index("by_created", ["createdAt"])
     .index("by_public", ["isPublic"])
     .index("by_public_status", ["isPublic", "status"])
-    .index("by_approval_status", ["approvalStatus"]),
+    .index("by_approval_status", ["approvalStatus"])
+    .index("by_circle", ["circleId"]),
 
   // ✅ Reels table
   reels: defineTable({
@@ -177,6 +181,9 @@ export default defineSchema({
     priceAmount: v.optional(v.number()),
     sellerAddress: v.optional(v.string()), // TEMPORARY: Remove after migration
     views: v.number(),
+    // Circle content fields
+    circleId: v.optional(v.id("circles")), // Links reel to a circle
+    isCircleOnly: v.optional(v.boolean()), // If true, only visible within that circle
     // Moderation fields
     approvalStatus: v.optional(v.string()), // "PENDING" | "APPROVED" | "REJECTED" | "NOT_REQUIRED"
     approvalRequestedAt: v.optional(v.number()),
@@ -188,7 +195,8 @@ export default defineSchema({
   }).index("by_author", ["authorId"])
     .index("by_created", ["createdAt"])
     .index("by_public", ["isPublic"])
-    .index("by_approval_status", ["approvalStatus"]),
+    .index("by_approval_status", ["approvalStatus"])
+    .index("by_circle", ["circleId"]),
 
   // ✅ Comments table
   comments: defineTable({
@@ -494,6 +502,10 @@ export default defineSchema({
       sunday: v.object({ start: v.string(), end: v.string(), available: v.boolean() })
     }),
     isActive: v.boolean(),
+    // Consultation fee settings (P2P expert messaging)
+    consultationFeeEnabled: v.optional(v.boolean()), // Whether expert charges for consultations
+    consultationFee: v.optional(v.number()), // One-time fee amount
+    consultationCurrency: v.optional(v.string()), // Preferred currency for consultation fees
     // Moderation fields
     approvalStatus: v.optional(v.string()), // "PENDING" | "APPROVED" | "REJECTED" | "NOT_REQUIRED"
     approvalRequestedAt: v.optional(v.number()),
@@ -537,6 +549,9 @@ export default defineSchema({
     recordingStorageId: v.optional(v.string()), // Convex storage ID for recording
     uploadedToReels: v.optional(v.boolean()), // Whether recording was uploaded to reels
     reelId: v.optional(v.id("reels")), // Reference to created reel
+    // Circle-scoped booking fields (Step 2)
+    circleId: v.optional(v.id("circles")), // Links booking to a circle
+    isCircleOnly: v.optional(v.boolean()), // If true, only circle members can book
     createdAt: v.number(),
     updatedAt: v.optional(v.number())
   }).index("by_provider", ["providerId"])
@@ -549,7 +564,8 @@ export default defineSchema({
     .index("by_stream_status", ["liveStreamStatus"])
     .index("by_room_name", ["liveStreamRoomName"])
     .index("by_currency", ["currency"])
-    .index("by_hand_raised", ["handRaised"]),
+    .index("by_hand_raised", ["handRaised"])
+    .index("by_circle", ["circleId"]),
 
   // ✅ Events table for 1-to-many bookings
   events: defineTable({
@@ -724,9 +740,23 @@ export default defineSchema({
     isActive: v.boolean(),
     // Admin-only posting feature (like WhatsApp admin-only groups)
     postingPermission: v.string(), // "EVERYONE" | "ADMINS_ONLY"
+    // Sub-circle fields (circles can be nested 1 level deep)
+    parentCircleId: v.optional(v.id("circles")), // If set, this circle is a sub-circle of another
+    isDefault: v.optional(v.boolean()), // true for auto-created Announcements/General
+    subCircleOrder: v.optional(v.number()), // Display order within parent circle
+    subCircleType: v.optional(v.string()), // "ANNOUNCEMENT" | "GENERAL" | "ADOPTED" — only set on sub-circles
     // Referral circle fields
     isReferralCircle: v.optional(v.boolean()), // True for auto-created referral circles
     referralId: v.optional(v.id("referrals")),  // Back-reference to the originating referral
+    // Consultation circle fields (P2P expert messaging)
+    isConsultationCircle: v.optional(v.boolean()), // True for auto-created consultation circles
+    consultationFee: v.optional(v.number()), // One-time unlock fee charged by expert
+    consultationCurrency: v.optional(v.string()), // Currency for the consultation fee
+    consultationPaid: v.optional(v.boolean()), // Whether the fee has been paid
+    consultationExpertId: v.optional(v.id("users")), // The expert in the consultation
+    consultationUserId: v.optional(v.id("users")), // The user who initiated the consultation
+    consultationContentType: v.optional(v.string()), // "article" | "reel" — content that triggered the consultation
+    consultationContentId: v.optional(v.string()), // ID of the triggering content
     // Moderation fields
     approvalStatus: v.optional(v.string()), // "PENDING" | "APPROVED" | "REJECTED" | "NOT_REQUIRED"
     approvalRequestedAt: v.optional(v.number()),
@@ -743,8 +773,12 @@ export default defineSchema({
     .index("by_invite_code", ["inviteCode"])
     .index("by_posting_permission", ["postingPermission"])
     .index("by_referral", ["referralId"])
+    .index("by_consultation_expert", ["consultationExpertId"])
+    .index("by_consultation_user", ["consultationUserId"])
     .index("by_created", ["createdAt"])
-    .index("by_approval_status", ["approvalStatus"]),
+    .index("by_approval_status", ["approvalStatus"])
+    .index("by_parent", ["parentCircleId"])
+    .index("by_parent_order", ["parentCircleId", "subCircleOrder"]),
 
   // ✅ Circle Members table
   circleMembers: defineTable({
@@ -1235,4 +1269,17 @@ export default defineSchema({
     transactionPin: v.string(), // already hashed
     createdAt: v.number(),
   }).index("by_email", ["email"]),
+
+  // ✅ Circle Practitioners table (Step 2 — Circle-Only Bookings)
+  circlePractitioners: defineTable({
+    circleId: v.id("circles"), // The circle this practitioner is linked to
+    practitionerId: v.id("users"), // The practitioner's user ID
+    invitedBy: v.id("users"), // Who invited/onboarded them
+    status: v.string(), // "INVITED" | "ACCEPTED" | "ONBOARDED"
+    specialties: v.optional(v.array(v.string())), // What they offer in this circle
+    isActive: v.boolean(),
+    createdAt: v.number(),
+  }).index("by_circle", ["circleId"])
+    .index("by_practitioner", ["practitionerId"])
+    .index("by_circle_practitioner", ["circleId", "practitionerId"]),
 });

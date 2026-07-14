@@ -143,6 +143,9 @@ export const createEvent = mutation({
       }
     }
 
+    // Auto-set isCircleExclusive when circleId is provided
+    const isCircleExclusive = args.circleId ? true : (args.isCircleExclusive ?? false);
+
     // Create event
     const eventId = await ctx.db.insert("events", {
       providerId: userId,
@@ -160,11 +163,84 @@ export const createEvent = mutation({
       tags: args.tags || [],
       isPublic: args.isPublic ?? true,
       circleId: args.circleId,
-      isCircleExclusive: args.isCircleExclusive ?? false,
+      isCircleExclusive,
       eventType: eventType,
       audioSettings: args.audioSettings,
       createdAt: now
     });
+
+    // Auto-post announcement to the circle's Announcements sub-circle
+    if (args.circleId) {
+      try {
+        const circle = await ctx.db.get(args.circleId);
+        if (circle) {
+          let announcementsCircleId: typeof args.circleId | null = null;
+
+          if (circle.subCircleType === "ANNOUNCEMENT") {
+            announcementsCircleId = args.circleId;
+          } else if (circle.parentCircleId) {
+            // This circle is a sub-circle — find parent's Announcements
+            const parentAnnouncements = await ctx.db
+              .query("circles")
+              .withIndex("by_parent", (q) => q.eq("parentCircleId", circle.parentCircleId!))
+              .filter((q) => q.eq(q.field("subCircleType"), "ANNOUNCEMENT"))
+              .first();
+            if (parentAnnouncements) announcementsCircleId = parentAnnouncements._id;
+          } else {
+            // This is the parent circle — find its Announcements sub-circle
+            const ownAnnouncements = await ctx.db
+              .query("circles")
+              .withIndex("by_parent", (q) => q.eq("parentCircleId", args.circleId!))
+              .filter((q) => q.eq(q.field("subCircleType"), "ANNOUNCEMENT"))
+              .first();
+            if (ownAnnouncements) announcementsCircleId = ownAnnouncements._id;
+          }
+
+          if (announcementsCircleId) {
+            await ctx.db.insert("circleMessages", {
+              circleId: announcementsCircleId,
+              senderId: userId,
+              messageType: "content_link",
+              content: JSON.stringify({
+                contentType: "event",
+                contentId: eventId,
+                title: args.title,
+                date: args.sessionDate,
+                time: args.sessionTime,
+              }),
+              isEdited: false,
+              isPinned: false,
+              createdAt: now,
+            });
+
+            // Notify all circle members about the new event
+            const parentCircleId = circle.parentCircleId ?? args.circleId!;
+            const circleMembers = await ctx.db
+              .query("circleMembers")
+              .withIndex("by_circle", (q) => q.eq("circleId", parentCircleId))
+              .filter((q) => q.eq(q.field("isActive"), true))
+              .collect();
+
+            for (const member of circleMembers) {
+              if (member.userId !== userId) {
+                try {
+                  await ctx.scheduler.runAfter(0, internal.notifications.processNotificationEvent, {
+                    type: "NEW_CONTENT",
+                    recipientUserId: member.userId,
+                    actorUserId: userId,
+                    relatedContentType: "event",
+                    relatedContentId: eventId as string,
+                    metadata: { circleName: circle.name, eventTitle: args.title },
+                  });
+                } catch (_) {}
+              }
+            }
+          }
+        }
+      } catch (e) {
+        console.error("Failed to auto-post event announcement:", e);
+      }
+    }
 
     return eventId;
   }
@@ -277,13 +353,34 @@ export const getPublicEvents = query({
           .withIndex("by_userId", (q) => q.eq("userId", event.providerId))
           .first();
 
+        // Get circle info for circle-exclusive events
+        let circleInfo = null;
+        if (event.circleId) {
+          const circle = await ctx.db.get(event.circleId);
+          if (circle) {
+            // If this is a sub-circle, resolve the parent for display
+            let parentCircle = null;
+            if (circle.parentCircleId) {
+              parentCircle = await ctx.db.get(circle.parentCircleId);
+            }
+            circleInfo = {
+              circleId: (parentCircle?._id ?? circle._id) as string,
+              circleName: parentCircle?.name ?? circle.name,
+              parentCircleId: parentCircle ? (parentCircle._id as string) : undefined,
+              parentCircleName: parentCircle ? parentCircle.name : undefined,
+              coverImage: circle.coverImage,
+            };
+          }
+        }
+
         return {
           ...event,
           provider: {
             subscription: provider,
             profile: providerProfile
           },
-          availableSpots: event.maxParticipants - event.currentParticipants
+          availableSpots: event.maxParticipants - event.currentParticipants,
+          circleInfo,
         };
       })
     );
@@ -662,8 +759,12 @@ export const getCircleEvents = query({
   },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
-    
-    // Check if user is a member of the circle
+
+    const limit = args.limit || 20;
+    const offset = args.offset || 0;
+
+    // Check if user is a member of the circle (for UI gating info)
+    let isMember = false;
     if (userId) {
       const membership = await ctx.db
         .query("circleMembers")
@@ -671,27 +772,19 @@ export const getCircleEvents = query({
           q.eq("circleId", args.circleId).eq("userId", userId)
         )
         .first();
-
-      if (!membership || !membership.isActive) {
-        throw new Error("You must be a circle member to view circle events");
-      }
-    } else {
-      throw new Error("Not authenticated");
+      isMember = !!(membership && membership.isActive);
     }
 
-    const limit = args.limit || 20;
-    const offset = args.offset || 0;
-
-    // Get events for this circle
-    let query = ctx.db
+    // Get events for this circle (publicly visible per design)
+    let eventsQuery = ctx.db
       .query("events")
       .withIndex("by_circle", (q) => q.eq("circleId", args.circleId));
 
     if (args.status) {
-      query = query.filter((q) => q.eq(q.field("status"), args.status));
+      eventsQuery = eventsQuery.filter((q) => q.eq(q.field("status"), args.status));
     }
 
-    const allEvents = await query.order("asc").collect();
+    const allEvents = await eventsQuery.order("asc").collect();
     const events = allEvents.slice(offset, offset + limit);
 
     // Get provider information for each event
@@ -709,7 +802,7 @@ export const getCircleEvents = query({
 
         // Check if current user has already booked this event
         let userBooking = null;
-        if (userId) {
+        if (userId && isMember) {
           userBooking = await ctx.db
             .query("bookings")
             .withIndex("by_event", (q) => q.eq("eventId", event._id))
@@ -731,7 +824,8 @@ export const getCircleEvents = query({
           },
           availableSpots: event.maxParticipants - event.currentParticipants,
           userHasBooked: !!userBooking,
-          userBookingId: userBooking?._id
+          userBookingId: userBooking?._id,
+          isMember,
         };
       })
     );
@@ -739,7 +833,8 @@ export const getCircleEvents = query({
     return {
       events: eventsWithProviders,
       hasMore: offset + limit < allEvents.length,
-      total: allEvents.length
+      total: allEvents.length,
+      isMember,
     };
   }
 });

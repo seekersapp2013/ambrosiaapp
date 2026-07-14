@@ -13,6 +13,8 @@ export const createBooking = mutation({
     paymentTxHash: v.optional(v.string()),
     // Optional: link this booking to a referral (passed from referral detail screen)
     referralId: v.optional(v.id("referrals")),
+    // Optional: link this booking to a circle (circle-scoped booking)
+    circleId: v.optional(v.id("circles")),
   },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
@@ -23,6 +25,64 @@ export const createBooking = mutation({
     // Validate that user is not booking themselves
     if (userId === args.providerId) {
       throw new Error("Cannot book a session with yourself");
+    }
+
+    // Circle-scoped booking: check if provider is a circle practitioner and validate membership
+    let isCircleOnly = false;
+    let resolvedCircleId = args.circleId;
+
+    if (resolvedCircleId) {
+      // If circleId is explicitly passed, validate membership
+      const membership = await ctx.db
+        .query("circleMembers")
+        .withIndex("by_circle_user", (q) =>
+          q.eq("circleId", resolvedCircleId!).eq("userId", userId)
+        )
+        .first();
+
+      if (!membership || !membership.isActive) {
+        throw new Error(JSON.stringify({
+          code: "CIRCLE_MEMBERSHIP_REQUIRED",
+          circleId: resolvedCircleId,
+          message: "You must join this circle to book this practitioner"
+        }));
+      }
+      isCircleOnly = true;
+    } else {
+      // Check if this provider is linked to a circle as a practitioner
+      // If so, auto-set circleId and gate by membership
+      const circlePractitioner = await ctx.db
+        .query("circlePractitioners")
+        .withIndex("by_practitioner", (q) => q.eq("practitionerId", args.providerId))
+        .filter((q) => q.and(
+          q.eq(q.field("isActive"), true),
+          q.or(
+            q.eq(q.field("status"), "ACCEPTED"),
+            q.eq(q.field("status"), "ONBOARDED")
+          )
+        ))
+        .first();
+
+      if (circlePractitioner) {
+        resolvedCircleId = circlePractitioner.circleId;
+        isCircleOnly = true;
+
+        // Validate membership
+        const membership = await ctx.db
+          .query("circleMembers")
+          .withIndex("by_circle_user", (q) =>
+            q.eq("circleId", resolvedCircleId!).eq("userId", userId)
+          )
+          .first();
+
+        if (!membership || !membership.isActive) {
+          throw new Error(JSON.stringify({
+            code: "CIRCLE_MEMBERSHIP_REQUIRED",
+            circleId: resolvedCircleId,
+            message: "You must join this circle to book this practitioner"
+          }));
+        }
+      }
     }
 
     // Get provider subscription
@@ -87,6 +147,9 @@ export const createBooking = mutation({
       sessionType: "ONE_ON_ONE",
       liveStreamRoomName: roomName,
       liveStreamStatus: "NOT_STARTED",
+      // Circle-scoped booking fields
+      circleId: resolvedCircleId,
+      isCircleOnly: isCircleOnly || undefined,
       createdAt: now
     });
 
@@ -161,6 +224,24 @@ export const createEventBooking = mutation({
     // Validate that user is not booking their own event
     if (userId === event.providerId) {
       throw new Error("Cannot book your own event");
+    }
+
+    // Circle membership gate: if event is circle-exclusive, user must be a member
+    if (event.isCircleExclusive && event.circleId) {
+      const membership = await ctx.db
+        .query("circleMembers")
+        .withIndex("by_circle_user", (q) => 
+          q.eq("circleId", event.circleId!).eq("userId", userId)
+        )
+        .first();
+
+      if (!membership || !membership.isActive) {
+        throw new Error(JSON.stringify({
+          code: "CIRCLE_MEMBERSHIP_REQUIRED",
+          circleId: event.circleId,
+          message: "You must join this circle to attend this event"
+        }));
+      }
     }
 
     // Check if event is full
@@ -542,12 +623,32 @@ export const getMyBookings = query({
           .withIndex("by_userId", (q) => q.eq("userId", booking.providerId))
           .first();
 
+        // Get circle info for circle-scoped bookings
+        let circleInfo = null;
+        if (booking.circleId) {
+          const circle = await ctx.db.get(booking.circleId);
+          if (circle) {
+            let parentCircle = null;
+            if (circle.parentCircleId) {
+              parentCircle = await ctx.db.get(circle.parentCircleId);
+            }
+            circleInfo = {
+              circleId: (parentCircle?._id ?? circle._id) as string,
+              circleName: parentCircle?.name ?? circle.name,
+              parentCircleId: parentCircle ? (parentCircle._id as string) : undefined,
+              parentCircleName: parentCircle ? parentCircle.name : undefined,
+              coverImage: circle.coverImage,
+            };
+          }
+        }
+
         return {
           ...booking,
           provider: {
             subscription: provider,
             profile: providerProfile
-          }
+          },
+          circleInfo,
         };
       })
     );
@@ -755,9 +856,10 @@ export const startSession = mutation({
       throw new Error("Booking must be confirmed to start session");
     }
 
-    // Check if session is already started
+    // Check if session is already started — if so, just return success
+    // (provider may be rejoining after a disconnect or hold)
     if (booking.liveStreamStatus === "LIVE") {
-      throw new Error("Session is already live");
+      return { success: true, roomName: booking.liveStreamRoomName };
     }
 
     // Update booking status to live

@@ -31,10 +31,11 @@ import { ModerationHistory } from './ModerationHistory';
 import { ModerationSettingsPanel } from './ModerationSettingsPanel';
 import { RoleManagement } from './RoleManagement';
 import { UserRoleAssignment } from './UserRoleAssignment';
+import { UserManagement } from './UserManagement';
 import { AdManagementPanel } from './AdManagementPanel';
 import { NotificationAnalyticsDashboard } from './NotificationAnalyticsDashboard';
 
-type ScreenType = 'home' | 'queue' | 'roles' | 'settings' | 'users' | 'history' | 'ads' | 'notifications';
+type ScreenType = 'home' | 'queue' | 'roles' | 'settings' | 'users' | 'userManagement' | 'history' | 'ads' | 'notifications';
 
 // ─── Action Tile (matches booking pattern) ────────────────────────────────────
 function ActionTile({ icon, label, onPress, iconBg, iconColor, C }: {
@@ -93,7 +94,7 @@ export default function AdminDashboard() {
 
   // ── Sub-screen rendering ──────────────────────────────────────────────────
   if (activeScreen !== 'home') {
-    const titles: Record<string, string> = { queue: 'Moderation Queue', roles: 'Role Management', settings: 'Settings', users: 'User Assignment', history: 'History', ads: 'Ad Management', notifications: 'Notifications' };
+    const titles: Record<string, string> = { queue: 'Moderation Queue', roles: 'Role Management', settings: 'Settings', users: 'Role Assignment', userManagement: 'User Management', history: 'History', ads: 'Ad Management', notifications: 'Notifications' };
     return (
       <AppBackground>
         <ScreenHeader title={titles[activeScreen] ?? 'Admin'} onBack={() => setActiveScreen('home')} />
@@ -103,6 +104,7 @@ export default function AdminDashboard() {
           {activeScreen === 'settings'      && isAdmin && <ModerationSettingsPanel />}
           {activeScreen === 'roles'         && isAdmin && <RoleManagement />}
           {activeScreen === 'users'         && isAdmin && <UserRoleAssignment />}
+          {activeScreen === 'userManagement' && isAdmin && <UserManagement />}
           {activeScreen === 'ads'           && isAdmin && <AdManagementPanel />}
           {activeScreen === 'notifications' && isAdmin && <NotificationAnalyticsDashboard onBack={() => setActiveScreen('home')} />}
         </MobileCard>
@@ -270,10 +272,12 @@ export default function AdminDashboard() {
               <Text style={[styles.sectionChipLabel, { color: C.textMuted }]} allowFontScaling={false}>USER MANAGEMENT</Text>
             </View>
             <View style={styles.actionTilesGrid}>
+              <ActionTile icon="people-outline" label="Users" onPress={() => setActiveScreen('userManagement')}
+                iconBg={C.statusInfoBg} iconColor={C.statusInfo} C={C} />
               <ActionTile icon="shield-outline" label="Roles" onPress={() => setActiveScreen('roles')}
                 iconBg={C.purpleSurface} iconColor={C.palette.purple} C={C} />
-              <ActionTile icon="people-outline" label="Users" onPress={() => setActiveScreen('users')}
-                iconBg={C.statusInfoBg} iconColor={C.statusInfo} C={C} />
+              <ActionTile icon="person-add-outline" label="Assign" onPress={() => setActiveScreen('users')}
+                iconBg={C.statusSuccessBg} iconColor={C.statusSuccess} C={C} />
               <ActionTile icon="notifications-outline" label="Notifs" onPress={() => setActiveScreen('notifications')}
                 iconBg={C.bgPrimaryMid} iconColor={C.actionPrimary} C={C} />
             </View>

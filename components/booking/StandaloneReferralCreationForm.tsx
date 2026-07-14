@@ -119,7 +119,6 @@ export function StandaloneReferralCreationForm({
   const [expertSearch,       setExpertSearch]       = useState("");
   const [debouncedExpert,    setDebouncedExpert]    = useState("");
   const [selectedExperts,    setSelectedExperts]    = useState<SelectedExpert[]>([]);
-  const [showExpertDropdown, setShowExpertDropdown] = useState(false);
   const [expertsError,       setExpertsError]       = useState("");
 
   // ── Step 4: Review / session ─────────────────────────────────────────────
@@ -143,9 +142,7 @@ export function StandaloneReferralCreationForm({
 
   const expertResults = useQuery(
     api.bookingSubscribers.getProvidersWithPagination,
-    debouncedExpert.length >= 2
-      ? { searchTerm: debouncedExpert, limit: 8, offset: 0 }
-      : "skip"
+    { searchTerm: debouncedExpert || undefined, limit: 30, offset: 0 }
   );
 
   const pastSessions = useQuery(
@@ -165,7 +162,6 @@ export function StandaloneReferralCreationForm({
 
   function handleExpertSearch(text: string) {
     setExpertSearch(text);
-    setShowExpertDropdown(text.length >= 2);
     if (expertDebounce.current) clearTimeout(expertDebounce.current);
     expertDebounce.current = setTimeout(() => setDebouncedExpert(text), 350);
   }
@@ -190,9 +186,6 @@ export function StandaloneReferralCreationForm({
       if (selectedExperts.find((e) => e.userId === userId)) return;
       if (selectedExperts.length >= 10) return;
       setSelectedExperts((prev) => [...prev, { userId, name, jobTitle }]);
-      setExpertSearch("");
-      setDebouncedExpert("");
-      setShowExpertDropdown(false);
       setExpertsError("");
     },
     [selectedExperts]
@@ -483,70 +476,7 @@ export function StandaloneReferralCreationForm({
               </Text>
             </View>
 
-            {/* Expert search */}
-            <View style={styles.searchWrapHigh}>
-              <AppInput
-                forceDark
-                label={`Suggest Experts (${selectedExperts.length}/10 · min 3)`}
-                placeholder="Search by name or specialization…"
-                value={expertSearch}
-                onChangeText={handleExpertSearch}
-                leadingIcon={
-                  <Ionicons name="search-outline" size={18} color={Colors.iconSecondary} />
-                }
-                returnKeyType="search"
-                autoCapitalize="none"
-                accessibilityLabel="Search for experts"
-              />
-              {showExpertDropdown && (
-                <View style={styles.dropdown}>
-                  {expertResults === undefined ? (
-                    <View style={styles.dropdownLoading}>
-                      <ActivityIndicator size="small" color={Colors.actionPrimary} />
-                      <Text style={styles.dropdownLoadingText} allowFontScaling={false}>
-                        Searching…
-                      </Text>
-                    </View>
-                  ) : filteredExperts.length === 0 ? (
-                    <View style={styles.dropdownEmpty}>
-                      <Ionicons name="search-outline" size={20} color={Colors.textDisabled} />
-                      <Text style={styles.dropdownEmptyText} allowFontScaling={false}>
-                        No providers found
-                      </Text>
-                    </View>
-                  ) : (
-                    filteredExperts.map((p: any) => {
-                      const name = p.profile?.name ?? p.profile?.username ?? "Provider";
-                      return (
-                        <TouchableOpacity
-                          key={p.subscriber._id}
-                          style={styles.dropdownItem}
-                          onPress={() => handleAddExpert(p)}
-                          activeOpacity={0.82}
-                        >
-                          <View style={styles.dropdownAvatar}>
-                            <Text style={styles.dropdownAvatarText} allowFontScaling={false}>
-                              {name.charAt(0).toUpperCase()}
-                            </Text>
-                          </View>
-                          <View style={styles.dropdownInfo}>
-                            <Text style={styles.dropdownName} numberOfLines={1} allowFontScaling={false}>
-                              {name}
-                            </Text>
-                            <Text style={styles.dropdownSub} numberOfLines={1} allowFontScaling={false}>
-                              {p.subscriber.jobTitle}
-                            </Text>
-                          </View>
-                          <Ionicons name="add-circle-outline" size={20} color={Colors.actionPrimary} />
-                        </TouchableOpacity>
-                      );
-                    })
-                  )}
-                </View>
-              )}
-            </View>
-
-            {/* Selected experts chips */}
+            {/* Selected experts chips (shown above the list) */}
             {selectedExperts.length > 0 && (
               <View style={styles.selectedSection}>
                 <View style={styles.selectedHeader}>
@@ -596,6 +526,73 @@ export function StandaloneReferralCreationForm({
                 <Text style={styles.fieldErrorText} allowFontScaling={false}>{expertsError}</Text>
               </View>
             )}
+
+            {/* Filter input */}
+            <AppInput
+              forceDark
+              label="Filter providers"
+              placeholder="Filter by name, specialization, job title…"
+              value={expertSearch}
+              onChangeText={handleExpertSearch}
+              leadingIcon={
+                <Ionicons name="filter-outline" size={18} color={Colors.iconSecondary} />
+              }
+              returnKeyType="search"
+              autoCapitalize="none"
+              accessibilityLabel="Filter providers"
+            />
+
+            {/* Provider list (always visible) */}
+            <View style={styles.providerTable}>
+              {expertResults === undefined ? (
+                <View style={styles.dropdownLoading}>
+                  <ActivityIndicator size="small" color={Colors.actionPrimary} />
+                  <Text style={styles.dropdownLoadingText} allowFontScaling={false}>
+                    Loading providers…
+                  </Text>
+                </View>
+              ) : filteredExperts.length === 0 ? (
+                <View style={styles.dropdownEmpty}>
+                  <Ionicons name="search-outline" size={20} color={Colors.textDisabled} />
+                  <Text style={styles.dropdownEmptyText} allowFontScaling={false}>
+                    No providers match your filter
+                  </Text>
+                </View>
+              ) : (
+                filteredExperts.map((p: any) => {
+                  const name = p.profile?.name ?? p.profile?.username ?? "Provider";
+                  const isAlreadySelected = selectedExperts.find((e) => e.userId === p.subscriber.userId);
+                  return (
+                    <TouchableOpacity
+                      key={p.subscriber._id}
+                      style={[styles.providerRow, isAlreadySelected && styles.providerRowSelected]}
+                      onPress={() => handleAddExpert(p)}
+                      activeOpacity={0.82}
+                      disabled={!!isAlreadySelected}
+                    >
+                      <View style={styles.dropdownAvatar}>
+                        <Text style={styles.dropdownAvatarText} allowFontScaling={false}>
+                          {name.charAt(0).toUpperCase()}
+                        </Text>
+                      </View>
+                      <View style={styles.providerRowInfo}>
+                        <Text style={styles.dropdownName} numberOfLines={1} allowFontScaling={false}>
+                          {name}
+                        </Text>
+                        <Text style={styles.providerRowSub} numberOfLines={1} allowFontScaling={false}>
+                          {p.subscriber.jobTitle}{p.subscriber.specialization ? ` · ${p.subscriber.specialization}` : ""}
+                        </Text>
+                      </View>
+                      {isAlreadySelected ? (
+                        <Ionicons name="checkmark-circle" size={20} color={Colors.statusSuccess} />
+                      ) : (
+                        <Ionicons name="add-circle-outline" size={20} color={Colors.actionPrimary} />
+                      )}
+                    </TouchableOpacity>
+                  );
+                })
+              )}
+            </View>
 
             <View style={styles.tipCard}>
               <Ionicons name="information-circle-outline" size={14} color={Colors.statusInfo} />
@@ -1149,5 +1146,36 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "700",
     color: "#fff",
+  },
+
+  // ── Provider table (Step 3) ────────────────────────────────────────────────
+  providerTable: {
+    backgroundColor: Colors.bgSurface,
+    borderRadius: radius.radiusMD,
+    borderWidth: 1,
+    borderColor: Colors.borderDefault,
+    overflow: "hidden",
+    maxHeight: 320,
+  },
+  providerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.space3,
+    paddingHorizontal: spacing.space4,
+    paddingVertical: spacing.space3,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: Colors.borderSubtle,
+  },
+  providerRowSelected: {
+    backgroundColor: Colors.bgPrimaryMid,
+    opacity: 0.7,
+  },
+  providerRowInfo: {
+    flex: 1,
+    gap: 2,
+  },
+  providerRowSub: {
+    ...typeScale.caption,
+    color: Colors.textMuted,
   },
 });

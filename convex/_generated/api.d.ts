@@ -9,6 +9,7 @@
  */
 
 import type * as adminStats from "../adminStats.js";
+import type * as adminUsers from "../adminUsers.js";
 import type * as ads from "../ads.js";
 import type * as aiRecommendations from "../aiRecommendations.js";
 import type * as articles from "../articles.js";
@@ -24,10 +25,13 @@ import type * as bookings from "../bookings.js";
 import type * as chat from "../chat.js";
 import type * as chatPrivacy from "../chatPrivacy.js";
 import type * as chats from "../chats.js";
+import type * as circleInvitations from "../circleInvitations.js";
 import type * as circleMembers from "../circleMembers.js";
 import type * as circleMessages from "../circleMessages.js";
+import type * as circlePractitioners from "../circlePractitioners.js";
 import type * as circles from "../circles.js";
 import type * as circlesAI from "../circlesAI.js";
+import type * as consultations from "../consultations.js";
 import type * as contentTriggers from "../contentTriggers.js";
 import type * as courseProgress from "../courseProgress.js";
 import type * as courses from "../courses.js";
@@ -55,6 +59,7 @@ import type * as liveStream from "../liveStream.js";
 import type * as livekit from "../livekit.js";
 import type * as livekitActions from "../livekitActions.js";
 import type * as migrations from "../migrations.js";
+import type * as migrations_addDefaultSubCircles from "../migrations/addDefaultSubCircles.js";
 import type * as migrations_approveAllExistingContent from "../migrations/approveAllExistingContent.js";
 import type * as migrations_migrateToMultiCurrency from "../migrations/migrateToMultiCurrency.js";
 import type * as migrations_removeSellerAddress from "../migrations/removeSellerAddress.js";
@@ -81,6 +86,7 @@ import type * as search from "../search.js";
 import type * as setupModeration from "../setupModeration.js";
 import type * as signup from "../signup.js";
 import type * as streamComments from "../streamComments.js";
+import type * as subCircles from "../subCircles.js";
 import type * as testArticles from "../testArticles.js";
 import type * as testData from "../testData.js";
 import type * as testMigration from "../testMigration.js";
@@ -106,6 +112,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   adminStats: typeof adminStats;
+  adminUsers: typeof adminUsers;
   ads: typeof ads;
   aiRecommendations: typeof aiRecommendations;
   articles: typeof articles;
@@ -121,10 +128,13 @@ declare const fullApi: ApiFromModules<{
   chat: typeof chat;
   chatPrivacy: typeof chatPrivacy;
   chats: typeof chats;
+  circleInvitations: typeof circleInvitations;
   circleMembers: typeof circleMembers;
   circleMessages: typeof circleMessages;
+  circlePractitioners: typeof circlePractitioners;
   circles: typeof circles;
   circlesAI: typeof circlesAI;
+  consultations: typeof consultations;
   contentTriggers: typeof contentTriggers;
   courseProgress: typeof courseProgress;
   courses: typeof courses;
@@ -152,6 +162,7 @@ declare const fullApi: ApiFromModules<{
   livekit: typeof livekit;
   livekitActions: typeof livekitActions;
   migrations: typeof migrations;
+  "migrations/addDefaultSubCircles": typeof migrations_addDefaultSubCircles;
   "migrations/approveAllExistingContent": typeof migrations_approveAllExistingContent;
   "migrations/migrateToMultiCurrency": typeof migrations_migrateToMultiCurrency;
   "migrations/removeSellerAddress": typeof migrations_removeSellerAddress;
@@ -178,6 +189,7 @@ declare const fullApi: ApiFromModules<{
   setupModeration: typeof setupModeration;
   signup: typeof signup;
   streamComments: typeof streamComments;
+  subCircles: typeof subCircles;
   testArticles: typeof testArticles;
   testData: typeof testData;
   testMigration: typeof testMigration;

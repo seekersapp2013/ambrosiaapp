@@ -489,7 +489,7 @@ export default function ForYouScreen() {
         {/* ── Scrollable feed ───────────────────────────────────────── */}
         {feedMode === "for_you" ? (
           <FlatList
-            data={feed ?? []}
+            data={(feed ?? []).filter((item: any) => item.contentType !== "event")}
             keyExtractor={(item) => item._id}
             renderItem={({ item, index }) => (
               <>
@@ -575,7 +575,7 @@ export default function ForYouScreen() {
             </RNView>
           ) : (
             <FlatList
-            data={aiFeed ?? []}
+            data={(aiFeed ?? []).filter((item: any) => item.contentType !== "event")}
             keyExtractor={(item) => item._id}
             renderItem={({ item, index }) => (
               <>

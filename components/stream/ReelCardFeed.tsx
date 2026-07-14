@@ -30,6 +30,7 @@ import { useColors } from "@/hooks/useColors";
 import { VideoView, useVideoPlayer } from "expo-video";
 import { ReelEngagementRow } from "./ReelEngagementRow";
 import { AppLogo } from "@/components/AppLogo";
+import { CommunityBadge } from "@/components/CommunityBadge";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -50,6 +51,8 @@ export interface ReelCardItem {
   authorId?: string;
   /** If this reel is part of a course, contains the course title and 1-based position */
   courseInfo?: { courseTitle: string; order: number };
+  /** If this reel belongs to a circle, contains community attribution info */
+  circleInfo?: { circleId: string; circleName: string; parentCircleId?: string; parentCircleName?: string; coverImage?: string } | null;
   author?: {
     name?: string;
     username?: string;
@@ -273,11 +276,16 @@ export function ReelCardFeed({ reel, onPress, isOwnContent, onDeleteRequest, can
             <Text style={[styles.authorName, { color: C.textSecondary }, isOwnContent && { color: C.actionPrimary, fontWeight: "700" }]} numberOfLines={1}>
               {authorName}
             </Text>
-            {/* Follow pill — only for other people's content */}
-            {!isOwnContent && reel.authorId && (
+            {/* Follow pill or Community badge — only for other people's content */}
+            {!isOwnContent && reel.authorId && !reel.circleInfo && (
               <FollowPill authorId={reel.authorId} />
             )}
           </View>
+
+          {/* Community badge — shown for circle content */}
+          {reel.circleInfo && (
+            <CommunityBadge circleInfo={reel.circleInfo} variant="inline" />
+          )}
 
           {reel.tags && reel.tags.length > 0 && (
             <View style={styles.tagsRow}>

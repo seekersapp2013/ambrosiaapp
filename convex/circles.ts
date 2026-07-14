@@ -106,6 +106,72 @@ export const createCircle = mutation({
       });
     }
 
+    // Auto-create default sub-circles (Announcements + General)
+    // Skip for consultation and referral circles
+    const isConsultation = false; // Regular createCircle never creates consultation circles
+    const isReferral = false; // Regular createCircle never creates referral circles
+    if (!isConsultation && !isReferral) {
+      // 1. Announcements sub-circle — admin-only posting
+      const announcementsId = await ctx.db.insert("circles", {
+        name: "Announcements",
+        description: `Announcements for ${args.name.trim()}`,
+        creatorId: userId,
+        type: "PRIVATE",
+        accessType: "FREE",
+        currentMembers: 1,
+        tags: [],
+        isActive: requiresApproval ? false : true,
+        postingPermission: "ADMINS_ONLY",
+        approvalStatus: "NOT_REQUIRED",
+        createdAt: now,
+        // Sub-circle fields
+        parentCircleId: circleId,
+        isDefault: true,
+        subCircleOrder: 0,
+        subCircleType: "ANNOUNCEMENT",
+      });
+
+      // Add creator to Announcements
+      await ctx.db.insert("circleMembers", {
+        circleId: announcementsId,
+        userId,
+        role: "CREATOR",
+        joinedAt: now,
+        lastActiveAt: now,
+        isActive: true,
+      });
+
+      // 2. General sub-circle — everyone can post, open by default
+      const generalId = await ctx.db.insert("circles", {
+        name: "General",
+        description: `General discussion for ${args.name.trim()}`,
+        creatorId: userId,
+        type: "PUBLIC",
+        accessType: "FREE",
+        currentMembers: 1,
+        tags: [],
+        isActive: requiresApproval ? false : true,
+        postingPermission: "EVERYONE",
+        approvalStatus: "NOT_REQUIRED",
+        createdAt: now,
+        // Sub-circle fields
+        parentCircleId: circleId,
+        isDefault: true,
+        subCircleOrder: 1,
+        subCircleType: "GENERAL",
+      });
+
+      // Add creator to General
+      await ctx.db.insert("circleMembers", {
+        circleId: generalId,
+        userId,
+        role: "CREATOR",
+        joinedAt: now,
+        lastActiveAt: now,
+        isActive: true,
+      });
+    }
+
     return { circleId, inviteCode, requiresApproval };
   },
 });
@@ -190,10 +256,12 @@ export const getPublicCircles = query({
     let allCircles = await query.collect();
 
     // Filter by approval status - only show approved or not required
+    // Exclude sub-circles from the Discover list
     allCircles = allCircles.filter(circle => 
-      circle.approvalStatus === "APPROVED" || 
+      (circle.approvalStatus === "APPROVED" || 
       circle.approvalStatus === "NOT_REQUIRED" ||
-      circle.approvalStatus === undefined // For backward compatibility
+      circle.approvalStatus === undefined) &&
+      !circle.parentCircleId
     );
 
     // Apply filters
@@ -290,7 +358,19 @@ export const getMyCircles = query({
     const circles = await Promise.all(
       memberships.map(async (membership) => {
         const circle = await ctx.db.get(membership.circleId);
-        if (!circle || !circle.isActive) return null;
+        if (!circle) return null;
+
+        // Always show consultation and referral circles to their members
+        // (even if isActive is false, e.g. pending payment). For regular
+        // circles, only show active ones (moderation approved & not deleted).
+        const isSpecialCircle =
+          circle.isConsultationCircle === true ||
+          circle.isReferralCircle === true;
+        if (!circle.isActive && !isSpecialCircle) return null;
+
+        // Hide sub-circles from the top-level "My Circles" list
+        // They are only shown inside their parent circle's detail screen
+        if (circle.parentCircleId) return null;
 
         const creatorProfile = await ctx.db
           .query("profiles")
@@ -329,6 +409,11 @@ export const getMyCircles = query({
           // and deep-link back to the originating referral
           isReferralCircle: circle.isReferralCircle ?? false,
           referralId: circle.referralId ?? null,
+          // Consultation circle context — so the list can navigate directly to chat
+          isConsultationCircle: circle.isConsultationCircle ?? false,
+          consultationPaid: circle.consultationPaid ?? false,
+          consultationFee: circle.consultationFee,
+          consultationCurrency: circle.consultationCurrency,
           canPost: membership && (
             circle.postingPermission === "EVERYONE" || 
             membership.role === "CREATOR" || 
@@ -339,7 +424,14 @@ export const getMyCircles = query({
       })
     );
 
-    return circles.filter(Boolean);
+    // Sort: most recent activity first (last message, or joinedAt as fallback)
+    const sorted = circles.filter(Boolean).sort((a: any, b: any) => {
+      const aTime = a.lastMessage?.createdAt ?? a.membership?.joinedAt ?? a.createdAt ?? 0;
+      const bTime = b.lastMessage?.createdAt ?? b.membership?.joinedAt ?? b.createdAt ?? 0;
+      return bTime - aTime;
+    });
+
+    return sorted;
   },
 });
 
@@ -509,6 +601,43 @@ export const joinCircle = mutation({
       currentMembers: circle.currentMembers + 1,
       updatedAt: now,
     });
+
+    // Auto-add to default sub-circles (Announcements + General)
+    // Only if this is a parent circle (not itself a sub-circle)
+    if (!circle.parentCircleId) {
+      const defaultSubCircles = await ctx.db
+        .query("circles")
+        .withIndex("by_parent", (q) => q.eq("parentCircleId", args.circleId))
+        .filter((q) => q.eq(q.field("isDefault"), true))
+        .collect();
+
+      for (const subCircle of defaultSubCircles) {
+        // Check not already a member
+        const existingSub = await ctx.db
+          .query("circleMembers")
+          .withIndex("by_circle_user", (q) =>
+            q.eq("circleId", subCircle._id).eq("userId", userId)
+          )
+          .first();
+
+        if (!existingSub) {
+          await ctx.db.insert("circleMembers", {
+            circleId: subCircle._id,
+            userId,
+            role: "MEMBER",
+            joinedAt: now,
+            lastActiveAt: now,
+            isActive: true,
+          });
+
+          // Update sub-circle member count
+          await ctx.db.patch(subCircle._id, {
+            currentMembers: subCircle.currentMembers + 1,
+            updatedAt: now,
+          });
+        }
+      }
+    }
 
     return { circleId: args.circleId, message: "Joined circle successfully" };
   },

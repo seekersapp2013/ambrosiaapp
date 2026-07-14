@@ -1,6 +1,35 @@
 import { QueryCtx, MutationCtx } from "./_generated/server";
 import { Id } from "./_generated/dataModel";
 
+// ─── Ban enforcement: call at the top of any engagement mutation ─────────────
+// Throws if the user has an active platform-wide ban.
+export async function ensureNotBanned(
+  ctx: QueryCtx | MutationCtx,
+  userId: Id<"users">
+): Promise<void> {
+  const activeBan = await ctx.db
+    .query("userBans")
+    .withIndex("by_user_active", (q) =>
+      q.eq("userId", userId).eq("isActive", true)
+    )
+    .first();
+
+  if (!activeBan) return;
+
+  // If temporary ban has expired, consider user not banned
+  if (
+    activeBan.banType === "TEMPORARY" &&
+    activeBan.expiresAt &&
+    activeBan.expiresAt < Date.now()
+  ) {
+    return;
+  }
+
+  throw new Error(
+    "ACCOUNT_BANNED: Your account has been restricted. You cannot perform this action."
+  );
+}
+
 // Check if user is the primary admin (first user)
 export async function isPrimaryAdmin(
   ctx: QueryCtx | MutationCtx,

@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { ensureNotBanned } from "./moderationHelpers";
 
 // Add a comment to a live stream
 export const addStreamComment = mutation({
@@ -14,6 +15,7 @@ export const addStreamComment = mutation({
     if (!userId) {
       throw new Error("Not authenticated");
     }
+    await ensureNotBanned(ctx, userId);
 
     // Validate content
     if (!args.content.trim()) {

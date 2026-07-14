@@ -21,6 +21,7 @@ import {
   FlatList,
   SafeAreaView,
   Alert,
+  ActivityIndicator,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -31,12 +32,11 @@ import {
   useLocalParticipant,
   useRemoteParticipants,
   useParticipantTracks,
+  useRoomContext,
 } from "@livekit/react-native";
 import {
   ConnectionState,
   Track,
-  ParticipantEvent,
-  type Room as RoomType,
 } from "livekit-client";
 import { useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
@@ -250,10 +250,9 @@ interface RoomContentProps {
   isProvider: boolean;
   onEnd: () => void;
   onLeave: () => void;
-  roomRef: React.RefObject<RoomType | null>;
 }
 
-function RoomContent({ bookingId, isProvider, onEnd, onLeave, roomRef }: RoomContentProps) {
+function RoomContent({ bookingId, isProvider, onEnd, onLeave }: RoomContentProps) {
   const [isCameraOn,    setIsCameraOn]    = useState(true);
   const [isMicOn,       setIsMicOn]       = useState(true);
   const [isRecording,   setIsRecording]   = useState(false);
@@ -262,9 +261,14 @@ function RoomContent({ bookingId, isProvider, onEnd, onLeave, roomRef }: RoomCon
   const [gridOpen,      setGridOpen]      = useState(false);
   const [focusedId,     setFocusedId]     = useState<string | null>(null);
   const [connecting,    setConnecting]    = useState(true);
+  const [reconnecting,  setReconnecting]  = useState(false);
+  const [trackError,    setTrackError]    = useState<string | null>(null);
 
   // Safe-area insets for controls bar bottom padding (fixes issue 3)
   const insets = useSafeAreaInsets();
+
+  // Get the Room instance from LiveKitRoom context (properly bound to native WebRTC)
+  const room = useRoomContext();
 
   // Convex mutations / actions
   const stopSessionMutation  = useMutation(api.bookings.stopSession);
@@ -278,8 +282,56 @@ function RoomContent({ bookingId, isProvider, onEnd, onLeave, roomRef }: RoomCon
   const connectionState      = useConnectionState();
 
   useEffect(() => {
-    if (connectionState === ConnectionState.Connected) setConnecting(false);
-  }, [connectionState]);
+    if (connectionState === ConnectionState.Connected) {
+      setConnecting(false);
+      setReconnecting(false);
+      // Sync UI state with actual track publication state after connection
+      if (localParticipant) {
+        setIsCameraOn(localParticipant.isCameraEnabled ?? true);
+        setIsMicOn(localParticipant.isMicrophoneEnabled ?? true);
+      }
+    } else if (connectionState === ConnectionState.Reconnecting) {
+      setReconnecting(true);
+    } else if (connectionState === ConnectionState.Disconnected && !connecting) {
+      // Unexpected disconnect (not during initial connection)
+      setReconnecting(false);
+    }
+  }, [connectionState, localParticipant, connecting]);
+
+  // ── Track publication verification ────────────────────────────────────────
+  // After connection is established, verify that camera and mic tracks were
+  // actually published. If not (e.g. due to a native pipeline race), force-enable.
+  useEffect(() => {
+    if (connectionState !== ConnectionState.Connected || !localParticipant) return;
+
+    // Give the auto-publish a moment to complete before forcing
+    const timer = setTimeout(() => {
+      const camPub = localParticipant.getTrackPublication(Track.Source.Camera);
+      const micPub = localParticipant.getTrackPublication(Track.Source.Microphone);
+
+      let errorMsg: string | null = null;
+
+      if (!camPub?.track) {
+        localParticipant.setCameraEnabled(true).catch(() => {
+          errorMsg = "Camera could not be started. It may be in use by another app.";
+          setTrackError(errorMsg);
+        });
+      }
+      if (!micPub?.track) {
+        localParticipant.setMicrophoneEnabled(true).catch(() => {
+          errorMsg = "Microphone could not be started. Check your device settings.";
+          setTrackError(errorMsg);
+        });
+      }
+
+      // Clear track error after 8 seconds if it was set
+      if (errorMsg) {
+        setTimeout(() => setTrackError(null), 8000);
+      }
+    }, 1500);
+
+    return () => clearTimeout(timer);
+  }, [connectionState, localParticipant]);
 
   // ── Toggle camera (with rollback on error) ────────────────────────────────
   const handleToggleCamera = useCallback(async () => {
@@ -332,7 +384,7 @@ function RoomContent({ bookingId, isProvider, onEnd, onLeave, roomRef }: RoomCon
         await stopSessionMutation({ bookingId: bookingId as any });
         await updateStreamStatus({ bookingId: bookingId as any, status: "ENDED" });
       } catch { /* best-effort */ } finally {
-        roomRef.current?.disconnect();
+        room?.disconnect();
         onEnd();
       }
     };
@@ -344,7 +396,7 @@ function RoomContent({ bookingId, isProvider, onEnd, onLeave, roomRef }: RoomCon
         { text: "End Session", style: "destructive", onPress: doEnd },
       ]
     );
-  }, [isRecording, bookingId, stopRecordingAction, stopSessionMutation, updateStreamStatus, onEnd, roomRef]);
+  }, [isRecording, bookingId, stopRecordingAction, stopSessionMutation, updateStreamStatus, onEnd, room]);
 
   // ── Leave session (client — disconnects but can rejoin) ───────────────────
   const handleLeave = useCallback(() => {
@@ -356,13 +408,13 @@ function RoomContent({ bookingId, isProvider, onEnd, onLeave, roomRef }: RoomCon
         {
           text: "Leave",
           onPress: () => {
-            roomRef.current?.disconnect();
+            room?.disconnect();
             onLeave(); // returns to join screen
           },
         },
       ]
     );
-  }, [roomRef, onLeave]);
+  }, [room, onLeave]);
 
   // ── Hold (provider — leaves temporarily, session stays active) ───────────
   const handleHold = useCallback(() => {
@@ -374,13 +426,13 @@ function RoomContent({ bookingId, isProvider, onEnd, onLeave, roomRef }: RoomCon
         {
           text: "Go on Hold",
           onPress: () => {
-            roomRef.current?.disconnect();
+            room?.disconnect();
             onLeave(); // returns to join screen without ending session
           },
         },
       ]
     );
-  }, [roomRef, onLeave]);
+  }, [room, onLeave]);
 
   // Build participant info list for the grid
   const allParticipants: ParticipantInfo[] = [
@@ -415,6 +467,26 @@ function RoomContent({ bookingId, isProvider, onEnd, onLeave, roomRef }: RoomCon
         <View style={styles.connectingOverlay}>
           <Text style={styles.connectingText} allowFontScaling={false}>
             Connecting to session…
+          </Text>
+        </View>
+      )}
+
+      {/* Reconnecting banner */}
+      {reconnecting && (
+        <View style={styles.reconnectBanner}>
+          <ActivityIndicator size="small" color="#FFFFFF" />
+          <Text style={styles.reconnectText} allowFontScaling={false}>
+            Reconnecting…
+          </Text>
+        </View>
+      )}
+
+      {/* Track error banner */}
+      {trackError && (
+        <View style={styles.trackErrorBanner}>
+          <Ionicons name="warning-outline" size={14} color={Colors.statusWarning} />
+          <Text style={styles.trackErrorText} allowFontScaling={false}>
+            {trackError}
           </Text>
         </View>
       )}
@@ -579,26 +651,21 @@ export function LiveStreamRoom({
   onEnd,
   onLeave,
 }: LiveStreamRoomProps) {
-  const roomRef = useRef<RoomType | null>(null);
-
-  // Create the Room instance once (stable across re-renders).
-  // adaptiveStream: false avoids the ElementInfo visibility requirement.
-  if (!roomRef.current) {
-    const { Room: LKRoom } = require("livekit-client");
-    roomRef.current = new LKRoom({ adaptiveStream: false, dynacast: false });
-  }
-
+  // We no longer pass a pre-created Room instance. Instead, we let <LiveKitRoom>
+  // create its own Room internally via the `options` prop, ensuring the native
+  // WebRTC bindings (from registerGlobals()) are properly wired up.
+  // The Room ref is obtained inside RoomContent via useRoomContext().
   return (
     <Room
-      room={roomRef.current ?? undefined}
       serverUrl={wsUrl}
       token={token}
       connect
       audio
       video
-      // Only auto-navigate on unexpected disconnect if the session was ended server-side.
-      // Clients who voluntarily leave use handleLeave which calls onLeave() before disconnect.
-      // This prevents network blips from sending the client to the ended screen.
+      options={{
+        adaptiveStream: false,
+        dynacast: false,
+      }}
       onDisconnected={() => {
         // No-op — navigation is handled explicitly by handleEndSession / handleLeave / handleHold
       }}
@@ -608,7 +675,6 @@ export function LiveStreamRoom({
         isProvider={isProvider}
         onEnd={onEnd}
         onLeave={onLeave}
-        roomRef={roomRef}
       />
     </Room>
   );
@@ -632,6 +698,51 @@ const styles = StyleSheet.create({
   connectingText: {
     ...typeScale.headingMD,
     color: Colors.textSecondary,
+  },
+
+  // Reconnecting banner
+  reconnectBanner: {
+    position: "absolute",
+    top: 60,
+    left: spacing.space4,
+    right: spacing.space4,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.space2,
+    backgroundColor: "rgba(245,158,11,0.90)",
+    paddingVertical: 8,
+    paddingHorizontal: spacing.space3,
+    borderRadius: radius.radiusMD,
+    zIndex: 90,
+  },
+  reconnectText: {
+    ...typeScale.bodySM,
+    color: "#FFFFFF",
+    fontWeight: "600",
+  },
+
+  // Track error banner
+  trackErrorBanner: {
+    position: "absolute",
+    top: 60,
+    left: spacing.space4,
+    right: spacing.space4,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.space2,
+    backgroundColor: "rgba(0,0,0,0.85)",
+    paddingVertical: 8,
+    paddingHorizontal: spacing.space3,
+    borderRadius: radius.radiusMD,
+    borderWidth: 1,
+    borderColor: "rgba(245,158,11,0.50)",
+    zIndex: 90,
+  },
+  trackErrorText: {
+    ...typeScale.bodySM,
+    color: Colors.statusWarning,
+    flex: 1,
   },
 
   // Video area

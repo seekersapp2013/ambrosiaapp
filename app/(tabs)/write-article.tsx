@@ -11,11 +11,12 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useMutation, useQuery } from "convex/react";
-import { useRouter, Redirect } from "expo-router";
+import { useRouter, Redirect, useLocalSearchParams } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 import { Authenticated, Unauthenticated, AuthLoading } from "convex/react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api } from "@/convex/_generated/api";
+import { Id } from "@/convex/_generated/dataModel";
 import { AppBackground } from "@/components/AppBackground";
 import { AppLoader } from "@/components/AppLoader";
 import { MobileCard } from "@/components/MobileCard";
@@ -254,6 +255,7 @@ async function uploadImageBlob(uriOrDataUrl: string, mimeType: string, generateU
 function WriteArticleContent() {
   const router  = useRouter();
   const history = useNavigationHistory();
+  const { circleId: paramCircleId, fromAnnouncement } = useLocalSearchParams<{ circleId?: string; fromAnnouncement?: string }>();
   const insets       = useSafeAreaInsets();
   const tabBarHeight = useTabBarHeight();
   const bottomPad    = tabBarHeight + insets.bottom + spacing.space8;
@@ -280,6 +282,22 @@ function WriteArticleContent() {
   const [priceAmount,       setPriceAmount]       = useState("");
   const [priceCurrency,     setPriceCurrency]     = useState<Currency>("USD");
   const [currencyPickerOpen, setCurrencyPickerOpen] = useState(false);
+
+  // ── Circle-only content ───────────────────────────────────────────────────
+  type VisibilityMode = "public" | "course-only" | "circle-only";
+  const isFromAnnouncement = fromAnnouncement === "true";
+  const [visibilityMode, setVisibilityMode] = useState<VisibilityMode>(
+    isFromAnnouncement ? "public" : paramCircleId ? "circle-only" : "public"
+  );
+  const [selectedCircleId, setSelectedCircleId] = useState<string | null>(paramCircleId ?? null);
+  const [showCirclePicker, setShowCirclePicker] = useState(false);
+
+  // Query circles where user is CREATOR/ADMIN (for circle picker)
+  const myAdminCircles = useQuery(api.circles.getMyCircles);
+  const adminCircles = (myAdminCircles as any[] ?? []).filter(
+    (c: any) => (c.membership?.role === "CREATOR" || c.membership?.role === "ADMIN")
+      && !c.isConsultationCircle && !c.isReferralCircle
+  );
 
   // ── Misc ──────────────────────────────────────────────────────────────────
   const [submitting,       setSubmitting]       = useState(false);
@@ -343,6 +361,8 @@ function WriteArticleContent() {
         priceToken: isPremium ? priceCurrency : undefined,
         priceAmount: isPremium && priceAmount ? parseFloat(priceAmount) : undefined,
         coverImage,
+        circleId: visibilityMode === "circle-only" && selectedCircleId ? selectedCircleId as Id<"circles"> : (isFromAnnouncement && paramCircleId ? paramCircleId as Id<"circles"> : undefined),
+        isCircleOnly: visibilityMode === "circle-only" ? true : undefined,
       });
       Alert.alert("Submitted!", "Your article has been submitted for review.", [
         { text: "OK", onPress: () => history.goBack(router, "/(tabs)/learn") },
@@ -504,17 +524,58 @@ function WriteArticleContent() {
                 <View>
                   <Text style={styles.label}>Visibility</Text>
                   <View style={styles.visRow}>
-                    <TouchableOpacity style={[styles.visTile, isPublic && styles.visTileActive]} onPress={() => setIsPublic(true)} activeOpacity={0.8} accessibilityRole="radio" accessibilityState={{ checked: isPublic }}>
-                      <Ionicons name="globe-outline" size={20} color={isPublic ? Colors.primary : Colors.textMuted} />
-                      <Text style={[styles.visTileLabel, isPublic && styles.visTileLabelActive]}>Public</Text>
+                    <TouchableOpacity style={[styles.visTile, visibilityMode === "public" && styles.visTileActive]} onPress={() => { setVisibilityMode("public"); setIsPublic(true); }} activeOpacity={0.8} accessibilityRole="radio" accessibilityState={{ checked: visibilityMode === "public" }}>
+                      <Ionicons name="globe-outline" size={20} color={visibilityMode === "public" ? Colors.primary : Colors.textMuted} />
+                      <Text style={[styles.visTileLabel, visibilityMode === "public" && styles.visTileLabelActive]}>Public</Text>
                       <Text style={styles.visTileDesc}>Visible to everyone</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity style={[styles.visTile, !isPublic && styles.visTileActive]} onPress={() => setIsPublic(false)} activeOpacity={0.8} accessibilityRole="radio" accessibilityState={{ checked: !isPublic }}>
-                      <Ionicons name="school-outline" size={20} color={!isPublic ? Colors.primary : Colors.textMuted} />
-                      <Text style={[styles.visTileLabel, !isPublic && styles.visTileLabelActive]}>Course-only</Text>
+                    <TouchableOpacity style={[styles.visTile, visibilityMode === "course-only" && styles.visTileActive]} onPress={() => { setVisibilityMode("course-only"); setIsPublic(false); setSelectedCircleId(null); }} activeOpacity={0.8} accessibilityRole="radio" accessibilityState={{ checked: visibilityMode === "course-only" }}>
+                      <Ionicons name="school-outline" size={20} color={visibilityMode === "course-only" ? Colors.primary : Colors.textMuted} />
+                      <Text style={[styles.visTileLabel, visibilityMode === "course-only" && styles.visTileLabelActive]}>Course-only</Text>
                       <Text style={styles.visTileDesc}>Only course members</Text>
                     </TouchableOpacity>
                   </View>
+                  <View style={[styles.visRow, { marginTop: 10 }]}>
+                    <TouchableOpacity style={[styles.visTile, visibilityMode === "circle-only" && styles.visTileActive]} onPress={() => { setVisibilityMode("circle-only"); setIsPublic(false); if (!selectedCircleId) setShowCirclePicker(true); }} activeOpacity={0.8} accessibilityRole="radio" accessibilityState={{ checked: visibilityMode === "circle-only" }}>
+                      <Ionicons name="people-circle-outline" size={20} color={visibilityMode === "circle-only" ? Colors.primary : Colors.textMuted} />
+                      <Text style={[styles.visTileLabel, visibilityMode === "circle-only" && styles.visTileLabelActive]}>Circle-only</Text>
+                      <Text style={styles.visTileDesc}>Only circle members</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* Circle picker (shown when circle-only is selected) */}
+                  {visibilityMode === "circle-only" && (
+                    <View style={{ marginTop: 10, gap: 8 }}>
+                      {selectedCircleId ? (
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                          <View style={{ flex: 1, flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: Colors.bgElevated, borderRadius: 8, padding: 10, borderWidth: 1, borderColor: Colors.borderDefault }}>
+                            <Ionicons name="people-circle" size={20} color={Colors.primary} />
+                            <Text style={{ fontSize: 13, fontWeight: "600", color: Colors.textPrimary, flex: 1 }} numberOfLines={1}>
+                              {adminCircles.find((c: any) => c._id === selectedCircleId)?.name ?? "Selected circle"}
+                            </Text>
+                          </View>
+                          <TouchableOpacity onPress={() => setShowCirclePicker(true)} style={{ padding: 8 }}>
+                            <Text style={{ fontSize: 12, fontWeight: "600", color: Colors.primary }}>Change</Text>
+                          </TouchableOpacity>
+                        </View>
+                      ) : (
+                        <TouchableOpacity
+                          style={{ backgroundColor: Colors.bgElevated, borderRadius: 8, padding: 12, borderWidth: 1, borderColor: Colors.borderDefault, alignItems: "center" }}
+                          onPress={() => setShowCirclePicker(true)}
+                        >
+                          <Text style={{ fontSize: 13, color: Colors.primary, fontWeight: "600" }}>Select a circle</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  )}
+
+                  {/* From Announcement indicator */}
+                  {isFromAnnouncement && paramCircleId && (
+                    <View style={{ marginTop: 10, flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: Colors.bgPrimarySubtle, borderRadius: 8, padding: 10, borderWidth: 1, borderColor: Colors.redBorder }}>
+                      <Ionicons name="megaphone" size={14} color={Colors.primary} />
+                      <Text style={{ fontSize: 12, color: Colors.primary, fontWeight: "600" }}>This will be posted as an announcement</Text>
+                    </View>
+                  )}
                 </View>
               </View>
             )}
@@ -591,6 +652,8 @@ function WriteArticleContent() {
                   </View>
                 </Modal>
 
+                {/* Circle picker modal */}
+
                 {/* Approval notice */}
                 <View style={styles.noticeBox}>
                   <Ionicons name="information-circle-outline" size={18} color={Colors.primary} />
@@ -622,6 +685,49 @@ function WriteArticleContent() {
               )}
             </View>
           </ScrollView>
+
+          {/* Circle picker modal (rendered outside step blocks so it's always accessible) */}
+          <Modal visible={showCirclePicker} transparent animationType="slide" onRequestClose={() => setShowCirclePicker(false)}>
+            <View style={styles.cpOverlay}>
+              <TouchableOpacity style={{ flex: 1 }} onPress={() => setShowCirclePicker(false)} accessibilityLabel="Close circle picker" />
+              <View style={styles.cpSheet}>
+                <View style={styles.cpHeader}>
+                  <Text style={styles.cpTitle} allowFontScaling={false}>Select Circle</Text>
+                  <TouchableOpacity onPress={() => setShowCirclePicker(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                    <Ionicons name="close" size={22} color={Colors.textPrimary} />
+                  </TouchableOpacity>
+                </View>
+                <FlatList
+                  data={adminCircles}
+                  keyExtractor={(item: any) => item._id}
+                  renderItem={({ item }: { item: any }) => {
+                    const active = item._id === selectedCircleId;
+                    return (
+                      <TouchableOpacity
+                        style={[styles.cpOption, active && styles.cpOptionActive]}
+                        onPress={() => { setSelectedCircleId(item._id); setShowCirclePicker(false); }}
+                        activeOpacity={0.8}
+                      >
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 10, flex: 1 }}>
+                          <Ionicons name="people-circle-outline" size={20} color={active ? Colors.primary : Colors.textMuted} />
+                          <View style={{ flex: 1 }}>
+                            <Text style={[styles.cpOptionText, active && styles.cpOptionTextActive]} numberOfLines={1}>{item.name}</Text>
+                            <Text style={styles.cpOptionSub}>{item.currentMembers} members · {item.accessType}</Text>
+                          </View>
+                        </View>
+                        {active && <Ionicons name="checkmark" size={18} color={Colors.primary} />}
+                      </TouchableOpacity>
+                    );
+                  }}
+                  ListEmptyComponent={
+                    <View style={{ padding: 20, alignItems: "center" }}>
+                      <Text style={{ fontSize: 13, color: Colors.textMuted }}>No circles available. Create a circle first.</Text>
+                    </View>
+                  }
+                />
+              </View>
+            </View>
+          </Modal>
         </MobileCard>
       </KeyboardAvoidingView>
     </AppBackground>

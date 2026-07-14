@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { api, internal } from "./_generated/api";
+import { ensureNotBanned } from "./moderationHelpers";
 
 // Helper function to extract mentions from comment content
 async function extractMentions(ctx: any, content: string) {
@@ -31,6 +32,7 @@ export const likeArticle = mutation({
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not authenticated");
+    await ensureNotBanned(ctx, userId);
 
     // Check if already liked
     const existingLike = await ctx.db
@@ -83,6 +85,7 @@ export const likeReel = mutation({
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not authenticated");
+    await ensureNotBanned(ctx, userId);
 
     // Check if already liked
     const existingLike = await ctx.db
@@ -135,6 +138,7 @@ export const bookmarkArticle = mutation({
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not authenticated");
+    await ensureNotBanned(ctx, userId);
 
     // Check if already bookmarked
     const existingBookmark = await ctx.db
@@ -174,6 +178,7 @@ export const bookmarkReel = mutation({
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not authenticated");
+    await ensureNotBanned(ctx, userId);
 
     // Check if already bookmarked
     const existingBookmark = await ctx.db
@@ -217,6 +222,7 @@ export const commentArticle = mutation({
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not authenticated");
+    await ensureNotBanned(ctx, userId);
 
     const commentId = await ctx.db.insert("comments", {
       articleId: args.articleId,
@@ -291,6 +297,7 @@ export const commentReel = mutation({
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not authenticated");
+    await ensureNotBanned(ctx, userId);
 
     const commentId = await ctx.db.insert("comments", {
       reelId: args.reelId,
@@ -576,6 +583,7 @@ export const clapArticle = mutation({
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not authenticated");
+    await ensureNotBanned(ctx, userId);
 
     // Optional: require access for gated articles
     const article = await ctx.db.get(args.articleId);
@@ -739,6 +747,7 @@ export const likeStream = mutation({
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not authenticated");
+    await ensureNotBanned(ctx, userId);
 
     // Check if already liked
     const existingLike = await ctx.db
@@ -783,6 +792,7 @@ export const bookmarkStream = mutation({
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not authenticated");
+    await ensureNotBanned(ctx, userId);
 
     // Check if already bookmarked
     const existingBookmark = await ctx.db

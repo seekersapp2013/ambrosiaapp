@@ -59,7 +59,6 @@ export function ReferralCreationForm({
   const [searchTerm,      setSearchTerm]       = useState("");
   const [debouncedSearch, setDebouncedSearch]  = useState("");
   const [selectedExperts, setSelectedExperts]  = useState<SelectedExpert[]>([]);
-  const [showDropdown,    setShowDropdown]     = useState(false);
   const [submitting,      setSubmitting]       = useState(false);
   const [submitError,     setSubmitError]      = useState("");
   const [titleError,      setTitleError]       = useState("");
@@ -71,16 +70,13 @@ export function ReferralCreationForm({
   // ── Convex ─────────────────────────────────────────────────────────────────
   const searchResults = useQuery(
     api.bookingSubscribers.getProvidersWithPagination,
-    debouncedSearch.length >= 2
-      ? { searchTerm: debouncedSearch, limit: 8, offset: 0 }
-      : "skip"
+    { searchTerm: debouncedSearch || undefined, limit: 30, offset: 0 }
   );
   const createReferral = useMutation(api.referrals.createReferral);
 
   // ── Search debounce ────────────────────────────────────────────────────────
   function handleSearchChange(text: string) {
     setSearchTerm(text);
-    setShowDropdown(text.length >= 2);
     if (debounceTimer.current) clearTimeout(debounceTimer.current);
     debounceTimer.current = setTimeout(() => {
       setDebouncedSearch(text);
@@ -99,9 +95,6 @@ export function ReferralCreationForm({
     if (selectedExperts.length >= 10) return;
 
     setSelectedExperts(prev => [...prev, { userId, name, jobTitle }]);
-    setSearchTerm("");
-    setDebouncedSearch("");
-    setShowDropdown(false);
     setExpertsError("");
   }, [selectedExperts]);
 
@@ -218,66 +211,8 @@ export function ReferralCreationForm({
 
       {/* ── Expert search ─────────────────────────────────────── */}
       <Text style={styles.sectionLabel}>Suggest Experts (min. 3)</Text>
-      <View style={styles.searchWrap}>
-        <AppInput
-          label=""
-          placeholder="Search by name, specialization…"
-          value={searchTerm}
-          onChangeText={handleSearchChange}
-          leadingIcon={<Ionicons name="search-outline" size={18} color={Colors.iconSecondary} />}
-          returnKeyType="search"
-          autoCapitalize="none"
-          accessibilityLabel="Search for experts to suggest"
-        />
 
-        {/* Dropdown results */}
-        {showDropdown && (
-          <View style={styles.dropdown}>
-            {searchResults === undefined ? (
-              <View style={styles.dropdownLoading}>
-                <ActivityIndicator size="small" color={Colors.actionPrimary} />
-              </View>
-            ) : filteredProviders.length === 0 ? (
-              <View style={styles.dropdownEmpty}>
-                <Text style={styles.dropdownEmptyText} allowFontScaling={false}>
-                  No providers found
-                </Text>
-              </View>
-            ) : (
-              filteredProviders.map((p: any) => {
-                const name = p.profile?.name ?? p.profile?.username ?? "Provider";
-                return (
-                  <TouchableOpacity
-                    key={p.subscriber._id}
-                    style={styles.dropdownItem}
-                    onPress={() => handleAddExpert(p)}
-                    activeOpacity={0.82}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Add ${name}`}
-                  >
-                    <View style={styles.dropdownAvatar}>
-                      <Text style={styles.dropdownAvatarText} allowFontScaling={false}>
-                        {name.charAt(0).toUpperCase()}
-                      </Text>
-                    </View>
-                    <View style={styles.dropdownInfo}>
-                      <Text style={styles.dropdownName} numberOfLines={1} allowFontScaling={false}>
-                        {name}
-                      </Text>
-                      <Text style={styles.dropdownTitle} numberOfLines={1} allowFontScaling={false}>
-                        {p.subscriber.jobTitle}
-                      </Text>
-                    </View>
-                    <Ionicons name="add-circle-outline" size={20} color={Colors.actionPrimary} />
-                  </TouchableOpacity>
-                );
-              })
-            )}
-          </View>
-        )}
-      </View>
-
-      {/* ── Selected experts ──────────────────────────────────── */}
+      {/* Selected experts (above the list) */}
       {selectedExperts.length > 0 && (
         <View style={styles.selectedSection}>
           <View style={styles.selectedHeader}>
@@ -323,6 +258,69 @@ export function ReferralCreationForm({
           ))}
         </View>
       )}
+
+      {/* Filter input */}
+      <AppInput
+        label=""
+        placeholder="Filter by name, specialization, job title…"
+        value={searchTerm}
+        onChangeText={handleSearchChange}
+        leadingIcon={<Ionicons name="filter-outline" size={18} color={Colors.iconSecondary} />}
+        returnKeyType="search"
+        autoCapitalize="none"
+        accessibilityLabel="Filter providers"
+      />
+
+      {/* Provider list (always visible) */}
+      <View style={styles.providerList}>
+        {searchResults === undefined ? (
+          <View style={styles.dropdownLoading}>
+            <ActivityIndicator size="small" color={Colors.actionPrimary} />
+            <Text style={styles.dropdownLoadingText} allowFontScaling={false}>Loading providers…</Text>
+          </View>
+        ) : filteredProviders.length === 0 ? (
+          <View style={styles.dropdownEmpty}>
+            <Text style={styles.dropdownEmptyText} allowFontScaling={false}>
+              No providers match your filter
+            </Text>
+          </View>
+        ) : (
+          filteredProviders.map((p: any) => {
+            const name = p.profile?.name ?? p.profile?.username ?? "Provider";
+            const isAlreadySelected = selectedExperts.find((e) => e.userId === p.subscriber.userId);
+            return (
+              <TouchableOpacity
+                key={p.subscriber._id}
+                style={[styles.dropdownItem, isAlreadySelected && { backgroundColor: Colors.bgPrimaryMid, opacity: 0.7 }]}
+                onPress={() => handleAddExpert(p)}
+                activeOpacity={0.82}
+                disabled={!!isAlreadySelected}
+                accessibilityRole="button"
+                accessibilityLabel={`Add ${name}`}
+              >
+                <View style={styles.dropdownAvatar}>
+                  <Text style={styles.dropdownAvatarText} allowFontScaling={false}>
+                    {name.charAt(0).toUpperCase()}
+                  </Text>
+                </View>
+                <View style={styles.dropdownInfo}>
+                  <Text style={styles.dropdownName} numberOfLines={1} allowFontScaling={false}>
+                    {name}
+                  </Text>
+                  <Text style={styles.dropdownTitle} numberOfLines={1} allowFontScaling={false}>
+                    {p.subscriber.jobTitle}{p.subscriber.specialization ? ` · ${p.subscriber.specialization}` : ""}
+                  </Text>
+                </View>
+                {isAlreadySelected ? (
+                  <Ionicons name="checkmark-circle" size={20} color={Colors.statusSuccess} />
+                ) : (
+                  <Ionicons name="add-circle-outline" size={20} color={Colors.actionPrimary} />
+                )}
+              </TouchableOpacity>
+            );
+          })
+        )}
+      </View>
 
       {/* Experts error */}
       {expertsError !== "" && (
@@ -462,7 +460,8 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     maxHeight: 240,
   },
-  dropdownLoading: { padding: spacing.space4, alignItems: "center" },
+  dropdownLoading: { flexDirection: "row", padding: spacing.space4, alignItems: "center", gap: spacing.space2 },
+  dropdownLoadingText: { ...typeScale.bodySM, color: Colors.textMuted },
   dropdownEmpty: { padding: spacing.space4, alignItems: "center" },
   dropdownEmptyText: { ...typeScale.bodySM, color: Colors.textDisabled },
   dropdownItem: {
@@ -567,4 +566,15 @@ const styles = StyleSheet.create({
   btnRow: { flexDirection: "row", gap: spacing.space3 },
   btnCancel: { flex: 1 },
   btnSubmit: { flex: 2 },
+
+  // Provider list (always visible)
+  providerList: {
+    backgroundColor: Colors.bgSurface,
+    borderRadius: radius.radiusMD,
+    borderWidth: 1,
+    borderColor: Colors.borderDefault,
+    overflow: "hidden",
+    maxHeight: 280,
+    marginBottom: spacing.space3,
+  },
 });

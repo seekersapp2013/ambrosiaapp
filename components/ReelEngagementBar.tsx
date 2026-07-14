@@ -28,6 +28,7 @@ import { useRouter } from "expo-router";
 import { Colors } from "@/tokens/colors";
 import { typeScale } from "@/tokens/typography";
 import { ReelCommentsSheet } from "@/components/ReelCommentsSheet";
+import { ConsultationPaymentSheet } from "@/components/ConsultationPaymentSheet";
 
 interface ReelAuthor {
   id?: Id<"users">;
@@ -59,6 +60,15 @@ export function ReelEngagementBar({
   const router = useRouter();
   const [shareLoading, setShareLoading] = useState(false);
   const [commentsOpen, setCommentsOpen] = useState(false);
+  const [askLoading, setAskLoading] = useState(false);
+  const [showPayment, setShowPayment] = useState(false);
+  const [consultationData, setConsultationData] = useState<{
+    circleId: string;
+    fee: number;
+    currency: string;
+    expertName: string;
+    specialization?: string | null;
+  } | null>(null);
 
   // Lock = gated AND no access. disabled prop also locks everything.
   const locked = disabled || (reel.isGated === true && !hasAccess);
@@ -86,6 +96,7 @@ export function ReelEngagementBar({
   const bookmarkReel = useMutation(api.engagement.bookmarkReel);
   const followUser   = useMutation(api.follows.followUser);
   const startChat    = useMutation(api.chat.startChatWithAuthor);
+  const startConsultation = useMutation(api.consultations.startConsultation);
 
   // ── Handlers (only reachable when not locked) ─────────────────────────────
   const handleLike = useCallback(async () => {
@@ -105,17 +116,37 @@ export function ReelEngagementBar({
   }, [reel.author.id, followUser]);
 
   const handleMessage = useCallback(async () => {
-    if (!reel.author.id) return;
+    if (!reel.author.id || askLoading) return;
+    setAskLoading(true);
     try {
-      const result = await startChat({
-        authorId: reel.author.id,
+      const result = await startConsultation({
+        expertId: reel.author.id,
         contentType: "reel",
         contentId: reel._id,
-        initialMessage: "Hi! I saw your pulse and wanted to chat.",
       });
-      if ((result as any)?.conversationId) router.push("/(tabs)/notification");
-    } catch (e: any) { Alert.alert("Error", e.message ?? "Failed to start chat"); }
-  }, [reel, startChat, router]);
+
+      if (result.requiresPayment) {
+        setConsultationData({
+          circleId: result.circleId,
+          fee: result.fee ?? 0,
+          currency: result.currency ?? "USD",
+          expertName: reel.author.name ?? reel.author.username ?? "Expert",
+          specialization: null,
+        });
+        setShowPayment(true);
+      } else {
+        // Navigate directly to the consultation circle chat
+        router.push({
+          pathname: "/(tabs)/circle-chat",
+          params: { circleId: result.circleId },
+        } as any);
+      }
+    } catch (e: any) {
+      Alert.alert("Error", e.message ?? "Could not start consultation.");
+    } finally {
+      setAskLoading(false);
+    }
+  }, [reel, askLoading, startConsultation, router]);
 
   const handleShare = useCallback(async () => {
     if (shareLoading) return;
@@ -201,10 +232,14 @@ export function ReelEngagementBar({
           <Text style={styles.btnLabel} allowFontScaling={false}>Comment</Text>
         </Btn>
 
-        {/* Message */}
-        <Btn onPress={handleMessage} label="Message author">
-          <Ionicons name="paper-plane-outline" size={26} color="#fff" />
-          <Text style={styles.btnLabel} allowFontScaling={false}>Message</Text>
+        {/* Ask a Question */}
+        <Btn onPress={handleMessage} label="Ask a question">
+          {askLoading ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <Ionicons name="chatbubbles-outline" size={26} color="#fff" />
+          )}
+          <Text style={styles.btnLabel} allowFontScaling={false}>Ask</Text>
         </Btn>
 
         {/* Bookmark */}
@@ -239,6 +274,26 @@ export function ReelEngagementBar({
           reelId={reel._id}
           visible={commentsOpen}
           onClose={() => setCommentsOpen(false)}
+        />
+      )}
+
+      {/* Consultation payment sheet */}
+      {consultationData && (
+        <ConsultationPaymentSheet
+          visible={showPayment}
+          circleId={consultationData.circleId}
+          expertName={consultationData.expertName}
+          specialization={consultationData.specialization}
+          fee={consultationData.fee}
+          currency={consultationData.currency}
+          onClose={() => setShowPayment(false)}
+          onSuccess={(circleId) => {
+            setShowPayment(false);
+            router.push({
+              pathname: "/(tabs)/circle-chat",
+              params: { circleId },
+            } as any);
+          }}
         />
       )}
     </View>

@@ -3,7 +3,7 @@ import {
   View, Text, TouchableOpacity, StyleSheet,
   FlatList, ActivityIndicator,
 } from "react-native";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
@@ -138,8 +138,9 @@ function EventManageCard({ event, onEdit, onCancel }: {
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function EventsScreen() {
   const router = useRouter();
+  const { action, circleId: paramCircleId } = useLocalSearchParams<{ action?: string; circleId?: string }>();
 
-  const [showCreateSheet, setShowCreateSheet] = useState(false);
+  const [showCreateSheet, setShowCreateSheet] = useState(action === "create");
   const [editingEvent,    setEditingEvent]    = useState<any>(null);
   const [cancelTarget,    setCancelTarget]    = useState<any>(null);
   const [cancelReason,    setCancelReason]    = useState("");
@@ -282,6 +283,7 @@ export default function EventsScreen() {
       >
         <EventCreationForm
           existingEvent={editingEvent}
+          circleId={paramCircleId}
           onSuccess={() => { setShowCreateSheet(false); setEditingEvent(null); }}
           onCancel={() => { setShowCreateSheet(false); setEditingEvent(null); }}
         />

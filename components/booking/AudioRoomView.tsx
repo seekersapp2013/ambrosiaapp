@@ -35,10 +35,10 @@ import {
   useConnectionState,
   useLocalParticipant,
   useRemoteParticipants,
+  useRoomContext,
 } from "@livekit/react-native";
 import {
   ConnectionState,
-  type Room as RoomType,
 } from "livekit-client";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
@@ -267,7 +267,6 @@ interface AudioRoomContentProps {
   isHost: boolean;
   role: string;
   onLeave: () => void;
-  roomRef: React.RefObject<RoomType | null>;
 }
 
 function AudioRoomContent({
@@ -276,12 +275,14 @@ function AudioRoomContent({
   isHost,
   role,
   onLeave,
-  roomRef,
 }: AudioRoomContentProps) {
   const [isMuted,       setIsMuted]       = useState(role === "LISTENER");
   const [handRaised,    setHandRaised]    = useState(false);
   const [handPanelOpen, setHandPanelOpen] = useState(false);
   const [connecting,    setConnecting]    = useState(true);
+
+  // Get the Room instance from LiveKitRoom context (properly bound to native WebRTC)
+  const room = useRoomContext();
 
   // Convex mutations
   const raiseHandMutation = useMutation(api.events.raiseHand);
@@ -298,6 +299,25 @@ function AudioRoomContent({
   useEffect(() => {
     if (connectionState === ConnectionState.Connected) setConnecting(false);
   }, [connectionState]);
+
+  // ── Track publication verification for audio ──────────────────────────────
+  // After connection, verify the mic track was actually published for speakers/hosts.
+  // If the auto-publish didn't fire (native pipeline race), force-enable mic.
+  useEffect(() => {
+    if (connectionState !== ConnectionState.Connected || !localParticipant) return;
+    if (!localIsSpeaker) return; // Listeners don't publish
+
+    const timer = setTimeout(() => {
+      const micPub = localParticipant.getTrackPublication("microphone" as any);
+      if (!micPub?.track) {
+        localParticipant.setMicrophoneEnabled(true).catch(() => {});
+      }
+      // Sync muted state with actual track state
+      setIsMuted(!localParticipant.isMicrophoneEnabled);
+    }, 1500);
+
+    return () => clearTimeout(timer);
+  }, [connectionState, localParticipant, localIsSpeaker]);
 
   // Parse participant metadata
   function getMeta(participant: any): { role: string; handRaised: boolean } {
@@ -390,9 +410,9 @@ function AudioRoomContent({
 
   // ── Leave ─────────────────────────────────────────────────────────────────
   const handleLeave = useCallback(() => {
-    roomRef.current?.disconnect();
+    room?.disconnect();
     onLeave();
-  }, [onLeave, roomRef]);
+  }, [onLeave, room]);
 
   return (
     <View style={styles.root}>
@@ -621,21 +641,18 @@ export function AudioRoomView({
   role,
   onLeave,
 }: AudioRoomViewProps) {
-  const roomRef = useRef<RoomType | null>(null);
-
-  // Create the Room instance once. adaptiveStream: false avoids ElementInfo requirement.
-  if (!roomRef.current) {
-    const { Room: LKRoom } = require("livekit-client");
-    roomRef.current = new LKRoom({ adaptiveStream: false, dynacast: false });
-  }
-
+  // Let <LiveKitRoom> create its own Room internally via the `options` prop,
+  // ensuring the native WebRTC bindings (from registerGlobals()) are properly wired up.
   return (
     <Room
-      room={roomRef.current ?? undefined}
       serverUrl={wsUrl}
       token={token}
       connect
       audio
+      options={{
+        adaptiveStream: false,
+        dynacast: false,
+      }}
       onDisconnected={onLeave}
     >
       <AudioRoomContent
@@ -644,7 +661,6 @@ export function AudioRoomView({
         isHost={isHost}
         role={role}
         onLeave={onLeave}
-        roomRef={roomRef}
       />
     </Room>
   );
