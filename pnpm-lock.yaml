@@ -23,6 +23,9 @@ importers:
       '@ethersproject/shims':
         specifier: ^5.8.0
         version: 5.8.0
+      '@expo-google-fonts/roboto':
+        specifier: ^0.4.3
+        version: 0.4.3
       '@expo/vector-icons':
         specifier: ^15.0.3
         version: 15.1.1(expo-font@14.0.12(expo@54.0.37)(react-native@0.81.5(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.1.17)(react@19.1.0)(supports-color@8.1.1))(react@19.1.0))(react-native@0.81.5(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.1.17)(react@19.1.0)(supports-color@8.1.1))(react@19.1.0)
@@ -1176,6 +1179,9 @@ packages:
 
   '@ethersproject/shims@5.8.0':
     resolution: {integrity: sha512-6yHbI6DHVaP1KjU0n9gKm8zrzU11EXwNG3VLetyIDBr2YRGpa0nrjk1QnZtLGiOqc+6iSiIoAzfAHf6iPdUunw==}
+
+  '@expo-google-fonts/roboto@0.4.3':
+    resolution: {integrity: sha512-kX3wmpmu06fN1yOwYWMdjYJWNUYW6xUiAGeHbvPzzSEb3A3j23JelQ3tAgwQNKgEKRq6wtMmzixy2r7y9c8dsA==}
 
   '@expo/cli@54.0.27':
     resolution: {integrity: sha512-BxKOr6e8wmUwhGSyEVKY+CHWgS3Cre9ibgx1QWcdCenKTVKAz62qGmYL51q0lCcKg6vQY+4Usw9RK5Il4ZFaIA==}
@@ -7667,6 +7673,8 @@ snapshots:
   '@ethereumjs/rlp@5.0.2': {}
 
   '@ethersproject/shims@5.8.0': {}
+
+  '@expo-google-fonts/roboto@0.4.3': {}
 
   '@expo/cli@54.0.27(expo-router@6.0.24)(expo@54.0.37)(react-native@0.81.5(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.1.17)(react@19.1.0)(supports-color@8.1.1))(supports-color@8.1.1)(typescript@5.9.3)':
     dependencies:

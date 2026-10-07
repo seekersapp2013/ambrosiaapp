@@ -24,6 +24,7 @@
     "@convex-dev/auth": "^0.0.68",
     "@convex-dev/resend": "^0.2.3",
     "@ethersproject/shims": "^5.8.0",
+    "@expo-google-fonts/roboto": "^0.4.3",
     "@expo/vector-icons": "^15.0.3",
     "@livekit/react-native": "^2.11.0",
     "@livekit/react-native-webrtc": "^144.1.0",
