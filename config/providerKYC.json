@@ -1,0 +1,301 @@
+{
+  "id": "signup_provider",
+  "title": "Service Provider KYC",
+  "steps": [
+    {
+      "step": 1,
+      "id": "professional_identity",
+      "title": "Professional Info",
+      "subtitle": "Specify your primary job title and specialization so clients can discover you.",
+      "skippable": true,
+      "fields": [
+        {
+          "id": "jobTitle",
+          "type": "text",
+          "label": "Job Title",
+          "required": true,
+          "placeholder": "e.g. Licensed Therapist, Life Coach, Nutritionist",
+          "scorePoints": 5,
+          "scoreCategory": "qualifications",
+          "validation": {
+            "minLength": 2,
+            "message": "Job title is required"
+          },
+          "dbTable": "bookingSubscribers",
+          "dbField": "jobTitle"
+        },
+        {
+          "id": "specialization",
+          "type": "text",
+          "label": "Specialization",
+          "required": true,
+          "placeholder": "e.g. Anxiety & Stress, Sports Nutrition",
+          "scorePoints": 5,
+          "scoreCategory": "qualifications",
+          "validation": {
+            "minLength": 2,
+            "message": "Specialization is required"
+          },
+          "dbTable": "bookingSubscribers",
+          "dbField": "specialization"
+        },
+        {
+          "id": "subSpecialty",
+          "type": "text",
+          "label": "Sub-Specialty Focus",
+          "required": false,
+          "placeholder": "e.g. Interventional Cardiology, Pediatric Nutrition",
+          "scorePoints": 8,
+          "scoreCategory": "qualifications",
+          "dbTable": "bookingSubscribers",
+          "dbField": "subSpecialty"
+        }
+      ]
+    },
+    {
+      "step": 2,
+      "id": "credentials_experience",
+      "title": "Credentials & Experience",
+      "subtitle": "Provide your professional practice background, licensing, and primary qualifications.",
+      "skippable": true,
+      "fields": [
+        {
+          "id": "yearsOfExperience",
+          "type": "number",
+          "label": "Years of Professional Experience",
+          "required": true,
+          "placeholder": "e.g. 8",
+          "scorePoints": 10,
+          "scoreCategory": "experience",
+          "validation": {
+            "minNumber": 0,
+            "message": "Enter valid years of practice"
+          },
+          "dbTable": "providerTierData",
+          "dbField": "yearsOfExperience"
+        },
+        {
+          "id": "licenseNumber",
+          "type": "text",
+          "label": "License / Registration Number",
+          "required": false,
+          "placeholder": "e.g. MDCN/R/12345",
+          "scorePoints": 10,
+          "scoreCategory": "verification",
+          "dbTable": "providerTierData",
+          "dbField": "licenseNumber"
+        },
+        {
+          "id": "registrationCouncil",
+          "type": "text",
+          "label": "Medical / Professional Council",
+          "required": false,
+          "placeholder": "e.g. MDCN, NMCN, HCPC, GMC",
+          "scorePoints": 10,
+          "scoreCategory": "verification",
+          "dbTable": "providerTierData",
+          "dbField": "registrationCouncil"
+        },
+        {
+          "id": "highestQualification",
+          "type": "select",
+          "label": "Primary Qualification Category",
+          "required": false,
+          "scorePoints": 15,
+          "scoreCategory": "qualifications",
+          "options": [
+            { "value": "basic_degree", "label": "Basic Degree (MBBS, BSc, BPharm)" },
+            { "value": "masters", "label": "Master's Degree (MSc, MPH)" },
+            { "value": "residency", "label": "Residency Training" },
+            { "value": "fellowship", "label": "Fellowship (FWACS, FMCP, FRCS)" },
+            { "value": "consultant_status", "label": "Consultant Specialist Status" },
+            { "value": "doctorate", "label": "Doctorate / PhD" },
+            { "value": "additional_certification", "label": "Professional Board Certification" }
+          ],
+          "dbTable": "providerQualifications",
+          "dbField": "category"
+        },
+        {
+          "id": "qualificationTitle",
+          "type": "text",
+          "label": "Degree / Qualification Title",
+          "required": false,
+          "placeholder": "e.g. Bachelor of Medicine, Doctor of Physiotherapy",
+          "scorePoints": 5,
+          "scoreCategory": "qualifications",
+          "dbTable": "providerQualifications",
+          "dbField": "name"
+        },
+        {
+          "id": "institution",
+          "type": "text",
+          "label": "Graduating Institution / University",
+          "required": false,
+          "placeholder": "e.g. University of Ibadan",
+          "scorePoints": 5,
+          "scoreCategory": "qualifications",
+          "dbTable": "providerQualifications",
+          "dbField": "institution"
+        },
+        {
+          "id": "graduationYear",
+          "type": "number",
+          "label": "Year Obtained",
+          "required": false,
+          "placeholder": "e.g. 2018",
+          "scorePoints": 5,
+          "scoreCategory": "qualifications",
+          "dbTable": "providerQualifications",
+          "dbField": "yearObtained"
+        },
+        {
+          "id": "geographicRecognition",
+          "type": "select",
+          "label": "Practice Recognition Scope",
+          "required": false,
+          "scorePoints": 5,
+          "scoreCategory": "communityImpact",
+          "options": [
+            { "value": "community", "label": "Community / Local Level" },
+            { "value": "regional", "label": "Regional Level" },
+            { "value": "state", "label": "State-wide Recognition" },
+            { "value": "national", "label": "National / Federal Recognition" }
+          ],
+          "dbTable": "providerTierData",
+          "dbField": "geographicRecognition"
+        }
+      ]
+    },
+    {
+      "step": 3,
+      "id": "rates_currency",
+      "title": "Rates & Currency",
+      "subtitle": "Choose your preferred currency and specify your hourly rates.",
+      "skippable": true,
+      "fields": [
+        {
+          "id": "sessionCurrency",
+          "type": "currency-select",
+          "label": "Pricing Currency",
+          "required": true,
+          "scorePoints": 0,
+          "scoreCategory": "bonus",
+          "dbTable": "bookingSubscribers",
+          "dbField": "sessionCurrency"
+        },
+        {
+          "id": "oneOnOnePrice",
+          "type": "decimal",
+          "label": "1-on-1 Hourly Rate",
+          "required": true,
+          "placeholder": "e.g. 100",
+          "scorePoints": 5,
+          "scoreCategory": "referralPerformance",
+          "validation": {
+            "minNumber": 0.01,
+            "message": "Enter a valid 1-on-1 price"
+          },
+          "dbTable": "bookingSubscribers",
+          "dbField": "oneOnOnePrice"
+        },
+        {
+          "id": "groupSessionPrice",
+          "type": "decimal",
+          "label": "Group Rate (Optional)",
+          "required": false,
+          "placeholder": "e.g. 70",
+          "scorePoints": 5,
+          "scoreCategory": "referralPerformance",
+          "validation": {
+            "minNumber": 0.01,
+            "message": "Enter a valid group price"
+          },
+          "dbTable": "bookingSubscribers",
+          "dbField": "groupSessionPrice"
+        }
+      ]
+    },
+    {
+      "step": 4,
+      "id": "about_offering",
+      "title": "About & Offering",
+      "subtitle": "Write a detailed bio and describe what outcomes clients will gain during your sessions.",
+      "skippable": true,
+      "fields": [
+        {
+          "id": "aboutUser",
+          "type": "textarea",
+          "label": "Bio & Background",
+          "required": true,
+          "placeholder": "Tell potential clients about your background and credentials...",
+          "maxLength": 500,
+          "scorePoints": 5,
+          "scoreCategory": "knowledgeContributions",
+          "validation": {
+            "minLength": 10,
+            "message": "Bio & Background is required"
+          },
+          "dbTable": "bookingSubscribers",
+          "dbField": "aboutUser"
+        },
+        {
+          "id": "offerDescription",
+          "type": "textarea",
+          "label": "What Clients Will Get",
+          "required": true,
+          "placeholder": "Describe what a session with you looks like...",
+          "maxLength": 500,
+          "scorePoints": 5,
+          "scoreCategory": "knowledgeContributions",
+          "validation": {
+            "minLength": 10,
+            "message": "Offer description is required"
+          },
+          "dbTable": "bookingSubscribers",
+          "dbField": "offerDescription"
+        },
+        {
+          "id": "xLink",
+          "type": "url",
+          "label": "X (Twitter)",
+          "required": false,
+          "placeholder": "https://x.com/yourhandle",
+          "scorePoints": 2,
+          "scoreCategory": "communityImpact",
+          "dbTable": "bookingSubscribers",
+          "dbField": "xLink"
+        },
+        {
+          "id": "linkedInLink",
+          "type": "url",
+          "label": "LinkedIn",
+          "required": false,
+          "placeholder": "https://linkedin.com/in/yourprofile",
+          "scorePoints": 3,
+          "scoreCategory": "verification",
+          "dbTable": "bookingSubscribers",
+          "dbField": "linkedInLink"
+        }
+      ]
+    },
+    {
+      "step": 5,
+      "id": "schedule",
+      "title": "Weekly Schedule",
+      "subtitle": "Toggle the days you are available and configure your open hours.",
+      "skippable": true,
+      "fields": [
+        {
+          "id": "openHours",
+          "type": "schedule",
+          "label": "Weekly Availability Schedule",
+          "required": true,
+          "scorePoints": 5,
+          "scoreCategory": "referralPerformance",
+          "dbTable": "bookingSubscribers",
+          "dbField": "openHours"
+        }
+      ]
+    }
+  ]
+}

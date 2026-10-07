@@ -410,7 +410,7 @@ export function BookingConfirmation({
           label={`Confirm & Pay ${currency} ${totalAmount.toFixed(2)}`}
           onPress={handleConfirmAndPay}
           disabled={!canAfford || isLoadingAffordability}
-          loading={step === "processing"}
+          loading={(step as any) === "processing"}
           style={styles.payBtn}
           icon={<Ionicons name="lock-closed-outline" size={18} color="#FFFFFF" />}
           accessibilityLabel={`Confirm and pay ${currency} ${totalAmount.toFixed(2)}`}

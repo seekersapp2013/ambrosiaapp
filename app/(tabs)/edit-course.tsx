@@ -30,6 +30,8 @@ import { LoadingSpinner } from "@/components/stream/LoadingSpinner";
 import { EmptyState } from "@/components/stream/EmptyState";
 import { Colors } from "@/constants/Colors";
 import { useNavigationHistory } from "@/context/NavigationHistoryContext";
+import { useIsApprovedProvider } from "@/hooks/useIsApprovedProvider";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 const CATEGORIES = [
   "Health", "Fitness", "Nutrition", "Mental Health", "Medicine",
@@ -42,7 +44,38 @@ const CURRENCIES = ["USD", "NGN", "GBP", "EUR", "CAD", "AUD", "GHS", "KES", "ZAR
 export default function EditCourseScreen() {
   const router = useRouter();
   const history = useNavigationHistory();
+  const { isApprovedProvider } = useIsApprovedProvider();
   const { courseId } = useLocalSearchParams<{ courseId: string }>();
+
+  if (!isApprovedProvider) {
+    return (
+      <AppBackground>
+        <SafeAreaView style={{ flex: 1 }}>
+          <MobileCard style={{ flex: 1, justifyContent: "center", alignItems: "center", padding: 24 }}>
+            <Ionicons name="lock-closed-outline" size={64} color={Colors.primary} />
+            <Text style={{ fontSize: 20, fontWeight: "700", color: Colors.textPrimary, marginTop: 16, textAlign: "center" }}>
+              Approved Provider Required
+            </Text>
+            <Text style={{ fontSize: 14, color: Colors.textMuted, marginTop: 8, textAlign: "center", lineHeight: 20 }}>
+              Only approved providers can create and manage courses. Become a provider to get started.
+            </Text>
+            <TouchableOpacity
+              style={{ backgroundColor: Colors.primary, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 8, marginTop: 24 }}
+              onPress={() => router.push("/(tabs)/booking/provider-signup" as any)}
+            >
+              <Text style={{ color: "#fff", fontWeight: "600", fontSize: 15 }}>Become a Provider</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={{ marginTop: 16 }}
+              onPress={() => history.goBack(router, "/(tabs)/learn")}
+            >
+              <Text style={{ color: Colors.textMuted, fontSize: 14 }}>Go Back</Text>
+            </TouchableOpacity>
+          </MobileCard>
+        </SafeAreaView>
+      </AppBackground>
+    );
+  }
 
   const course = useQuery(
     api.courses.getCourse,

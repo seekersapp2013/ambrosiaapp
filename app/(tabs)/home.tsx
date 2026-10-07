@@ -1,5 +1,5 @@
 import { api } from "@/convex/_generated/api";
-import { useQuery } from "convex/react";
+import { useQuery, useMutation } from "convex/react";
 import {
   ScrollView, TouchableOpacity,
   Alert, Modal, TextInput, StyleSheet, View as RNView,
@@ -16,12 +16,15 @@ import { AppBackground } from "@/components/AppBackground";
 import { MobileCard, useCardInsets } from "@/components/MobileCard";
 import { useRouter } from "expo-router";
 import { NotificationBanner } from "./notification/NotificationBanner";
+import { navigateToNotificationTarget } from "@/utils/notificationNavigation";
+import { Id } from "@/convex/_generated/dataModel";
 
 export default function HomeScreen() {
   const router = useRouter();
   const viewer = useQuery(api.users.viewer);
   const recentUnread = useQuery(api.notifications.getRecentUnreadNotifications, { limit: 5 });
   const unreadCount  = useQuery(api.notifications.getUnreadCount);
+  const markAsRead   = useMutation(api.notifications.markAsRead);
   const [showWalletDetails, setShowWalletDetails] = useState(false);
   const [decryptedPrivateKey, setDecryptedPrivateKey] = useState("");
   const [decryptedMnemonic, setDecryptedMnemonic] = useState("");
@@ -126,9 +129,16 @@ export default function HomeScreen() {
         {recentUnread && recentUnread.length > 0 && (
           <NotificationBanner
             notifications={recentUnread}
-            onNotificationClick={(id) =>
-              router.push({ pathname: "/(tabs)/notification", params: { highlightId: id } })
-            }
+            onNotificationClick={(id) => {
+              const notif = recentUnread.find((n) => n._id === id);
+              if (notif) {
+                navigateToNotificationTarget(router, notif as any, undefined, (notifId) => {
+                  markAsRead({ notificationId: notifId as Id<"notifications"> }).catch(() => {});
+                });
+              } else {
+                router.push({ pathname: "/(tabs)/notification", params: { highlightId: id } });
+              }
+            }}
             onNotificationDismiss={() => {}}
             onDismiss={() => router.push("/(tabs)/notification")}
           />

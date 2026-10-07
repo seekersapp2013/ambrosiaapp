@@ -33,6 +33,7 @@ import { AppLoader } from "@/components/AppLoader";
 import { MobileCard, MOBILE_CARD_ENABLED } from "@/components/MobileCard";
 import { ReelFeedItem, ReelItem } from "@/components/ReelFeedItem";
 import { ReelEngagementBar } from "@/components/ReelEngagementBar";
+import { useIsApprovedProvider } from "@/hooks/useIsApprovedProvider";
 import { Colors } from "@/tokens/colors";
 import { typeScale } from "@/tokens/typography";
 import { spacing } from "@/tokens/spacing";
@@ -50,6 +51,7 @@ function ReelsFeed() {
   const flatListRef = useRef<FlatList<ReelItem>>(null);
 
   const reels = useQuery(api.reels.listReels, { limit: 20 });
+  const { isApprovedProvider } = useIsApprovedProvider();
 
   // ── Pause video when leaving this tab, resume when returning ─────────────
   useFocusEffect(
@@ -156,18 +158,20 @@ function ReelsFeed() {
             <Text style={styles.emptySub} allowFontScaling={false}>
               Be the first to share a Pulse
             </Text>
-            <TouchableOpacity
-              style={styles.createBtn}
-              onPress={() => router.push("/(tabs)/write-reel")}
-              activeOpacity={0.85}
-              accessibilityRole="button"
-              accessibilityLabel="Create Pulse"
-            >
-              <Ionicons name="add" size={20} color="#fff" />
-              <Text style={styles.createBtnText} allowFontScaling={false}>
-                Create Pulse
-              </Text>
-            </TouchableOpacity>
+            {isApprovedProvider && (
+              <TouchableOpacity
+                style={styles.createBtn}
+                onPress={() => router.push("/(tabs)/write-reel")}
+                activeOpacity={0.85}
+                accessibilityRole="button"
+                accessibilityLabel="Create Pulse"
+              >
+                <Ionicons name="add" size={20} color="#fff" />
+                <Text style={styles.createBtnText} allowFontScaling={false}>
+                  Create Pulse
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
         </MobileCard>
       </AppBackground>
@@ -298,18 +302,20 @@ function ReelsFeed() {
         )}
 
         {/* ── FAB — inside card, bottom-right corner ────────────────── */}
-        <TouchableOpacity
-          style={[
-            styles.fab,
-            { right: spacing.space4, bottom: effectiveTabBarHeight + 16 },
-          ]}
-          onPress={() => router.push("/(tabs)/write-reel")}
-          activeOpacity={0.85}
-          accessibilityRole="button"
-          accessibilityLabel="Create reel"
-        >
-          <Ionicons name="add" size={28} color="#fff" />
-        </TouchableOpacity>
+        {isApprovedProvider && (
+          <TouchableOpacity
+            style={[
+              styles.fab,
+              { right: spacing.space4, bottom: effectiveTabBarHeight + 16 },
+            ]}
+            onPress={() => router.push("/(tabs)/write-reel")}
+            activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel="Create reel"
+          >
+            <Ionicons name="add" size={28} color="#fff" />
+          </TouchableOpacity>
+        )}
       </MobileCard>
     </AppBackground>
   );

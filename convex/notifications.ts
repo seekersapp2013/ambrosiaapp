@@ -15,6 +15,78 @@ export interface NotificationType {
 }
 
 export const NOTIFICATION_TYPES: Record<string, NotificationType> = {
+  TIER_PROMOTION: {
+    id: 'TIER_PROMOTION',
+    name: 'Tier Promotion',
+    description: 'You have been promoted to a higher recognition tier',
+    category: 'system',
+    priority: 'high',
+    batchable: false,
+    defaultChannels: ['in_app', 'email']
+  },
+  TIER_DEMOTION: {
+    id: 'TIER_DEMOTION',
+    name: 'Tier Demotion',
+    description: 'Your recognition tier has been updated',
+    category: 'system',
+    priority: 'high',
+    batchable: false,
+    defaultChannels: ['in_app', 'email']
+  },
+  INACTIVITY_WARNING_90: {
+    id: 'INACTIVITY_WARNING_90',
+    name: 'Inactivity Warning (90 Days)',
+    description: 'Account inactive for 90 days',
+    category: 'system',
+    priority: 'medium',
+    batchable: false,
+    defaultChannels: ['in_app']
+  },
+  INACTIVITY_WARNING_180: {
+    id: 'INACTIVITY_WARNING_180',
+    name: 'Inactivity Warning (180 Days)',
+    description: 'Account inactive for 180 days',
+    category: 'system',
+    priority: 'high',
+    batchable: false,
+    defaultChannels: ['in_app', 'email']
+  },
+  INACTIVITY_DEMOTION_365: {
+    id: 'INACTIVITY_DEMOTION_365',
+    name: 'Inactivity Demotion (365 Days)',
+    description: 'Tier demoted due to 365 days inactivity',
+    category: 'system',
+    priority: 'high',
+    batchable: false,
+    defaultChannels: ['in_app', 'email']
+  },
+  VERIFICATION_APPROVED: {
+    id: 'VERIFICATION_APPROVED',
+    name: 'Verification Approved',
+    description: 'Your verification document was approved',
+    category: 'system',
+    priority: 'medium',
+    batchable: false,
+    defaultChannels: ['in_app', 'email']
+  },
+  VERIFICATION_REJECTED: {
+    id: 'VERIFICATION_REJECTED',
+    name: 'Verification Rejected',
+    description: 'Your verification document was rejected',
+    category: 'system',
+    priority: 'high',
+    batchable: false,
+    defaultChannels: ['in_app', 'email']
+  },
+  NEW_REVIEW: {
+    id: 'NEW_REVIEW',
+    name: 'New Patient Review',
+    description: 'A patient left you a review',
+    category: 'engagement',
+    priority: 'medium',
+    batchable: true,
+    defaultChannels: ['in_app', 'email']
+  },
   NEW_FOLLOWER: {
     id: 'NEW_FOLLOWER',
     name: 'New Follower',
@@ -2706,5 +2778,27 @@ export const getNotificationSettingsSummary = query({
     });
 
     return summary;
+  },
+});
+
+export const savePushToken = mutation({
+  args: { pushToken: v.string() },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return { success: false, reason: "Not authenticated" };
+
+    const profile = await ctx.db
+      .query("profiles")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .first();
+
+    if (profile) {
+      await ctx.db.patch(profile._id, {
+        pushToken: args.pushToken,
+        updatedAt: Date.now(),
+      });
+    }
+
+    return { success: true };
   },
 });

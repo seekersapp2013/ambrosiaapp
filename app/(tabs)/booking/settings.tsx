@@ -3,7 +3,7 @@
  * Reached via the gear icon on My Sessions.
  *
  * Tab 1 — Profile:  job title · work hours · pricing · bio · social links
- *                   (ProviderSubscriptionForm with updateSubscriber)
+ *                   (DynamicKYCForm with updateSubscriber)
  * Tab 2 — Bookings: confirmation type · buffer time · cancellation policy
  *                   (BookingSettingsForm)
  */
@@ -27,9 +27,10 @@ import { radius } from "@/tokens/radius";
 import { AppBackground } from "@/components/AppBackground";
 import { MobileCard } from "@/components/MobileCard";
 import { ScreenHeader } from "@/components/ui/ScreenHeader";
-import { PrimaryButton } from "@/components/ui/Button";
 import { BookingSettingsForm } from "@/components/booking/BookingSettingsForm";
-import { ProviderSubscriptionForm } from "@/components/booking/ProviderSubscriptionForm";
+import { DynamicKYCForm } from "@/components/ui/DynamicKYCForm";
+import { useKYCConfig } from "@/hooks/useKYCConfig";
+import { useMutation } from "convex/react";
 
 type TabKey = "profile" | "bookings";
 
@@ -42,6 +43,9 @@ export default function ProviderSettingsScreen() {
   const router       = useRouter();
   const subscription = useQuery(api.bookingSubscribers.getMySubscription);
   const isProvider   = !!subscription?.isActive;
+
+  const { config: providerConfig, loading: loadingConfig } = useKYCConfig('provider');
+  const updateSubscriber = useMutation(api.bookingSubscribers.updateSubscriber);
 
   const [activeTab,   setActiveTab]   = useState<TabKey>("profile");
   const [savedBanner, setSavedBanner] = useState(false);
@@ -69,7 +73,7 @@ export default function ProviderSettingsScreen() {
             </Text>
             <PrimaryButton
               label="Become a Provider"
-              onPress={() => router.push("/(tabs)/booking/become-provider" as any)}
+              onPress={() => router.push("/(tabs)/booking/provider-signup" as any)}
               icon={<Ionicons name="ribbon-outline" size={18} color="#FFF" />}
               style={{ marginTop: spacing.space3, width: "100%" }}
               accessibilityLabel="Set up your provider profile"
@@ -147,10 +151,45 @@ export default function ProviderSettingsScreen() {
                 </View>
               </View>
 
-              <ProviderSubscriptionForm
-                onSuccess={showSaved}
-                onCancel={() => router.back()}
-              />
+              {loadingConfig || !providerConfig ? (
+                <ActivityIndicator color={Colors.actionPrimary} style={{ marginVertical: spacing.space6 }} />
+              ) : (
+                <DynamicKYCForm
+                  config={providerConfig}
+                  initialValues={{
+                    jobTitle: subscription?.jobTitle,
+                    specialization: subscription?.specialization,
+                    sessionCurrency: (subscription as any)?.sessionCurrency || 'USD',
+                    oneOnOnePrice: String(subscription?.oneOnOnePrice ?? subscription?.sessionPrice ?? ''),
+                    groupSessionPrice: String(subscription?.groupSessionPrice ?? ''),
+                    aboutUser: subscription?.aboutUser,
+                    offerDescription: subscription?.offerDescription,
+                    xLink: subscription?.xLink || '',
+                    linkedInLink: subscription?.linkedInLink || '',
+                    openHours: subscription?.openHours,
+                  }}
+                  onSubmit={async (formData) => {
+                    const p1 = parseFloat(formData.oneOnOnePrice);
+                    const p2 = formData.groupSessionPrice ? parseFloat(formData.groupSessionPrice) : Math.round(p1 * 0.7);
+                    await updateSubscriber({
+                      jobTitle: String(formData.jobTitle || '').trim(),
+                      specialization: String(formData.specialization || '').trim(),
+                      oneOnOnePrice: p1,
+                      groupSessionPrice: p2,
+                      sessionPrice: p1,
+                      sessionCurrency: formData.sessionCurrency || 'USD',
+                      aboutUser: String(formData.aboutUser || '').trim(),
+                      offerDescription: String(formData.offerDescription || '').trim(),
+                      xLink: formData.xLink ? String(formData.xLink).trim() : undefined,
+                      linkedInLink: formData.linkedInLink ? String(formData.linkedInLink).trim() : undefined,
+                      openHours: formData.openHours,
+                    });
+                    showSaved();
+                  }}
+                  onCancel={() => router.back()}
+                  submitButtonLabel="Save Changes"
+                />
+              )}
             </>
           )}
 

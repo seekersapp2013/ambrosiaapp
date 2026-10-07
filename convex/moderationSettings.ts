@@ -15,6 +15,8 @@ export const getModerationSettings = query({
         circlesRequireApproval: true,
         expertRequestsRequireApproval: true,
         bookingSubscribersRequireApproval: true,
+        circleContentRequiresApproval: false,
+        allowNonProviderCircleCreation: true,
       };
     }
 
@@ -30,6 +32,8 @@ export const updateModerationSettings = mutation({
     circlesRequireApproval: v.optional(v.boolean()),
     expertRequestsRequireApproval: v.optional(v.boolean()),
     bookingSubscribersRequireApproval: v.optional(v.boolean()),
+    circleContentRequiresApproval: v.optional(v.boolean()),
+    allowNonProviderCircleCreation: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
@@ -64,6 +68,12 @@ export const updateModerationSettings = mutation({
     if (args.bookingSubscribersRequireApproval !== undefined) {
       updateData.bookingSubscribersRequireApproval = args.bookingSubscribersRequireApproval;
     }
+    if (args.circleContentRequiresApproval !== undefined) {
+      updateData.circleContentRequiresApproval = args.circleContentRequiresApproval;
+    }
+    if (args.allowNonProviderCircleCreation !== undefined) {
+      updateData.allowNonProviderCircleCreation = args.allowNonProviderCircleCreation;
+    }
 
     if (existingSettings) {
       await ctx.db.patch(existingSettings._id, updateData);
@@ -75,6 +85,8 @@ export const updateModerationSettings = mutation({
         circlesRequireApproval: args.circlesRequireApproval ?? true,
         expertRequestsRequireApproval: args.expertRequestsRequireApproval ?? true,
         bookingSubscribersRequireApproval: args.bookingSubscribersRequireApproval ?? true,
+        circleContentRequiresApproval: args.circleContentRequiresApproval ?? false,
+        allowNonProviderCircleCreation: args.allowNonProviderCircleCreation ?? true,
         primaryAdminUserId: userId,
         updatedBy: userId,
         updatedAt: Date.now(),

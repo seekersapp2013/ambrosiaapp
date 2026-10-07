@@ -85,9 +85,8 @@ http.route({
 
     const { event: eventType, data } = event;
     const transferCode: string | undefined = data?.transfer_code;
-    const amount: number | undefined = data?.amount; // in kobo
-    const reason: string | undefined = data?.reason;
 
+    // ── Transfer (withdrawal) events ──────────────────────────────────────────
     if (transferCode) {
       if (eventType === "transfer.success") {
         await ctx.runMutation(internal.paystackWebhook.handleTransferSuccess, {
@@ -101,6 +100,124 @@ http.route({
           paystackData: data,
         });
       }
+      return new Response("OK", { status: 200 });
+    }
+
+    // Slash-path module references (not exposed on the dot-notation internal type)
+    const anyInternal = internal as any;
+
+    // ── Dedicated Virtual Account assignment completed ────────────────────────
+    // Paystack creates the account asynchronously after /dedicated_account/assign
+    // and reports it here with the account details.
+    if (eventType === "dedicatedaccount.assign.success") {
+      const customer = data?.customer ?? {};
+      const dva = data?.dedicated_account ?? data; // some payloads nest, some flatten
+      const customerCode: string | undefined = customer?.customer_code;
+      const customerId: number | undefined = customer?.id;
+      const customerEmail: string | undefined = customer?.email;
+      const accountNumber: string | undefined = dva?.account_number;
+      const accountName: string | undefined = dva?.account_name;
+      const bankName: string | undefined = dva?.bank?.name;
+      const bankSlug: string | undefined = dva?.bank?.slug;
+      const dvaId: number | undefined = dva?.id;
+
+      // Find the pending record: prefer email (set at provisioning), then code.
+      let record: any = null;
+      if (customerEmail) {
+        record = await ctx.runQuery(
+          anyInternal["wallets/dedicatedAccounts"].getByEmail,
+          { email: customerEmail },
+        );
+      }
+      if (!record && customerCode) {
+        record = await ctx.runQuery(
+          anyInternal["wallets/dedicatedAccounts"].getByCustomerCode,
+          { customerCode },
+        );
+      }
+
+      if (record) {
+        await ctx.runMutation(
+          anyInternal["wallets/dedicatedAccounts"].saveDedicatedAccount,
+          {
+            userId: record.userId,
+            status: "active",
+            ...(customerCode && { paystackCustomerCode: customerCode }),
+            ...(customerId !== undefined && { paystackCustomerId: customerId }),
+            ...(dvaId !== undefined && { dvaId }),
+            ...(accountName && { accountName }),
+            ...(accountNumber && { accountNumber }),
+            ...(bankName && { bankName }),
+            ...(bankSlug && { bankSlug }),
+          },
+        );
+      }
+      return new Response("OK", { status: 200 });
+    }
+
+    if (eventType === "dedicatedaccount.assign.failed") {
+      const customerEmail: string | undefined = data?.customer?.email;
+      const customerCode: string | undefined = data?.customer?.customer_code;
+      let record: any = null;
+      if (customerEmail) {
+        record = await ctx.runQuery(
+          anyInternal["wallets/dedicatedAccounts"].getByEmail,
+          { email: customerEmail },
+        );
+      }
+      if (!record && customerCode) {
+        record = await ctx.runQuery(
+          anyInternal["wallets/dedicatedAccounts"].getByCustomerCode,
+          { customerCode },
+        );
+      }
+      if (record) {
+        await ctx.runMutation(
+          anyInternal["wallets/dedicatedAccounts"].saveDedicatedAccount,
+          { userId: record.userId, status: "failed" },
+        );
+      }
+      return new Response("OK", { status: 200 });
+    }
+
+    // ── Incoming deposit into a dedicated virtual account ─────────────────────
+    if (eventType === "charge.success" && data?.channel === "dedicated_nuban") {
+      const reference: string | undefined = data?.reference;
+      const amountKobo: number | undefined = data?.amount;
+      const currency: string = data?.currency ?? "NGN";
+      const customerCode: string | undefined = data?.customer?.customer_code;
+      // The receiving DVA details may be present on the authorization object.
+      const receiverAccount: string | undefined =
+        data?.authorization?.receiver_bank_account_number ??
+        data?.metadata?.receiver_account_number;
+
+      if (reference && typeof amountKobo === "number" && currency === "NGN") {
+        // Map to a user via customer code first, then receiving account number.
+        let record: any = null;
+        if (customerCode) {
+          record = await ctx.runQuery(
+            anyInternal["wallets/dedicatedAccounts"].getByCustomerCode,
+            { customerCode },
+          );
+        }
+        if (!record && receiverAccount) {
+          record = await ctx.runQuery(
+            anyInternal["wallets/dedicatedAccounts"].getByAccountNumber,
+            { accountNumber: receiverAccount },
+          );
+        }
+
+        if (record) {
+          await ctx.runMutation(anyInternal["wallets/dvaCredit"].creditNgnDepositByUserId, {
+            userId: record.userId,
+            amountNGN: amountKobo / 100,
+            reference,
+            source: "webhook",
+            paystackData: data,
+          });
+        }
+      }
+      return new Response("OK", { status: 200 });
     }
 
     return new Response("OK", { status: 200 });

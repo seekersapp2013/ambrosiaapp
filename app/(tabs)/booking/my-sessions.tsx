@@ -218,7 +218,7 @@ export default function MySessionsScreen() {
               subtitle="Set up your provider profile to receive and manage booking requests."
               action={
                 <PrimaryButton label="Become a Provider"
-                  onPress={() => router.push("/(tabs)/booking/become-provider" as any)}
+                  onPress={() => router.push("/(tabs)/booking/provider-signup" as any)}
                   icon={<Ionicons name="ribbon-outline" size={18} color="#FFF"/>}
                   style={{ marginTop: spacing.space3 }}/>
               }/>

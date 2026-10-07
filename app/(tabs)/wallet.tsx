@@ -147,16 +147,27 @@ export default function WalletScreen() {
           </View>
         </View>
 
-        {/* Fund Wallet — green */}
-        <View style={styles.btnWrap}>
+        {/* Fund Wallet + Bank Transfer row */}
+        <View style={styles.btnRow}>
           <PrimaryButton
             label="Fund Wallet"
             onPress={() => {
               history.push("/(tabs)/wallet");
               router.push("/(tabs)/deposit");
             }}
+            style={styles.btnHalf}
             color={C.statusSuccess}
-            icon={<Ionicons name="add-circle-outline" size={20} color="#FFFFFF" />}
+            icon={<Ionicons name="add-circle-outline" size={18} color="#FFFFFF" />}
+          />
+          <PrimaryButton
+            label="Bank Transfer"
+            onPress={() => {
+              history.push("/(tabs)/wallet");
+              router.push("/(tabs)/bank-transfer");
+            }}
+            style={styles.btnHalf}
+            color={C.statusInfo}
+            icon={<Ionicons name="business-outline" size={18} color="#FFFFFF" />}
           />
         </View>
 

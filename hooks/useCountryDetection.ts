@@ -18,6 +18,7 @@ export function useCountryDetection() {
         try {
             // Try to dynamically import expo-localization
             // This will only work if the package is installed
+            // @ts-ignore
             const Localization = await import('expo-localization');
 
             // Get the region/country code from the device locale

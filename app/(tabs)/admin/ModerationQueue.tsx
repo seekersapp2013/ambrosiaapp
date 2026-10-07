@@ -152,6 +152,23 @@ export function ModerationQueue() {
           </Text>
         </Text>
 
+        {/* Content details summary */}
+        {item.details && item.contentType === 'bookingSubscribers' && (
+          <View style={{ marginTop: 6, marginBottom: 6, padding: 8, borderRadius: 6, backgroundColor: C.isDark ? C.bgPrimarySubtle : '#F3F4F6' }}>
+            <Text style={{ color: C.textPrimary, fontWeight: '600', fontSize: 13 }}>
+              {item.details.jobTitle} · {item.details.specialization}
+            </Text>
+            {!!(item.details.offerDescription || item.details.aboutUser) && (
+              <Text style={{ color: C.textMuted, fontSize: 12, marginTop: 2 }} numberOfLines={2}>
+                {item.details.offerDescription || item.details.aboutUser}
+              </Text>
+            )}
+            <Text style={{ color: C.actionPrimary, fontSize: 12, fontWeight: '500', marginTop: 2 }}>
+              1-on-1 Session: {item.details.sessionCurrency ?? 'USD'} {item.details.oneOnOnePrice ?? item.details.sessionPrice}
+            </Text>
+          </View>
+        )}
+
         {/* Content ID */}
         <Text style={[styles.itemId, { color: C.textDisabled }]} numberOfLines={1}>
           ID: {item.contentId}

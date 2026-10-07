@@ -478,3 +478,173 @@ export const hardDeleteUser = mutation({
     };
   },
 });
+
+/**
+ * CLI Command to promote any user to Admin by email or username
+ * Usage: npx convex run adminUsers:makeUserAdminCli '{"email": "user@example.com"}'
+ */
+export const makeUserAdminCli = mutation({
+  args: {
+    email: v.optional(v.string()),
+    username: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    if (!args.email && !args.username) {
+      throw new Error("Please provide either email or username");
+    }
+
+    let targetUserId: Id<"users"> | null = null;
+    let targetName = "";
+
+    if (args.email) {
+      const emailLower = args.email.toLowerCase().trim();
+      // 1. Check users table
+      const allUsers = await ctx.db.query("users").collect();
+      const user = allUsers.find(
+        (u) => (u.email && u.email.toLowerCase().trim() === emailLower)
+      );
+      if (user) {
+        targetUserId = user._id;
+        targetName = user.name || user.email || args.email;
+      }
+
+      // 2. Check authAccounts table
+      if (!targetUserId) {
+        const allAccounts = await ctx.db.query("authAccounts").collect();
+        const account = allAccounts.find(
+          (a) =>
+            a.providerAccountId &&
+            a.providerAccountId.toLowerCase().trim() === emailLower
+        );
+        if (account) {
+          targetUserId = account.userId;
+          const userDoc = await ctx.db.get(account.userId);
+          targetName = userDoc?.name || userDoc?.email || args.email;
+        }
+      }
+
+      // 3. Check profiles table
+      if (!targetUserId) {
+        const allProfiles = await ctx.db.query("profiles").collect();
+        const prof = allProfiles.find(
+          (p) => (p as any).email && (p as any).email.toLowerCase().trim() === emailLower
+        );
+        if (prof) {
+          targetUserId = prof.userId;
+          targetName = prof.name || prof.username || args.email;
+        }
+      }
+    }
+
+    if (!targetUserId && args.username) {
+      const userLower = args.username.toLowerCase().trim();
+      const allProfiles = await ctx.db.query("profiles").collect();
+      const prof = allProfiles.find(
+        (p) => p.username && p.username.toLowerCase().trim() === userLower
+      );
+      if (prof) {
+        targetUserId = prof.userId;
+        targetName = prof.name || prof.username || args.username;
+      }
+    }
+
+    if (!targetUserId) {
+      // List available users to assist
+      const sampleProfiles = await ctx.db.query("profiles").take(10);
+      const availableList = sampleProfiles
+        .map((p) => `@${p.username}`)
+        .join(", ");
+      throw new Error(
+        `User not found with ${args.email ? "email: " + args.email : "username: " + args.username}. Available usernames: [${availableList}]`
+      );
+    }
+
+    // Find or create the standard Admin role
+    let adminRole = await ctx.db
+      .query("moderationRoles")
+      .withIndex("by_name", (q) => q.eq("name", "Admin"))
+      .first();
+
+    if (!adminRole) {
+      adminRole = await ctx.db
+        .query("moderationRoles")
+        .withIndex("by_name", (q) => q.eq("name", "Primary Admin"))
+        .first();
+    }
+
+    if (!adminRole) {
+      const roleId = await ctx.db.insert("moderationRoles", {
+        name: "Admin",
+        description: "Full administrator access with role and tier management",
+        permissions: [
+          "manage_users",
+          "ban_users",
+          "manage_roles",
+          "manage_content",
+          "manage_tiers",
+          "manage_settings",
+        ],
+        canApprove: ["articles", "pulses", "events", "courses"],
+        isSystemRole: false,
+        createdBy: targetUserId,
+        createdAt: Date.now(),
+      });
+      adminRole = (await ctx.db.get(roleId))!;
+    }
+
+    // Check if user already has this role assigned
+    const existingAssignment = await ctx.db
+      .query("moderationAssignments")
+      .withIndex("by_user_active", (q) =>
+        q.eq("userId", targetUserId!).eq("isActive", true)
+      )
+      .filter((q) => q.eq(q.field("roleId"), adminRole!._id))
+      .first();
+
+    if (existingAssignment) {
+      return {
+        success: true,
+        message: `User ${targetName} (${targetUserId}) is already an active Admin.`,
+      };
+    }
+
+    await ctx.db.insert("moderationAssignments", {
+      userId: targetUserId,
+      roleId: adminRole._id,
+      assignedBy: targetUserId,
+      assignedAt: Date.now(),
+      isActive: true,
+      isPrimaryAdmin: false,
+    });
+
+    return {
+      success: true,
+      message: `Successfully promoted ${targetName} (${targetUserId}) to Admin!`,
+    };
+  },
+});
+
+/**
+ * CLI Command to list all users in database
+ * Usage: npx convex run adminUsers:listUsersCli
+ */
+export const listUsersCli = query({
+  args: {},
+  handler: async (ctx) => {
+    const profiles = await ctx.db.query("profiles").collect();
+    const users = await ctx.db.query("users").collect();
+    const accounts = await ctx.db.query("authAccounts").collect();
+
+    return profiles.map((p) => {
+      const u = users.find((user) => user._id === p.userId);
+      const acc = accounts.find((a) => a.userId === p.userId);
+      return {
+        userId: p.userId,
+        username: p.username,
+        name: p.name || u?.name,
+        userEmail: u?.email,
+        authAccountEmail: acc?.providerAccountId,
+      };
+    });
+  },
+});

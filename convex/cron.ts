@@ -47,4 +47,34 @@ crons.interval(
   internal.scheduledJobs.updateUserInterestsFromEngagement
 );
 
+// Provider Tier System Cron Jobs
+
+// Run daily at 3 AM to check provider inactivity and apply warnings/demotions
+crons.daily(
+  "check provider inactivity",
+  { hourUTC: 3, minuteUTC: 0 },
+  internal.tierCalculation.checkInactivityDemotions
+);
+
+// Run monthly on 1st at 4 AM for full provider tier recalculations
+crons.monthly(
+  "monthly tier recalculation",
+  { day: 1, hourUTC: 4, minuteUTC: 0 },
+  internal.tierCalculation.batchRecalculateAllProviders
+);
+
+// Run daily at 5 AM to check tenure anniversaries and award tenure EXP
+crons.daily(
+  "check tenure anniversaries",
+  { hourUTC: 5, minuteUTC: 0 },
+  internal.providerExp.checkTenureAnniversaries
+);
+
+// Run daily at 1 AM to validate provider licences and flag expirations for admin review
+crons.daily(
+  "validate provider licences",
+  { hourUTC: 1, minuteUTC: 0 },
+  (internal as any).tierRevalidation.validateProviderLicences
+);
+
 export default crons;

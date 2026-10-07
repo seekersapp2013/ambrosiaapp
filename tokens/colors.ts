@@ -13,10 +13,33 @@
 // Raw palette (private — do not use directly in components)
 // ─────────────────────────────────────────────────────────────────────────────
 const _raw = {
-  // ── Dark backgrounds ───────────────────────────────────────────────────────
-  bg08:    '#08080F',   // slightly deeper base for more dark-mode depth
-  bg0f:    '#0F0F1E',
-  bg17:    '#171730',   // elevated surfaces — clearly distinct from bg0f
+  // ── Dark backgrounds (v2 "Navy Health" rebrand) ─────────────────────────────
+  // Deep navy base replaces the legacy near-black. See brand-design-guide Phase 1.
+  bg08:    '#001233',   // base screen background (deepest navy)
+  bg0f:    '#011B45',   // surface — cards, sheets (one step above base)
+  bg17:    '#0E2963',   // elevated surfaces — active tab, dropdowns, chips
+
+  // ── Navy / blue brand stops ─────────────────────────────────────────────────
+  navyBase:     '#001233',
+  navyAlt:      '#011B45',
+  navyElevated: '#0E2963',
+  royalBlue:    '#0B3B8F',   // card action strip, info accents
+
+  // ── Red gradient primary (v2) ───────────────────────────────────────────────
+  redGradTop:    '#D60A1D',  // primary button / Follow gradient top
+  redGradBottom: '#7A000A',  // primary button / Follow gradient bottom
+  deepRed:       '#9E000E',  // card header gradient red end
+
+  // ── Greens ──────────────────────────────────────────────────────────────────
+  electricGreen: '#00E600',  // FOR YOU label, Pulse badge, success/live
+  forestGreen:   '#329632',  // Article badge (passive tag)
+
+  // ── Teal wizard accent ────────────────────────────────────────────────────── 
+  wizardTeal:    '#00D2D2',  // "Step X of 5" label
+
+  // ── Neutral light / error field ───────────────────────────────────────────── 
+  neutralLight:  '#E0E6ED',  // light inputs, search bar fill
+  errorField:    '#F8B4B4',  // light-red/pink error input fill
 
   // ── Light backgrounds ──────────────────────────────────────────────────────
   // Pages use ~30% of the primary red mixed with white for a warm branded feel.
@@ -31,37 +54,37 @@ const _raw = {
   gradientMid:     '#EBE9F4',
   gradientCyan:    '#4DD9E0',
 
-  // ── Brand red — constant across both modes ─────────────────────────────────
-  red_primary:  '#C62229',
+  // ── Brand red — v2 primary is the gradient-top #D60A1D ──────────────────────
+  red_primary:  '#D60A1D',   // v2 primary red (gradient top)
   red_bright:   '#E42326',
-  red_deep:     '#B42733',
-  red_crimson:  '#73141D',
+  red_deep:     '#7A000A',   // v2 gradient bottom / deep accent
+  red_crimson:  '#9E000E',   // v2 deep red (card header red end)
   red_mid:      '#9A404B',
   red_coral:    '#D75D64',
   red_rose:     '#DB8588',
   red_blush:    '#EAAFB2',
   red_gold:     '#8B6830',
 
-  // ── Red tints ──────────────────────────────────────────────────────────────
-  red_t06:  'rgba(198,34,41,0.06)',
-  red_t12:  'rgba(198,34,41,0.12)',
-  red_t15:  'rgba(198,34,41,0.15)',
-  red_t25:  'rgba(198,34,41,0.25)',
-  red_t30:  'rgba(198,34,41,0.30)',
-  red_t35:  'rgba(198,34,41,0.35)',
-  red_t55:  'rgba(198,34,41,0.55)',
+  // ── Red tints (based on v2 primary 214,10,29) ───────────────────────────────
+  red_t06:  'rgba(214,10,29,0.06)',
+  red_t12:  'rgba(214,10,29,0.12)',
+  red_t15:  'rgba(214,10,29,0.15)',
+  red_t25:  'rgba(214,10,29,0.25)',
+  red_t30:  'rgba(214,10,29,0.30)',
+  red_t35:  'rgba(214,10,29,0.35)',
+  red_t55:  'rgba(214,10,29,0.55)',
 
-  // ── Accent colors ──────────────────────────────────────────────────────────
-  blue:    '#3B82F6',
-  green:   '#22C55E',
+  // ── Accent colors (v2) ───────────────────────────────────────────────────── 
+  blue:    '#0B3B8F',   // royal blue — info, action strip
+  green:   '#00E600',   // electric green — live/success
   amber:   '#F59E0B',
   error:   '#EF4444',
   purple:  '#8B5CF6',
 
   // ── Accent tints ──────────────────────────────────────────────────────────
-  blue_t10:   'rgba(59,130,246,0.10)',
-  green_t07:  'rgba(34,197,94,0.07)',
-  green_t12:  'rgba(34,197,94,0.12)',
+  blue_t10:   'rgba(11,59,143,0.12)',
+  green_t07:  'rgba(0,230,0,0.09)',
+  green_t12:  'rgba(0,230,0,0.14)',
   amber_t07:  'rgba(245,158,11,0.07)',
   error_t04:  'rgba(239,68,68,0.04)',
   error_t08:  'rgba(239,68,68,0.08)',
@@ -93,8 +116,8 @@ const _raw = {
   lborder_subtle: 'rgba(0,0,0,0.05)',   // dividers
   lborder_focus:  '#C62229',            // focused input — brand red
 
-  // ── Overlays ──────────────────────────────────────────────────────────────
-  black_75: 'rgba(0,0,0,0.75)',
+  // ── Overlays (navy-tinted in v2) ────────────────────────────────────────────
+  black_75: 'rgba(0,18,51,0.80)',
 } as const;
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -128,6 +151,24 @@ const _palette = {
   gradientPink:   _raw.gradientPink,
   gradientMid:    _raw.gradientMid,
   gradientCyan:   _raw.gradientCyan,
+
+  // ── v2 "Navy Health" brand tokens ─────────────────────────────────────────
+  navyBase:       _raw.navyBase,
+  navyAlt:        _raw.navyAlt,
+  navyElevated:   _raw.navyElevated,
+  royalBlue:      _raw.royalBlue,
+  deepRed:        _raw.deepRed,
+  electricGreen:  _raw.electricGreen,
+  forestGreen:    _raw.forestGreen,
+  wizardTeal:     _raw.wizardTeal,
+  neutralLight:   _raw.neutralLight,
+  errorField:     _raw.errorField,
+
+  // ── v2 gradient stop arrays (for expo-linear-gradient `colors` prop) ────────
+  gradientPrimary:    [_raw.redGradTop, _raw.redGradBottom] as const,     // vertical
+  gradientCardHeader: [_raw.deepRed, _raw.royalBlue] as const,            // horizontal
+  gradientBackground: [_raw.navyAlt, _raw.navyBase] as const,             // vertical
+  gradientSuccess:    [_raw.electricGreen, '#00B800'] as const,           // vertical
 } as const;
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -142,16 +183,21 @@ export const DarkColors = {
   bgPrimarySubtle:  _raw.red_t06,
   bgPrimaryMid:     _raw.red_t12,
   bgErrorSubtle:    _raw.error_t04,
+  bgErrorField:     _raw.errorField,   // light pink error input fill
   bgSuccessSubtle:  _raw.green_t07,
-  bgInput:          _raw.bg17,    // inputs sit on bgElevated tone
+  bgLight:          _raw.neutralLight, // light inputs, search, social
+  bgInput:          _raw.neutralLight, // auth inputs use the light fill (#E0E6ED)
 
   // ── Text ───────────────────────────────────────────────────────────────────
   textPrimary:    _raw.white,
   textSecondary:  _raw.gray_d1,
   textMuted:      _raw.gray_9c,
   textDisabled:   _raw.gray_6b,
+  textOnLight:    _raw.navyBase,       // text on #E0E6ED fields
   textInverse:    _raw.bg08,
   textLink:       _raw.red_primary,
+  textAccentGreen: _raw.electricGreen, // FOR YOU / live labels
+  textWizard:     _raw.wizardTeal,     // "Step X of 5"
   textDanger:     _raw.error,
   textSuccess:    _raw.green,
   textWarning:    _raw.amber,
@@ -159,15 +205,18 @@ export const DarkColors = {
   textGold:       _raw.red_gold,
 
   // ── Actions ────────────────────────────────────────────────────────────────
-  actionPrimary:          _raw.red_primary,
+  actionPrimary:          _raw.red_primary,     // gradient top (fallback solid)
+  actionPrimaryBottom:    _raw.redGradBottom,   // gradient bottom
   actionPrimaryPressed:   _raw.red_deep,
   actionPrimaryDisabled:  _raw.red_t35,
+  actionSuccess:          _raw.electricGreen,   // green CTA (Create Account / Start)
   actionDestructive:      _raw.error,
   actionGhost:            'transparent' as const,
   actionSecondaryBorder:  _raw.white_20,
 
   // ── Status ─────────────────────────────────────────────────────────────────
-  statusSuccess:    _raw.green,
+  statusSuccess:    _raw.green,          // #00E600 live/success
+  statusPassive:    _raw.forestGreen,    // #329632 Article tag
   statusWarning:    _raw.amber,
   statusDanger:     _raw.error,
   statusInfo:       _raw.blue,
@@ -193,12 +242,12 @@ export const DarkColors = {
   iconGold:      _raw.red_gold,
 
   // ── Tab bar ────────────────────────────────────────────────────────────────
-  // Distinct from card bg so the bar reads as a separate layer
-  bgTabBar:        '#0D0D20',
-  borderTabBar:    'rgba(198,34,41,0.35)',   // stronger crimson top border
+  // Navy bar, distinct from card bg so it reads as a separate layer
+  bgTabBar:        _raw.navyBase,            // #001233
+  borderTabBar:    _raw.white_08,            // subtle white top border
 
   // ── Engagement row surface ─────────────────────────────────────────────────
-  bgEngagement:    _raw.bg0f,   // same as surface in dark mode
+  bgEngagement:    _raw.royalBlue,   // royal-blue action strip on feed cards
 
   // ── Palette pass-through ───────────────────────────────────────────────────
   palette: _palette,
@@ -245,10 +294,10 @@ export const DarkColors = {
   goldBorder:       'rgba(139,104,48,0.28)',
   errorSurface:     'rgba(239,68,68,0.08)',
   errorBorder:      'rgba(239,68,68,0.28)',
-  bgWarmLayer:      'rgba(26,15,31,0.55)',
-  bgCoolLayer:      'rgba(15,20,32,0.45)',
-  glowRed:          'rgba(198,34,41,0.07)',
-  glowBlue:         'rgba(59,130,246,0.05)',
+  bgWarmLayer:      'rgba(1,27,69,0.55)',    // navy-alt tinted depth layer
+  bgCoolLayer:      'rgba(11,59,143,0.30)',  // royal-blue tinted depth layer
+  glowRed:          'rgba(214,10,29,0.08)',
+  glowBlue:         'rgba(11,59,143,0.10)',
   overlay:          _raw.black_75,
 
   // ── Legacy Expo shim ───────────────────────────────────────────────────────
@@ -280,10 +329,12 @@ export const LightColors = {
   bgSurface:        _raw.lightCard,    // #FFFFFF — cards, panels
   bgElevated:       _raw.lightElevated,// #FFFFFF — modals, dropdowns
   bgOverlay:        'rgba(0,0,0,0.45)',
-  bgPrimarySubtle:  'rgba(198,34,41,0.06)',
-  bgPrimaryMid:     'rgba(198,34,41,0.11)',
+  bgPrimarySubtle:  'rgba(214,10,29,0.06)',
+  bgPrimaryMid:     'rgba(214,10,29,0.11)',
   bgErrorSubtle:    'rgba(239,68,68,0.06)',
-  bgSuccessSubtle:  'rgba(34,197,94,0.08)',
+  bgErrorField:     _raw.errorField,   // light pink error input fill (shared)
+  bgSuccessSubtle:  'rgba(0,230,0,0.10)',
+  bgLight:          _raw.neutralLight, // #E0E6ED light fill (shared)
   bgInput:          _raw.lightInput,   // #F0F1F5 — flat grey input fill
 
   // ── Text ───────────────────────────────────────────────────────────────────
@@ -292,8 +343,11 @@ export const LightColors = {
   textSecondary:  _raw.ltext_secondary,  // #374151
   textMuted:      _raw.ltext_muted,      // #6B7280
   textDisabled:   _raw.ltext_disabled,   // #9CA3AF
+  textOnLight:    _raw.navyBase,         // text on light fields (shared)
   textInverse:    _raw.white,
-  textLink:       '#C62229',             // brand red links
+  textLink:       _raw.red_primary,      // brand red links
+  textAccentGreen: _raw.electricGreen,
+  textWizard:     _raw.wizardTeal,
   textDanger:     '#DC2626',
   textSuccess:    '#16A34A',
   textWarning:    '#D97706',
@@ -302,14 +356,17 @@ export const LightColors = {
 
   // ── Actions ────────────────────────────────────────────────────────────────
   actionPrimary:          _raw.red_primary,
+  actionPrimaryBottom:    _raw.redGradBottom,
   actionPrimaryPressed:   _raw.red_deep,
-  actionPrimaryDisabled:  'rgba(198,34,41,0.35)',
+  actionPrimaryDisabled:  'rgba(214,10,29,0.35)',
+  actionSuccess:          _raw.electricGreen,
   actionDestructive:      '#DC2626',
   actionGhost:            'transparent' as const,
   actionSecondaryBorder:  _raw.lborder,
 
   // ── Status ─────────────────────────────────────────────────────────────────
   statusSuccess:    '#16A34A',
+  statusPassive:    _raw.forestGreen,
   statusWarning:    '#D97706',
   statusDanger:     '#DC2626',
   statusInfo:       '#2563EB',

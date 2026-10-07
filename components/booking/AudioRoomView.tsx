@@ -200,7 +200,7 @@ function HandRaisePanel({
     }).start();
   }, [visible, slideAnim]);
 
-  if (!visible && slideAnim._value === 300) return null;
+  if (!visible && (slideAnim as any)._value === 300) return null;
 
   return (
     <Animated.View
@@ -291,6 +291,8 @@ function AudioRoomContent({
   const demoteToListener  = useMutation(api.events.demoteToListener);
   const updateMutedStatus = useMutation(api.events.updateMutedStatus);
 
+  const localIsSpeaker = role === "HOST" || role === "SPEAKER";
+
   // LiveKit hooks — safe here because this component is rendered inside <LiveKitRoom>
   const { localParticipant } = useLocalParticipant();
   const remoteParticipants   = useRemoteParticipants();
@@ -338,8 +340,6 @@ function AudioRoomContent({
   const raisedHands = remoteParticipants
     .filter((p) => getMeta(p).handRaised)
     .map((p) => ({ identity: p.identity, name: p.name ?? p.identity }));
-
-  const localIsSpeaker = role === "HOST" || role === "SPEAKER";
 
   // ── Toggle mute ──────────────────────────────────────────────────────────
   const handleToggleMic = useCallback(async () => {

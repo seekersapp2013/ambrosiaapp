@@ -36,6 +36,7 @@ import { LoadingSpinner } from "@/components/stream/LoadingSpinner";
 import { ContentPaywallSheet } from "@/components/ContentPaywallSheet";
 import { useColors } from "@/hooks/useColors";
 import { useNavigationHistory } from "@/context/NavigationHistoryContext";
+import { useIsApprovedProvider } from "@/hooks/useIsApprovedProvider";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type ViewMode = "all" | "my-courses" | "enrolled";
@@ -149,6 +150,7 @@ export default function LearnScreen() {
 
   // Current user
   const currentUser = useQuery(api.users.viewer);
+  const { isApprovedProvider } = useIsApprovedProvider();
 
   // AI action
   const generateRecommendations = useAction(api.feedAI.generateFeedRecommendations);
@@ -315,33 +317,35 @@ export default function LearnScreen() {
           {/* ── Header ── */}
           <TopNav />
 
-          {/* ── Creation Bar ── */}
-          <View style={[styles.creationBar, { borderBottomColor: C.borderSubtle, backgroundColor: C.bgSurface }]}>
-            <CreationCircle
-              icon="create-outline"
-              label="Article"
-              color={C.primary}
-              onPress={() => { history.push("/(tabs)/learn"); router.push("/(tabs)/write-article" as any); }}
-            />
-            <CreationCircle
-              icon="videocam-outline"
-              label="Pulse"
-              color={C.palette.purple}
-              onPress={() => { history.push("/(tabs)/learn"); router.push("/(tabs)/write-reel" as any); }}
-            />
-            <CreationCircle
-              icon="school-outline"
-              label="Course"
-              color={C.palette.blue}
-              onPress={() => { history.push("/(tabs)/learn"); router.push("/(tabs)/create-course" as any); }}
-            />
-            <CreationCircle
-              icon="settings-outline"
-              label="Manage"
-              color={C.palette.green}
-              onPress={() => setShowManageSheet(true)}
-            />
-          </View>
+          {/* ── Creation Bar (Approved Providers Only) ── */}
+          {isApprovedProvider && (
+            <View style={[styles.creationBar, { borderBottomColor: C.borderSubtle, backgroundColor: C.bgSurface }]}>
+              <CreationCircle
+                icon="create-outline"
+                label="Article"
+                color={C.primary}
+                onPress={() => { history.push("/(tabs)/learn"); router.push("/(tabs)/write-article" as any); }}
+              />
+              <CreationCircle
+                icon="videocam-outline"
+                label="Pulse"
+                color={C.palette.purple}
+                onPress={() => { history.push("/(tabs)/learn"); router.push("/(tabs)/write-reel" as any); }}
+              />
+              <CreationCircle
+                icon="school-outline"
+                label="Course"
+                color={C.palette.blue}
+                onPress={() => { history.push("/(tabs)/learn"); router.push("/(tabs)/create-course" as any); }}
+              />
+              <CreationCircle
+                icon="settings-outline"
+                label="Manage"
+                color={C.palette.green}
+                onPress={() => setShowManageSheet(true)}
+              />
+            </View>
+          )}
 
           {/* ── View Mode Strip ── */}
           <View style={[styles.viewModeStrip, { borderBottomColor: C.borderSubtle, backgroundColor: C.bgSurface }]}>
@@ -586,8 +590,8 @@ export default function LearnScreen() {
                     icon="school-outline"
                     title={empty.title}
                     subtitle={empty.subtitle}
-                    ctaLabel="Create a Course"
-                    onCta={() => { history.push("/(tabs)/learn"); router.push("/(tabs)/create-course" as any); }}
+                    ctaLabel={isApprovedProvider ? "Create a Course" : undefined}
+                    onCta={isApprovedProvider ? () => { history.push("/(tabs)/learn"); router.push("/(tabs)/create-course" as any); } : undefined}
                   />
                 }
               />
@@ -620,6 +624,7 @@ export default function LearnScreen() {
       <ManageCoursesSheet
         visible={showManageSheet}
         courses={myCourses ?? []}
+        isApprovedProvider={isApprovedProvider}
         onClose={() => setShowManageSheet(false)}
         onCreateCourse={() => {
           setShowManageSheet(false);
@@ -686,6 +691,7 @@ function CreationCircle({ icon, label, color, onPress }: CreationCircleProps) {
 interface ManageCoursesSheetProps {
   visible: boolean;
   courses: any[];
+  isApprovedProvider?: boolean;
   onClose: () => void;
   onCreateCourse: () => void;
   onCoursePress: (courseId: string) => void;
@@ -696,6 +702,7 @@ interface ManageCoursesSheetProps {
 function ManageCoursesSheet({
   visible,
   courses,
+  isApprovedProvider = true,
   onClose,
   onCreateCourse,
   onCoursePress,
@@ -731,18 +738,20 @@ function ManageCoursesSheet({
         </View>
 
         {/* Create Course row */}
-        <TouchableOpacity
-          style={[styles.createCourseRow, { borderBottomColor: C.borderSubtle }]}
-          onPress={onCreateCourse}
-          activeOpacity={0.8}
-          accessibilityRole="button"
-          accessibilityLabel="Create new course"
-        >
-          <View style={[styles.createCourseIcon, { backgroundColor: C.blueSurface, borderColor: C.blueBorder }]}>
-            <Ionicons name="add" size={20} color={C.palette.blue} />
-          </View>
-          <Text style={[styles.createCourseText, { color: C.palette.blue }]}>+ Create New Course</Text>
-        </TouchableOpacity>
+        {isApprovedProvider && (
+          <TouchableOpacity
+            style={[styles.createCourseRow, { borderBottomColor: C.borderSubtle }]}
+            onPress={onCreateCourse}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel="Create new course"
+          >
+            <View style={[styles.createCourseIcon, { backgroundColor: C.blueSurface, borderColor: C.blueBorder }]}>
+              <Ionicons name="add" size={20} color={C.palette.blue} />
+            </View>
+            <Text style={[styles.createCourseText, { color: C.palette.blue }]}>+ Create New Course</Text>
+          </TouchableOpacity>
+        )}
 
         {/* Course list */}
         <FlatList

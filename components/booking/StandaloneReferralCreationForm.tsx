@@ -349,7 +349,7 @@ export function StandaloneReferralCreationForm({
                   value={patientSearch}
                   onChangeText={handlePatientSearch}
                   leadingIcon={
-                    <Ionicons name="person-search-outline" size={18} color={Colors.iconSecondary} />
+                    <Ionicons name="search-outline" size={18} color={Colors.iconSecondary} />
                   }
                   error={patientError}
                   returnKeyType="search"

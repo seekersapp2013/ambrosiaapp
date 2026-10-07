@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { query } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { getFirstUser } from "./moderationHelpers";
 
 // Check if moderation system needs setup (no primary admin exists)
 export const needsModerationSetup = query({
@@ -16,11 +17,10 @@ export const needsModerationSetup = query({
       .withIndex("by_primary_admin", (q) => q.eq("isPrimaryAdmin", true))
       .first();
 
-    // If no primary admin exists, the current user should see the setup button
+    // If no primary admin exists, check if current user is the first user
     if (!primaryAdmin) {
-      // Check if this is the first user (should be the one to set up)
-      const allUsers = await ctx.db.query("users").collect();
-      return allUsers.length === 1 && allUsers[0]._id === userId;
+      const firstUserId = await getFirstUser(ctx);
+      return firstUserId !== null && firstUserId === userId;
     }
 
     return false;

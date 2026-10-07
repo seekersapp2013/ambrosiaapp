@@ -529,6 +529,178 @@ export const getReferralById = query({
   },
 });
 
+export const getReferralTimelineData = query({
+  args: {
+    referralId: v.id("referrals"),
+  },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
+      throw new Error("Not authenticated");
+    }
+
+    const referral = await ctx.db.get(args.referralId);
+    if (!referral) {
+      throw new Error("Referral not found");
+    }
+
+    const hasAccess =
+      referral.patientId === userId ||
+      referral.referringExpertId === userId ||
+      referral.selectedExpertId === userId ||
+      referral.suggestedExperts.includes(userId as any);
+
+    if (!hasAccess) {
+      throw new Error("Access denied");
+    }
+
+    const patientProfile = await ctx.db
+      .query("profiles")
+      .withIndex("by_userId", (q) => q.eq("userId", referral.patientId))
+      .first();
+
+    const referringExpertProfile = await ctx.db
+      .query("profiles")
+      .withIndex("by_userId", (q) => q.eq("userId", referral.referringExpertId))
+      .first();
+
+    const referringExpertSubscription = await ctx.db
+      .query("bookingSubscribers")
+      .withIndex("by_user", (q) => q.eq("userId", referral.referringExpertId))
+      .first();
+
+    let selectedExpertDetails = null;
+    if (referral.selectedExpertId) {
+      const selectedProfile = await ctx.db
+        .query("profiles")
+        .withIndex("by_userId", (q) => q.eq("userId", referral.selectedExpertId!))
+        .first();
+
+      const selectedSubscription = await ctx.db
+        .query("bookingSubscribers")
+        .withIndex("by_user", (q) => q.eq("userId", referral.selectedExpertId!))
+        .first();
+
+      selectedExpertDetails = {
+        id: referral.selectedExpertId,
+        profile: selectedProfile,
+        subscription: selectedSubscription,
+      };
+    }
+
+    const suggestedExpertsDetails = await Promise.all(
+      referral.suggestedExperts.map(async (expertId) => {
+        const profile = await ctx.db
+          .query("profiles")
+          .withIndex("by_userId", (q) => q.eq("userId", expertId))
+          .first();
+
+        const subscription = await ctx.db
+          .query("bookingSubscribers")
+          .withIndex("by_user", (q) => q.eq("userId", expertId))
+          .first();
+
+        return {
+          id: expertId,
+          profile,
+          subscription,
+        };
+      })
+    );
+
+    let originatingSession = null;
+    if (referral.sessionId) {
+      const sessionBooking = await ctx.db.get(referral.sessionId);
+      if (sessionBooking) {
+        const providerProfile = await ctx.db
+          .query("profiles")
+          .withIndex("by_userId", (q) => q.eq("userId", sessionBooking.providerId))
+          .first();
+        const providerSubscription = await ctx.db
+          .query("bookingSubscribers")
+          .withIndex("by_user", (q) => q.eq("userId", sessionBooking.providerId))
+          .first();
+
+        originatingSession = {
+          ...sessionBooking,
+          provider: {
+            profile: providerProfile,
+            subscription: providerSubscription,
+          },
+        };
+      }
+    }
+
+    let followUpBooking = null;
+    if (referral.bookingId) {
+      const booking = await ctx.db.get(referral.bookingId);
+      if (booking) {
+        const providerProfile = await ctx.db
+          .query("profiles")
+          .withIndex("by_userId", (q) => q.eq("userId", booking.providerId))
+          .first();
+        followUpBooking = {
+          ...booking,
+          provider: { profile: providerProfile },
+        };
+      }
+    } else {
+      const booking = await ctx.db
+        .query("bookings")
+        .withIndex("by_referral", (q) => q.eq("referralId", referral._id))
+        .first();
+      if (booking) {
+        const providerProfile = await ctx.db
+          .query("profiles")
+          .withIndex("by_userId", (q) => q.eq("userId", booking.providerId))
+          .first();
+        followUpBooking = {
+          ...booking,
+          provider: { profile: providerProfile },
+        };
+      }
+    }
+
+    let referralCircle = null;
+    if (referral.circleId) {
+      referralCircle = await ctx.db.get(referral.circleId);
+    } else {
+      referralCircle = await ctx.db
+        .query("circles")
+        .withIndex("by_referral", (q) => q.eq("referralId", referral._id))
+        .first();
+    }
+
+    let transaction = null;
+    if (referral.commissionTxId) {
+      transaction = await ctx.db
+        .query("transactions")
+        .withIndex("by_tx_id", (q) => q.eq("id", referral.commissionTxId!))
+        .first();
+    }
+
+    return {
+      referral,
+      patient: {
+        id: referral.patientId,
+        profile: patientProfile,
+      },
+      referringExpert: {
+        id: referral.referringExpertId,
+        profile: referringExpertProfile,
+        subscription: referringExpertSubscription,
+      },
+      selectedExpert: selectedExpertDetails,
+      suggestedExpertsDetails,
+      originatingSession,
+      followUpBooking,
+      referralCircle,
+      transaction,
+    };
+  },
+});
+
+
 export const linkBookingToReferral = mutation({
   args: {
     referralId: v.id("referrals"),

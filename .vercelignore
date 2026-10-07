@@ -1,0 +1,12 @@
+node_modules
+.expo
+dist
+web-build
+.git
+.vscode
+.kiro
+.claude
+.agents
+convex+old
+app-example
+*.log

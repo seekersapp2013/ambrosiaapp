@@ -222,7 +222,7 @@ export default function TabsLayout() {
           <Tabs.Screen name="booking/new"             options={{ href: null, headerShown: false }} />
           <Tabs.Screen name="booking/providers"       options={{ href: null, headerShown: false }} />
           <Tabs.Screen name="booking/settings"        options={{ href: null, headerShown: false }} />
-          <Tabs.Screen name="booking/become-provider" options={{ href: null, headerShown: false }} />
+          <Tabs.Screen name="booking/provider-signup" options={{ href: null, headerShown: false }} />
           <Tabs.Screen name="booking/events"          options={{ href: null, headerShown: false }} />
           <Tabs.Screen name="booking/my-sessions"     options={{ href: null, headerShown: false }} />
           <Tabs.Screen name="booking/booking-detail"  options={{ href: null, headerShown: false }} />
@@ -234,6 +234,7 @@ export default function TabsLayout() {
           <Tabs.Screen name="booking/referral-detail" options={{ href: null, headerShown: false }} />
           {/* Hidden routes */}
           <Tabs.Screen name="deposit"      options={{ href: null, headerShown: false }} />
+          <Tabs.Screen name="bank-transfer" options={{ href: null, headerShown: false }} />
           <Tabs.Screen name="transfer"     options={{ href: null, headerShown: false }} />
           <Tabs.Screen name="withdraw"     options={{ href: null, headerShown: false }} />
           <Tabs.Screen name="reel-viewer"  options={{ href: null, headerShown: false }} />

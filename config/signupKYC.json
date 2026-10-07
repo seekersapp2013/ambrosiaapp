@@ -1,0 +1,205 @@
+{
+  "id": "signup_user",
+  "title": "User Registration KYC",
+  "steps": [
+    {
+      "step": 1,
+      "id": "credentials",
+      "title": "Your Details",
+      "subtitle": "Enter your primary account credentials",
+      "skippable": false,
+      "fields": [
+        {
+          "id": "email",
+          "type": "email",
+          "label": "Email Address",
+          "required": true,
+          "placeholder": "you@example.com",
+          "validation": {
+            "pattern": "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$",
+            "message": "Enter a valid email address"
+          },
+          "dbTable": "users",
+          "dbField": "email"
+        },
+        {
+          "id": "password",
+          "type": "password",
+          "label": "Password",
+          "required": true,
+          "placeholder": "At least 8 characters",
+          "validation": {
+            "minLength": 8,
+            "message": "Password must be at least 8 characters"
+          }
+        },
+        {
+          "id": "confirmPassword",
+          "type": "password",
+          "label": "Confirm Password",
+          "required": true,
+          "placeholder": "Re-enter your password",
+          "dependsOn": "password",
+          "validation": {
+            "match": "password",
+            "message": "Passwords do not match"
+          }
+        },
+        {
+          "id": "name",
+          "type": "text",
+          "label": "Full Name",
+          "required": true,
+          "placeholder": "e.g. Jane Doe",
+          "validation": {
+            "minLength": 2,
+            "message": "Name is required (at least 2 characters)"
+          },
+          "dbTable": "users",
+          "dbField": "name"
+        }
+      ]
+    },
+    {
+      "step": 2,
+      "id": "account_info",
+      "title": "Account Info",
+      "subtitle": "Choose your unique handle and phone number",
+      "skippable": false,
+      "fields": [
+        {
+          "id": "username",
+          "type": "text",
+          "label": "Username",
+          "required": true,
+          "placeholder": "e.g. janedoe",
+          "validation": {
+            "minLength": 3,
+            "pattern": "^[a-z0-9_]+$",
+            "message": "Username must be at least 3 characters (letters, numbers, underscores)"
+          },
+          "availabilityCheck": true,
+          "dbTable": "profiles",
+          "dbField": "username"
+        },
+        {
+          "id": "countryCode",
+          "type": "select",
+          "label": "Country Code",
+          "required": false,
+          "autoDetect": "ip-country",
+          "dbTable": "profiles",
+          "dbField": "phoneCountryCode",
+          "options": [
+            { "value": "+234", "label": "Nigeria (+234)" },
+            { "value": "+1", "label": "United States / Canada (+1)" },
+            { "value": "+44", "label": "United Kingdom (+44)" },
+            { "value": "+233", "label": "Ghana (+233)" },
+            { "value": "+254", "label": "Kenya (+254)" },
+            { "value": "+27", "label": "South Africa (+27)" },
+            { "value": "+220", "label": "Gambia (+220)" }
+          ]
+        },
+        {
+          "id": "phone",
+          "type": "phone",
+          "label": "Phone Number",
+          "required": false,
+          "placeholder": "8012345678",
+          "validation": {
+            "pattern": "^[0-9]{7,15}$",
+            "message": "Enter 7 to 15 digits"
+          },
+          "dbTable": "profiles",
+          "dbField": "phoneNumber"
+        }
+      ]
+    },
+    {
+      "step": 3,
+      "id": "currency",
+      "title": "Primary Currency",
+      "subtitle": "Select your default wallet currency",
+      "skippable": false,
+      "fields": [
+        {
+          "id": "primaryCurrency",
+          "type": "currency-select",
+          "label": "Default Wallet Currency",
+          "required": true,
+          "autoDetect": "ip-country",
+          "dbTable": "wallets",
+          "dbField": "primaryCurrency"
+        }
+      ]
+    },
+    {
+      "step": 4,
+      "id": "pin",
+      "title": "Transaction PIN",
+      "subtitle": "Set a 4-digit PIN for withdrawals and secure transactions",
+      "skippable": false,
+      "fields": [
+        {
+          "id": "pin",
+          "type": "pin",
+          "label": "4-Digit PIN",
+          "required": true,
+          "secureEntry": true,
+          "validation": {
+            "pattern": "^[0-9]{4}$",
+            "message": "PIN must be exactly 4 digits"
+          },
+          "dbTable": "profiles",
+          "dbField": "pinHash"
+        },
+        {
+          "id": "confirmPin",
+          "type": "pin",
+          "label": "Confirm 4-Digit PIN",
+          "required": true,
+          "secureEntry": true,
+          "dependsOn": "pin",
+          "validation": {
+            "match": "pin",
+            "message": "PINs do not match"
+          }
+        }
+      ]
+    },
+    {
+      "step": 5,
+      "id": "interests",
+      "title": "Health Interests",
+      "subtitle": "Select topics to personalize your feed",
+      "skippable": false,
+      "fields": [
+        {
+          "id": "interests",
+          "type": "multi-select",
+          "label": "Topics of Interest",
+          "required": true,
+          "dbTable": "profiles",
+          "dbField": "interests",
+          "options": [
+            { "value": "Health & Wellness", "label": "Health & Wellness" },
+            { "value": "Fitness & Exercise", "label": "Fitness & Exercise" },
+            { "value": "Nutrition & Diet", "label": "Nutrition & Diet" },
+            { "value": "Mental Health", "label": "Mental Health" },
+            { "value": "Yoga & Meditation", "label": "Yoga & Meditation" },
+            { "value": "Sports Medicine", "label": "Sports Medicine" },
+            { "value": "Medical Research", "label": "Medical Research" },
+            { "value": "Lifestyle & Habits", "label": "Lifestyle & Habits" },
+            { "value": "Parenting & Child Health", "label": "Parenting & Child Health" },
+            { "value": "Relationship Counseling", "label": "Relationship Counseling" },
+            { "value": "Diabetes Care", "label": "Diabetes Care" },
+            { "value": "Heart Health", "label": "Heart Health" },
+            { "value": "Weight Management", "label": "Weight Management" },
+            { "value": "Sleep Optimization", "label": "Sleep Optimization" },
+            { "value": "Stress & Anxiety", "label": "Stress & Anxiety" }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -77,7 +77,10 @@ export const createArticle = mutation({
 
     // Check if articles require approval
     const settings = await ctx.db.query("moderationSettings").first();
-    const requiresApproval = settings?.articlesRequireApproval ?? true;
+    let requiresApproval = settings?.articlesRequireApproval ?? true;
+    if (resolvedCircleId && settings?.circleContentRequiresApproval) {
+      requiresApproval = true;
+    }
 
     // Log article creation for debugging
     console.log("Creating article:", {
@@ -157,6 +160,17 @@ export const createArticle = mutation({
           relatedContentType: 'article',
           relatedContentId: articleId,
         });
+      }
+
+      // Award EXP for creating published article
+      try {
+        await ctx.runMutation(api.providerExp.awardExp, {
+          userId,
+          eventType: "create_article",
+          sourceId: articleId.toString(),
+        });
+      } catch (e) {
+        console.error("Failed to award EXP for article creation:", e);
       }
     }
 
@@ -255,6 +269,17 @@ export const publishArticle = mutation({
       publishedAt: Date.now(),
       updatedAt: Date.now(),
     });
+
+    // Award EXP for published article
+    try {
+      await ctx.runMutation(api.providerExp.awardExp, {
+        userId,
+        eventType: "create_article",
+        sourceId: args.articleId.toString(),
+      });
+    } catch (e) {
+      console.error("Failed to award EXP for article publishing:", e);
+    }
 
     return args.articleId;
   },

@@ -18,5 +18,5 @@ type ThemedColors = ThemeColors & { isDark: boolean; isLight: boolean };
 export function useColors(): ThemedColors {
   const { isDark, isLight } = useAppTheme();
   const base = isDark ? DarkColors : LightColors;
-  return { ...base, isDark, isLight };
+  return { ...base, isDark, isLight } as any;
 }

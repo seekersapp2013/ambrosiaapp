@@ -533,7 +533,7 @@ export const calculateRecommendationScore = action({
       // 5. Diversity (10 pts)
       const recentTopics = userProfile.engagementHistory
         .slice(0, 10)
-        .map((e) => e.contentType);
+        .map((e: any) => e.contentType);
       const diversityScore = calculateDiversityScore(recentTopics, analysis.aiAnalysis.topics);
       score += diversityScore * 0.1;
       if (diversityScore > 70) reasoning.push("Exploring new topics");

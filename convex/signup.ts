@@ -8,25 +8,52 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 export const storeSignupData = mutation({
   args: {
     email: v.string(),
-    username: v.string(),
-    phoneNumber: v.string(),
-    phoneCountryCode: v.string(),
-    detectedCountry: v.string(),
-    primaryCurrency: v.string(),
-    interests: v.array(v.string()),
-    transactionPin: v.string(),
+    username: v.optional(v.string()),
+    phoneNumber: v.optional(v.string()),
+    phoneCountryCode: v.optional(v.string()),
+    detectedCountry: v.optional(v.string()),
+    primaryCurrency: v.optional(v.string()),
+    interests: v.optional(v.array(v.string())),
+    transactionPin: v.optional(v.string()),
+    signupRole: v.optional(v.string()),
+    providerKycData: v.optional(v.any()),
   },
   handler: async (ctx, args) => {
+    const userEmail = args.email.toLowerCase().trim();
+
+    // Enforce username uniqueness if provided
+    if (args.username && args.username.trim()) {
+      const normUsername = args.username.toLowerCase().trim();
+      const existingProfile = await ctx.db
+        .query("profiles")
+        .withIndex("by_username", (q) => q.eq("username", normUsername))
+        .first();
+
+      if (existingProfile) {
+        throw new Error(`Username '@${normUsername}' already exists.`);
+      }
+
+      // Check signupPending for pending registrations with a different email
+      const pendingWithUsername = await ctx.db
+        .query("signupPending")
+        .collect()
+        .then((rows) => rows.find((r) => r.email !== userEmail && r.username?.toLowerCase() === normUsername));
+
+      if (pendingWithUsername) {
+        throw new Error(`Username '@${normUsername}' already exists.`);
+      }
+    }
+
     // Remove any stale entry for this email first
     const existing = await ctx.db
       .query("signupPending")
-      .withIndex("by_email", (q) => q.eq("email", args.email.toLowerCase()))
+      .withIndex("by_email", (q) => q.eq("email", userEmail))
       .first();
     if (existing) await ctx.db.delete(existing._id);
 
     await ctx.db.insert("signupPending", {
       ...args,
-      email: args.email.toLowerCase(),
+      email: userEmail,
       createdAt: Date.now(),
     });
   },

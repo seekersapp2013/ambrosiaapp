@@ -1,10 +1,9 @@
 /**
  * UserManagement — Admin User Management Screen
- * Lists all users with search, ban/unban, and hard delete capabilities.
- * Matches the existing admin panel design language.
+ * Combined User Directory, Role Assignment, Ban/Unban, and Hard Delete.
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -37,6 +36,80 @@ function UserAvatar({ uri, name, size = 44, C }: { uri?: string | null; name?: s
     <View style={[styles.avatarFallback, { width: size, height: size, borderRadius: size / 2, backgroundColor: C.isDark ? C.bgElevated : C.bgInput, borderColor: C.borderSubtle }]}>
       <Text style={[styles.avatarInitials, { color: C.textMuted }]}>{initials}</Text>
     </View>
+  );
+}
+
+// ─── Role Picker Modal ────────────────────────────────────────────────────────
+function RolePickerModal({
+  visible, user, roles, selectedRoleId, onSelect, onConfirm, onClose, isSaving, C,
+}: {
+  visible: boolean; user: any; roles: any[] | undefined; selectedRoleId: string | null;
+  onSelect: (id: string) => void; onConfirm: () => void; onClose: () => void; isSaving: boolean;
+  C: ReturnType<typeof useColors>;
+}) {
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <View style={styles.modalOverlay}>
+        <View style={[styles.modalCard, { backgroundColor: C.bgSurface, borderColor: C.borderSubtle }]}>
+          <View style={styles.modalHeader}>
+            <Text style={[styles.modalTitle, { color: C.textPrimary }]}>Assign Role</Text>
+            <TouchableOpacity onPress={onClose} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Ionicons name="close" size={22} color={C.iconSecondary} />
+            </TouchableOpacity>
+          </View>
+
+          {user && (
+            <View style={[styles.selectedUserCard, { backgroundColor: C.isDark ? C.bgElevated : C.bgInput }]}>
+              <UserAvatar uri={user.avatarUrl} name={user.name} size={36} C={C} />
+              <View style={styles.selectedUserText}>
+                <Text style={[styles.selectedUserName, { color: C.textPrimary }]}>{user.name || 'Unknown'}</Text>
+                {user.username ? <Text style={[styles.selectedUserUsername, { color: C.textMuted }]}>@{user.username}</Text> : null}
+              </View>
+            </View>
+          )}
+
+          <Text style={[styles.fieldLabel, { color: C.textMuted }]}>Select Moderation Role</Text>
+
+          {roles === undefined ? (
+            <ActivityIndicator color={C.actionPrimary} style={{ marginVertical: spacing.space4 }} />
+          ) : (
+            <ScrollView style={styles.roleList} showsVerticalScrollIndicator={false}>
+              {roles.map(role => {
+                const selected = selectedRoleId === role._id;
+                return (
+                  <TouchableOpacity
+                    key={role._id}
+                    style={[styles.rolePickerRow, selected && { backgroundColor: C.bgPrimarySubtle, borderWidth: 1, borderColor: C.borderFilled }]}
+                    onPress={() => onSelect(role._id)}
+                    accessibilityRole="radio"
+                    accessibilityState={{ checked: selected }}
+                  >
+                    <View style={styles.rolePickerLeft}>
+                      <Text style={[styles.rolePickerName, { color: C.textPrimary }, selected && { color: C.actionPrimary }]}>{role.name}</Text>
+                      <Text style={[styles.rolePickerDesc, { color: C.textDisabled }]} numberOfLines={1}>{role.description}</Text>
+                    </View>
+                    {selected && <Ionicons name="checkmark-circle" size={20} color={C.actionPrimary} />}
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          )}
+
+          <View style={styles.modalActions}>
+            <TouchableOpacity
+              style={[styles.modalBtn, { backgroundColor: C.actionPrimary }, (!selectedRoleId || isSaving) && styles.btnDisabled]}
+              onPress={onConfirm}
+              disabled={!selectedRoleId || isSaving}
+            >
+              {isSaving ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Text style={styles.modalBtnPrimaryText}>Assign Role</Text>}
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.modalBtn, { backgroundColor: C.isDark ? C.bgElevated : C.bgInput, borderWidth: 1, borderColor: C.borderDefault }]} onPress={onClose}>
+              <Text style={[styles.modalBtnCancelText, { color: C.textPrimary }]}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
   );
 }
 
@@ -230,6 +303,8 @@ export function UserManagement() {
   // Modals
   const [banModalUser, setBanModalUser] = useState<any>(null);
   const [deleteModalUser, setDeleteModalUser] = useState<any>(null);
+  const [roleModalUser, setRoleModalUser] = useState<any>(null);
+  const [selectedRoleId, setSelectedRoleId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
   // Queries
@@ -239,12 +314,38 @@ export function UserManagement() {
     cursor,
   });
 
+  const roles = useQuery(api.moderation.listModerationRoles);
+
   // Mutations
   const banUser = useMutation(api.moderationActions.banUser);
   const unbanUser = useMutation(api.moderationActions.unbanUser);
   const hardDeleteUser = useMutation(api.adminUsers.hardDeleteUser);
+  const assignRole = useMutation(api.moderation.assignRoleToUser);
 
   // ─── Handlers ─────────────────────────────────────────────────────────────
+  const openRoleModal = (user: any) => {
+    setRoleModalUser(user);
+    setSelectedRoleId(null);
+  };
+
+  const handleAssignRole = async () => {
+    if (!roleModalUser || !selectedRoleId) return;
+    setIsSaving(true);
+    try {
+      await assignRole({
+        userId: roleModalUser.userId as Id<'users'>,
+        roleId: selectedRoleId as Id<'moderationRoles'>,
+      });
+      Alert.alert('Success', `Role assigned to @${roleModalUser.username} successfully.`);
+      setRoleModalUser(null);
+      setSelectedRoleId(null);
+    } catch (e: any) {
+      Alert.alert('Error', e.message || 'Failed to assign role');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const handleBan = async (reason: string, banType: string, expiresAt?: number) => {
     if (!banModalUser) return;
     setIsSaving(true);
@@ -324,7 +425,18 @@ export function UserManagement() {
         <Text style={[styles.userUsername, { color: C.textMuted }]}>@{user.username}</Text>
         <Text style={[styles.userJoined, { color: C.textDisabled }]}>Joined {formatDate(user.joinedAt)}</Text>
       </View>
+
       <View style={styles.userActions}>
+        {/* Role Assign */}
+        <TouchableOpacity
+          style={[styles.actionBtn, { backgroundColor: C.isDark ? 'rgba(198,34,41,0.15)' : 'rgba(198,34,41,0.1)' }]}
+          onPress={() => openRoleModal(user)}
+          accessibilityLabel="Assign role to user"
+        >
+          <Ionicons name="shield-checkmark" size={16} color={C.actionPrimary} />
+        </TouchableOpacity>
+
+        {/* Ban / Unban */}
         {user.isBanned ? (
           <TouchableOpacity
             style={[styles.actionBtn, { backgroundColor: C.statusSuccessBg }]}
@@ -342,6 +454,8 @@ export function UserManagement() {
             <Ionicons name="ban" size={16} color={C.statusWarning} />
           </TouchableOpacity>
         )}
+
+        {/* Hard Delete */}
         <TouchableOpacity
           style={[styles.actionBtn, { backgroundColor: 'rgba(220,38,38,0.08)' }]}
           onPress={() => setDeleteModalUser(user)}
@@ -417,6 +531,19 @@ export function UserManagement() {
         />
       )}
 
+      {/* Role Picker Modal */}
+      <RolePickerModal
+        visible={!!roleModalUser}
+        user={roleModalUser}
+        roles={roles}
+        selectedRoleId={selectedRoleId}
+        onSelect={setSelectedRoleId}
+        onConfirm={handleAssignRole}
+        onClose={() => setRoleModalUser(null)}
+        isSaving={isSaving}
+        C={C}
+      />
+
       {/* Ban Modal */}
       <BanModal
         visible={!!banModalUser}
@@ -467,7 +594,7 @@ const styles = StyleSheet.create({
   userName: { ...typeScale.headingSM, fontSize: 14, flexShrink: 1 },
   userUsername: { ...typeScale.bodySM, marginTop: 1 },
   userJoined: { ...typeScale.caption, marginTop: 1 },
-  userActions: { flexDirection: 'row', gap: 8 },
+  userActions: { flexDirection: 'row', gap: 6 },
   actionBtn: {
     width: 36, height: 36, borderRadius: 18,
     alignItems: 'center', justifyContent: 'center',
@@ -505,6 +632,13 @@ const styles = StyleSheet.create({
   selectedUserName: { ...typeScale.headingSM, fontSize: 14 },
   selectedUserUsername: { ...typeScale.bodySM },
   fieldLabel: { ...typeScale.labelSM, marginBottom: spacing.space2 },
+
+  // Role picker
+  roleList: { maxHeight: 280 },
+  rolePickerRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: spacing.space3, paddingHorizontal: spacing.space3, borderRadius: radius.radiusMD, marginBottom: 4 },
+  rolePickerLeft: { flex: 1, marginRight: spacing.space2 },
+  rolePickerName: { ...typeScale.headingSM, fontSize: 14 },
+  rolePickerDesc: { ...typeScale.caption, marginTop: 2 },
 
   // Ban type
   banTypeRow: { flexDirection: 'row', gap: spacing.space2, marginBottom: spacing.space2 },

@@ -68,17 +68,38 @@ export const { auth, signIn, signOut, store } = convexAuth({
           };
 
           // Look up wizard data stored in signupPending before signIn was called
-          const email = (user.email as string | undefined)?.toLowerCase();
-          const pending = email
-            ? await ctx.db
+          let email = (user.email as string | undefined)?.toLowerCase().trim();
+          if (!email) {
+            const authAcc = await (ctx.db as any)
+              .query("authAccounts")
+              .withIndex("userIdAndProvider", (q: any) => q.eq("userId", userId))
+              .first();
+            if (authAcc && authAcc.providerAccountId) {
+              email = (authAcc.providerAccountId as string).toLowerCase().trim();
+            }
+          }
+
+          let pending: any = email
+            ? await (ctx.db as any)
                 .query("signupPending")
-                .filter((q) => q.eq(q.field("email"), email))
+                .withIndex("by_email", (q: any) => q.eq("email", email))
                 .first()
             : null;
 
+          // Fallback: If not found by email, check for recent pending signup (within last 10 mins)
+          if (!pending) {
+            const recentPending = await (ctx.db as any)
+              .query("signupPending")
+              .collect();
+            const tenMinsAgo = Date.now() - 10 * 60 * 1000;
+            pending = recentPending
+              .filter((r: any) => r.createdAt > tenMinsAgo)
+              .sort((a: any, b: any) => b.createdAt - a.createdAt)[0] ?? null;
+          }
+
           if (pending) {
             // Use the username from the wizard if provided
-            const wizardUsername = pending.username.toLowerCase().replace(/[^a-z0-9_]/g, "");
+            const wizardUsername = pending.username?.toLowerCase().replace(/[^a-z0-9_]/g, "");
             if (wizardUsername) {
               // Re-check uniqueness for wizard username
               const taken = await ctx.db
@@ -92,8 +113,6 @@ export const { auth, signIn, signOut, store } = convexAuth({
             profileData.detectedCountry = pending.detectedCountry;
             profileData.interests = pending.interests;
             profileData.pinHash = pending.transactionPin;
-            // Clean up
-            await ctx.db.delete(pending._id);
           }
 
           // Write all wizard fields if present on user record (legacy path)
@@ -119,18 +138,33 @@ export const { auth, signIn, signOut, store } = convexAuth({
             userId, profileId, walletId, username: finalUsername,
           });
 
+          // If user signed up as a provider, create booking subscriber record & enroll in tiering
+          if (pending && pending.signupRole === "provider") {
+            console.log('Auto-creating provider subscription and tier enrollment for new provider user:', userId);
+            const { createSubscriberHelper } = await import("./bookingSubscribers");
+            await createSubscriberHelper(ctx, userId, pending.providerKycData || {
+              jobTitle: "Service Provider",
+              specialization: "General Practice",
+              aboutUser: "Service Provider at Ambrosia.",
+              offerDescription: "1-on-1 and group consultations.",
+              sessionPrice: 100,
+            });
+          }
+
+          // Clean up pending signup record after successful initialization
+          if (pending) {
+            await ctx.db.delete(pending._id);
+          }
+
           // Auto-initialize AI recommendations
           await ctx.scheduler.runAfter(5000, internal.autoInitializeAI.runAutoInitialization, {
             userId,
           });
 
-          // Initialize moderation system for the very first user
-          const allUsers = await ctx.db.query("users").collect();
-          if (allUsers.length === 1) {
-            console.log('First user — initializing moderation system...');
-            const { ensurePrimaryAdminExists } = await import("./moderationHelpers");
-            await ensurePrimaryAdminExists(ctx);
-          }
+          // Initialize moderation system to ensure first user has primary admin role
+          console.log('Checking/initializing primary admin role...');
+          const { ensurePrimaryAdminExists } = await import("./moderationHelpers");
+          await ensurePrimaryAdminExists(ctx);
         } catch (error) {
           console.error('Error creating profile and wallet for new user:', error);
         }

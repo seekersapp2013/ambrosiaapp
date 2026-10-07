@@ -230,7 +230,7 @@ export default function EventsScreen() {
                   subtitle="Set up your provider profile to create and manage events."
                   action={
                     <TouchableOpacity style={evStyles.becomeBtn}
-                      onPress={() => router.push("/(tabs)/booking/become-provider" as any)}
+                      onPress={() => router.push("/(tabs)/booking/provider-signup" as any)}
                       accessibilityRole="button">
                       <Text style={evStyles.becomeBtnText} allowFontScaling={false}>Become a Provider</Text>
                     </TouchableOpacity>

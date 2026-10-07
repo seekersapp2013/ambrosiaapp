@@ -59,7 +59,10 @@ export const createReel = mutation({
 
     // Check if reels require approval
     const settings = await ctx.db.query("moderationSettings").first();
-    const requiresApproval = settings?.reelsRequireApproval ?? true;
+    let requiresApproval = settings?.reelsRequireApproval ?? true;
+    if (resolvedCircleId && settings?.circleContentRequiresApproval) {
+      requiresApproval = true;
+    }
 
     const now = Date.now();
 

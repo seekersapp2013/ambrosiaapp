@@ -59,7 +59,7 @@ export default function BookingDetailScreen() {
 
   // Guard: only query when id looks like a real Convex ID (not a reserved word)
   // Convex IDs are alphanumeric strings, never plain words like "new", "providers", etc.
-  const isValidId = !!id && id.length > 10 && !["new","providers","history","settings","events","become-provider","create-event","my-sessions","live-session","recordings","referrals","referral-detail","event-detail","booking-detail"].includes(id);
+  const isValidId = !!id && id.length > 10 && !["new","providers","history","settings","events","provider-signup","create-event","my-sessions","live-session","recordings","referrals","referral-detail","event-detail","booking-detail"].includes(id);
 
   // Try to load as a provider (userId) first
   const providerSubscription = useQuery(

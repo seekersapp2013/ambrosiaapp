@@ -13,10 +13,20 @@ import {
   Image,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
+import { Id } from "@/convex/_generated/dataModel";
+import { TierBadge } from "@/components/tier/TierBadge";
 import { Colors } from "@/tokens/colors";
-import { typeScale } from "@/tokens/typography";
-import { spacing } from "@/tokens/spacing";
 import { radius } from "@/tokens/radius";
+import { spacing } from "@/tokens/spacing";
+import { typeScale } from "@/tokens/typography";
+
+function ProviderTierBadge({ userId }: { userId: Id<"users"> }) {
+  const info = useQuery(api.tierCalculation.getProviderTierInfo, { userId });
+  if (!info) return null;
+  return <TierBadge tier={info.tier} size="small" showScore prsScore={info.prsScore} />;
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 export interface ProviderData {
@@ -101,9 +111,14 @@ export function ProviderCard({ provider, onPress }: ProviderCardProps) {
 
         {/* Name + title */}
         <View style={styles.headerInfo}>
-          <Text style={styles.name} numberOfLines={1} allowFontScaling={false}>
-            {name}
-          </Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+            <Text style={styles.name} numberOfLines={1} allowFontScaling={false}>
+              {name}
+            </Text>
+            {provider.subscriber?.userId ? (
+              <ProviderTierBadge userId={provider.subscriber.userId as any} />
+            ) : null}
+          </View>
           <Text
             style={styles.jobTitle}
             numberOfLines={1}

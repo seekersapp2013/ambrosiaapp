@@ -103,7 +103,7 @@ export default function AdminDashboard() {
           {activeScreen === 'history'       && <ModerationHistory />}
           {activeScreen === 'settings'      && isAdmin && <ModerationSettingsPanel />}
           {activeScreen === 'roles'         && isAdmin && <RoleManagement />}
-          {activeScreen === 'users'         && isAdmin && <UserRoleAssignment />}
+          {activeScreen === 'users'         && isAdmin && <UserManagement />}
           {activeScreen === 'userManagement' && isAdmin && <UserManagement />}
           {activeScreen === 'ads'           && isAdmin && <AdManagementPanel />}
           {activeScreen === 'notifications' && isAdmin && <NotificationAnalyticsDashboard onBack={() => setActiveScreen('home')} />}
@@ -276,10 +276,30 @@ export default function AdminDashboard() {
                 iconBg={C.statusInfoBg} iconColor={C.statusInfo} C={C} />
               <ActionTile icon="shield-outline" label="Roles" onPress={() => setActiveScreen('roles')}
                 iconBg={C.purpleSurface} iconColor={C.palette.purple} C={C} />
-              <ActionTile icon="person-add-outline" label="Assign" onPress={() => setActiveScreen('users')}
-                iconBg={C.statusSuccessBg} iconColor={C.statusSuccess} C={C} />
               <ActionTile icon="notifications-outline" label="Notifs" onPress={() => setActiveScreen('notifications')}
                 iconBg={C.bgPrimaryMid} iconColor={C.actionPrimary} C={C} />
+            </View>
+          </MobileCard>
+        )}
+
+        {/* ═══ SECTION: Tier & Provider Verification ═══ */}
+        {isAdmin && (
+          <MobileCard style={styles.sectionCard}>
+            <View style={[styles.sectionLabelRow, { borderBottomColor: C.borderSubtle }]}>
+              <View style={[styles.sectionDot, { backgroundColor: "#00BFA6" }]} />
+              <Text style={[styles.sectionChipLabel, { color: C.textMuted }]} allowFontScaling={false}>TIER SYSTEM</Text>
+            </View>
+            <View style={styles.actionTilesGrid}>
+              <ActionTile icon="shield-checkmark-outline" label="Revalidate" onPress={() => router.push("/(screens)/admin/tier-revalidation")}
+                iconBg="rgba(0, 191, 166, 0.12)" iconColor="#00BFA6" C={C} />
+              <ActionTile icon="options-outline" label="Settings & Rules" onPress={() => router.push("/(screens)/admin/tier-settings")}
+                iconBg="rgba(156, 39, 176, 0.12)" iconColor="#9C27B0" C={C} />
+              <ActionTile icon="document-text-outline" label="Audit Log" onPress={() => router.push("/(screens)/admin/tier-audit-log")}
+                iconBg="rgba(33, 150, 243, 0.12)" iconColor="#2196F3" C={C} />
+              <ActionTile icon="create-outline" label="Override" onPress={() => router.push("/(screens)/admin/tier-override")}
+                iconBg="rgba(233, 30, 99, 0.12)" iconColor="#E91E63" C={C} />
+              <ActionTile icon="timer-outline" label="Inactivity" onPress={() => router.push("/(screens)/admin/inactivity-dashboard")}
+                iconBg="rgba(244, 67, 54, 0.12)" iconColor="#F44336" C={C} />
             </View>
           </MobileCard>
         )}

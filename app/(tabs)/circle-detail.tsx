@@ -29,6 +29,7 @@ import { AppBackground } from "@/components/AppBackground";
 import { MobileCard, useCardInsets } from "@/components/MobileCard";
 import { Colors } from "@/constants/Colors";
 import { useNavigationHistory } from "@/context/NavigationHistoryContext";
+import { useIsApprovedProvider } from "@/hooks/useIsApprovedProvider";
 
 function timeAgoShort(ts?: number): string {
   if (!ts) return "";
@@ -57,6 +58,9 @@ export default function CircleDetailScreen() {
   const [inviteSearch, setInviteSearch] = useState("");
   const [invitingUserId, setInvitingUserId] = useState<string | null>(null);
   const cardInsets = useCardInsets();
+
+  const { isApprovedProvider } = useIsApprovedProvider();
+  const moderationSettings = useQuery(api.moderationSettings.getModerationSettings);
 
   // ── Data ────────────────────────────────────────────────────────────────────
   const circle = useQuery(
@@ -539,68 +543,75 @@ export default function CircleDetailScreen() {
           )}
 
           {/* ── Admin: Create Content actions ────────────────────────────── */}
-          {isAdmin && (
-            <View style={styles.adminCreateSection}>
-              <View style={styles.sectionHeader}>
-                <Text style={styles.sectionTitle}>Create Content</Text>
-              </View>
-              <View style={styles.adminCreateRow}>
-                <TouchableOpacity
-                  style={styles.adminCreateBtn}
-                  activeOpacity={0.8}
-                  onPress={() =>
-                    router.push({
-                      pathname: "/(tabs)/write-article",
-                      params: { circleId, action: "create" },
-                    } as any)
-                  }
-                  accessibilityRole="button"
-                  accessibilityLabel="Write article for this circle"
-                >
-                  <View style={[styles.adminCreateIcon, { backgroundColor: Colors.statusInfoBg }]}>
-                    <Ionicons name="document-text-outline" size={18} color={Colors.statusInfo} />
-                  </View>
-                  <Text style={styles.adminCreateBtnText}>Write Article</Text>
-                </TouchableOpacity>
+          {isAdmin && (() => {
+            const allowNonProviderCreation = moderationSettings?.allowNonProviderCircleCreation ?? true;
+            const canCreateCircleContent = isApprovedProvider || allowNonProviderCreation;
 
-                <TouchableOpacity
-                  style={styles.adminCreateBtn}
-                  activeOpacity={0.8}
-                  onPress={() =>
-                    router.push({
-                      pathname: "/(tabs)/create-pulse",
-                      params: { circleId, action: "create" },
-                    } as any)
-                  }
-                  accessibilityRole="button"
-                  accessibilityLabel="Create pulse for this circle"
-                >
-                  <View style={[styles.adminCreateIcon, { backgroundColor: Colors.bgPrimaryMid }]}>
-                    <Ionicons name="videocam-outline" size={18} color={Colors.primary} />
-                  </View>
-                  <Text style={styles.adminCreateBtnText}>Create Pulse</Text>
-                </TouchableOpacity>
+            if (!canCreateCircleContent) return null;
 
-                <TouchableOpacity
-                  style={styles.adminCreateBtn}
-                  activeOpacity={0.8}
-                  onPress={() =>
-                    router.push({
-                      pathname: "/(tabs)/booking/events",
-                      params: { circleId, action: "create" },
-                    } as any)
-                  }
-                  accessibilityRole="button"
-                  accessibilityLabel="Create event for this circle"
-                >
-                  <View style={[styles.adminCreateIcon, { backgroundColor: Colors.statusSuccessBg }]}>
-                    <Ionicons name="calendar-outline" size={18} color={Colors.statusSuccess} />
-                  </View>
-                  <Text style={styles.adminCreateBtnText}>Create Event</Text>
-                </TouchableOpacity>
+            return (
+              <View style={styles.adminCreateSection}>
+                <View style={styles.sectionHeader}>
+                  <Text style={styles.sectionTitle}>Create Circle Content</Text>
+                </View>
+                <View style={styles.adminCreateRow}>
+                  <TouchableOpacity
+                    style={styles.adminCreateBtn}
+                    activeOpacity={0.8}
+                    onPress={() =>
+                      router.push({
+                        pathname: "/(tabs)/write-article",
+                        params: { circleId, isCircleOnly: "true" },
+                      } as any)
+                    }
+                    accessibilityRole="button"
+                    accessibilityLabel="Write article for this circle"
+                  >
+                    <View style={[styles.adminCreateIcon, { backgroundColor: Colors.statusInfoBg }]}>
+                      <Ionicons name="document-text-outline" size={18} color={Colors.statusInfo} />
+                    </View>
+                    <Text style={styles.adminCreateBtnText}>Write Article</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.adminCreateBtn}
+                    activeOpacity={0.8}
+                    onPress={() =>
+                      router.push({
+                        pathname: "/(tabs)/write-reel",
+                        params: { circleId, isCircleOnly: "true" },
+                      } as any)
+                    }
+                    accessibilityRole="button"
+                    accessibilityLabel="Create pulse for this circle"
+                  >
+                    <View style={[styles.adminCreateIcon, { backgroundColor: Colors.bgPrimaryMid }]}>
+                      <Ionicons name="videocam-outline" size={18} color={Colors.primary} />
+                    </View>
+                    <Text style={styles.adminCreateBtnText}>Create Pulse</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.adminCreateBtn}
+                    activeOpacity={0.8}
+                    onPress={() =>
+                      router.push({
+                        pathname: "/(tabs)/booking/events",
+                        params: { circleId, action: "create" },
+                      } as any)
+                    }
+                    accessibilityRole="button"
+                    accessibilityLabel="Create event for this circle"
+                  >
+                    <View style={[styles.adminCreateIcon, { backgroundColor: Colors.statusSuccessBg }]}>
+                      <Ionicons name="calendar-outline" size={18} color={Colors.statusSuccess} />
+                    </View>
+                    <Text style={styles.adminCreateBtnText}>Create Event</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
-            </View>
-          )}
+            );
+          })()}
 
           {/* ── Circle Events section ───────────────────────────────────── */}
           {circleEvents.length > 0 && (
@@ -1214,6 +1225,8 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 15,
+    color: Colors.textMuted,
+  },
 
   // ── Pending approval wall ─────────────────────────────────────────────────
   pendingContainer: {
@@ -1298,8 +1311,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "700",
     color: "#fff",
-  },
-    color: Colors.textMuted,
   },
   backLink: { marginTop: 8 },
   backLinkText: { fontSize: 14, color: Colors.primary },

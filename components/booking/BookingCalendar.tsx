@@ -92,7 +92,7 @@ export function BookingCalendar({
   });
 
   const availabilityMap = useMemo(() => {
-    const m: Record<string, typeof availability extends { availability: any[] } ? typeof availability["availability"][number] : never> = {};
+    const m: Record<string, any> = {};
     if (availability && "availability" in availability) {
       for (const day of (availability as any).availability) {
         m[day.date] = day;

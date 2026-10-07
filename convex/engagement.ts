@@ -594,12 +594,14 @@ export const clapArticle = mutation({
       if (!hasAccess) throw new Error("Access required to clap");
     }
 
-    // Require that the user has read the article at least once
+    // Ensure read record exists when user claps (viewing/interacting implies reading)
     const read = await ctx.db
       .query("reads")
       .withIndex("by_user_article", (q) => q.eq("userId", userId).eq("articleId", args.articleId))
       .first();
-    if (!read) throw new Error("Read the article before clapping");
+    if (!read) {
+      await ctx.db.insert("reads", { userId, articleId: args.articleId, createdAt: Date.now() });
+    }
 
     const existing = await ctx.db
       .query("claps")

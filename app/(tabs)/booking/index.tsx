@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   View,
   Text,
@@ -10,7 +10,7 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { useQuery } from "convex/react";
+import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useColors } from "@/hooks/useColors";
 import { Colors } from "@/tokens/colors";
@@ -252,6 +252,37 @@ function ProviderDashboardBanner({ onPress }: { onPress: () => void }) {
   );
 }
 
+// ─── Provider Pending Banner ──────────────────────────────────────────────────
+function ProviderPendingBanner() {
+  const C = useColors();
+  return (
+    <View
+      style={[styles.providerBanner, { backgroundColor: C.statusWarningBg, borderColor: C.amberBorder }]}
+    >
+      {/* Left accent strip */}
+      <View style={[styles.providerBannerAccent, { backgroundColor: C.statusWarning }]} />
+
+      <View style={[styles.providerBannerIconWrap, { backgroundColor: C.amberSurface }]}>
+        <Ionicons name="time-outline" size={22} color={C.statusWarning} />
+      </View>
+
+      <View style={styles.providerBannerText}>
+        <View style={styles.providerBannerTitleRow}>
+          <Text style={[styles.providerBannerTitle, { color: C.textPrimary }]} allowFontScaling={false}>
+            Approval Pending
+          </Text>
+          <View style={[styles.providerBannerBadge, { backgroundColor: C.amberSurface }]}>
+            <Text style={[styles.providerBannerBadgeText, { color: C.statusWarning }]} allowFontScaling={false}>UNDER REVIEW</Text>
+          </View>
+        </View>
+        <Text style={[styles.providerBannerSub, { color: C.textMuted }]} allowFontScaling={false}>
+          Your provider application is under review by admin.
+        </Text>
+      </View>
+    </View>
+  );
+}
+
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function BookingScreen() {
   const router = useRouter();
@@ -261,8 +292,17 @@ export default function BookingScreen() {
 
   const bookings       = useQuery(api.bookings.getMyBookings, {});
   const mySubscription = useQuery(api.bookingSubscribers.getMySubscription, {});
-  const isLoading      = bookings === undefined;
-  const isProvider     = !!mySubscription?.isActive;
+  const ensureSub      = useMutation(api.bookingSubscribers.ensureProviderSubscription);
+
+  useEffect(() => {
+    ensureSub().catch(() => {});
+  }, []);
+
+  const isLoading = bookings === undefined || mySubscription === undefined;
+
+  const isApprovedProvider = !!mySubscription && mySubscription.isActive === true && (mySubscription.approvalStatus === "APPROVED" || mySubscription.approvalStatus === "NOT_REQUIRED" || mySubscription.approvalStatus === undefined);
+  const isPendingProvider  = !!mySubscription && !isApprovedProvider && (mySubscription.approvalStatus === "PENDING" || !mySubscription.isActive);
+  const isProvider         = isApprovedProvider;
 
   const { filtered, upcomingCount, completedCount, cancelledCount, upcomingPreview } =
     useMemo(() => {
@@ -307,12 +347,19 @@ export default function BookingScreen() {
           {/* ── Top nav ─────────────────────────────────────────────── */}
           <TopNav />
 
-          {/* ── Provider Dashboard Banner (providers only) ──────────── */}
+          {/* ── Provider Dashboard Banner (approved providers) ──────────── */}
           {isProvider && (
             <View style={styles.providerBannerSection}>
               <ProviderDashboardBanner
                 onPress={() => router.push("/(tabs)/booking/my-sessions" as any)}
               />
+            </View>
+          )}
+
+          {/* ── Provider Pending Banner (pending review providers) ──────────── */}
+          {!isProvider && isPendingProvider && (
+            <View style={styles.providerBannerSection}>
+              <ProviderPendingBanner />
             </View>
           )}
 
@@ -514,8 +561,14 @@ export default function BookingScreen() {
             <ActionTile icon="videocam-outline" label="Recordings"
               onPress={() => router.push("/(tabs)/booking/recordings" as any)}
               iconBg={C.statusWarningBg} iconColor={C.statusWarning} />
-            <ActionTile icon="ribbon-outline" label={isProvider ? "My Events" : "Go Pro"}
-              onPress={() => router.push(isProvider ? "/(tabs)/booking/events" as any : "/(tabs)/booking/become-provider" as any)}
+            <ActionTile icon="ribbon-outline" label={isApprovedProvider ? "My Events" : isPendingProvider ? "Pending" : "Go Pro"}
+              onPress={() => {
+                if (isApprovedProvider) {
+                  router.push("/(tabs)/booking/events" as any);
+                } else if (!isPendingProvider) {
+                  router.push("/(tabs)/booking/provider-signup" as any);
+                }
+              }}
               iconBg={C.bgPrimaryMid} iconColor={C.actionPrimary} />
           </View>
         </MobileCard>
@@ -581,10 +634,10 @@ export default function BookingScreen() {
         {/* ══════════════════════════════════════════════════════════
             GO PRO CTA (non-providers only)
         ══════════════════════════════════════════════════════════ */}
-        {!isProvider && !isLoading && (
+        {!isProvider && !isPendingProvider && !isLoading && (
           <MobileCard style={styles.sectionCard}>
             <TouchableOpacity style={[styles.goProCard, { backgroundColor: C.statusWarningBg, borderColor: C.amberBorder }]}
-              onPress={() => router.push("/(tabs)/booking/become-provider" as any)}
+              onPress={() => router.push("/(tabs)/booking/provider-signup" as any)}
               activeOpacity={0.88} accessibilityRole="button" accessibilityLabel="Become a provider">
               <View style={styles.goProLeft}>
                 <View style={[styles.goProIconWrap, { backgroundColor: C.amberSurface }]}>

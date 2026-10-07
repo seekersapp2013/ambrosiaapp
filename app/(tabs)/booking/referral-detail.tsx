@@ -29,6 +29,7 @@ import { AppBackground } from "@/components/AppBackground";
 import { MobileCard } from "@/components/MobileCard";
 import { ScreenHeader } from "@/components/ui/ScreenHeader";
 import { PrimaryButton, SecondaryButton } from "@/components/ui/Button";
+import { ReferralTimeline } from "@/components/booking/ReferralTimeline";
 
 // ─── Status tokens ────────────────────────────────────────────────────────────
 const STATUS_COLOR: Record<string, string> = {
@@ -256,6 +257,25 @@ export default function ReferralDetailScreen() {
               value={`${(referral.commissionRate * 100).toFixed(0)}%`}
             />
           </View>
+
+          {/* ── Visual Referral Timeline ────────────────────────── */}
+          {referralId && (
+            <ReferralTimeline
+              referralId={referralId as string}
+              onNavigateToCircle={(circleId) =>
+                router.push({
+                  pathname: "/(tabs)/circle-chat",
+                  params: { circleId },
+                } as any)
+              }
+              onNavigateToBooking={(providerId) =>
+                router.push({
+                  pathname: "/(tabs)/booking/[id]",
+                  params: { id: providerId, referralId: referral._id },
+                } as any)
+              }
+            />
+          )}
 
           {/* ── People ─────────────────────────────────────────── */}
           <View style={styles.section}>

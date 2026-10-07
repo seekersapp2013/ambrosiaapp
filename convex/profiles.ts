@@ -21,7 +21,7 @@ export const checkUsernameAvailability = query({
     const pendingWithUsername = await ctx.db
       .query("signupPending")
       .collect()
-      .then((rows) => rows.find((r) => r.username.toLowerCase() === normalized));
+      .then((rows) => rows.find((r) => r.username?.toLowerCase() === normalized));
 
     return { available: !pendingWithUsername };
   },

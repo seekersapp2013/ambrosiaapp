@@ -99,9 +99,9 @@ function SignInWithPhoneCode({
   return (
     <Form gap="$2" onSubmit={handleSubmit}>
       {isDetectingCountry ? (
-        <XStack gap="$2" ai="center" jc="center" p="$3">
+        <XStack gap="$2" alignItems="center" justifyContent="center" padding="$3">
           <Spinner size="small" />
-          <Text size="$3" col="$gray10">Detecting your country...</Text>
+          <Text fontSize="$3" color="$gray10">Detecting your country...</Text>
         </XStack>
       ) : null}
       <Input

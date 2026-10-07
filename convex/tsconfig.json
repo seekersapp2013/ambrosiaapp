@@ -11,6 +11,11 @@
     "jsx": "react-jsx",
     "skipLibCheck": true,
     "allowSyntheticDefaultImports": true,
+    /* Convex Node.js actions use `process.env`; pull in Node globals.
+     * `@types/node` is installed as a devDependency. Point typeRoots at the
+     * project node_modules so pnpm's layout resolves it. */
+    "typeRoots": ["../node_modules/@types", "../node_modules/.pnpm/node_modules/@types"],
+    "types": ["node"],
 
     /* These compiler options are required by Convex */
     "target": "ESNext",

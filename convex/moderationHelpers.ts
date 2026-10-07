@@ -41,8 +41,24 @@ export async function isPrimaryAdmin(
     .filter((q) => q.eq(q.field("isPrimaryAdmin"), true))
     .first();
 
-  return !!assignment;
+  if (assignment) {
+    return true;
+  }
+
+  // Fallback: If no primary admin assignment exists in database at all yet, check if this userId is the first user
+  const existingPrimaryAdmin = await ctx.db
+    .query("moderationAssignments")
+    .withIndex("by_primary_admin", (q) => q.eq("isPrimaryAdmin", true))
+    .first();
+
+  if (!existingPrimaryAdmin) {
+    const firstUserId = await getFirstUser(ctx);
+    return firstUserId !== null && firstUserId === userId;
+  }
+
+  return false;
 }
+
 
 // Check if user has admin role
 export async function isAdmin(

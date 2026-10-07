@@ -53,9 +53,11 @@ export function useIsPrimaryAdmin(): boolean | undefined {
 // Pass the content type string (e.g. 'articles', 'reels') — must match CONTENT_TYPES values.
 // ─────────────────────────────────────────────────────────────────────────────
 export function useCanApprove(contentType: string): boolean | undefined {
+  const isPrimary = useIsPrimaryAdmin();
   const myRoles = useQuery(api.moderation.getMyRoles);
 
-  if (myRoles === undefined) return undefined;
+  if (isPrimary === true) return true;
+  if (myRoles === undefined || isPrimary === undefined) return undefined;
   if (!myRoles || myRoles.length === 0) return false;
 
   return myRoles.some((role: any) =>

@@ -29,6 +29,8 @@ import { WizardProgressBar } from "@/components/ui/ScreenHeader";
 import { useTabBarHeight } from "@/utils/useDeviceClass";
 import { CURRENCIES, Currency, CURRENCY_SYMBOLS, CURRENCY_LABELS } from "@/utils/currency";
 import { useNavigationHistory } from "@/context/NavigationHistoryContext";
+import { useIsApprovedProvider } from "@/hooks/useIsApprovedProvider";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 // ─── Wizard constants ─────────────────────────────────────────────────────────
 const TOTAL_STEPS = 3;
@@ -292,12 +294,18 @@ function WriteArticleContent() {
   const [selectedCircleId, setSelectedCircleId] = useState<string | null>(paramCircleId ?? null);
   const [showCirclePicker, setShowCirclePicker] = useState(false);
 
+  const { isApprovedProvider } = useIsApprovedProvider();
+
   // Query circles where user is CREATOR/ADMIN (for circle picker)
   const myAdminCircles = useQuery(api.circles.getMyCircles);
   const adminCircles = (myAdminCircles as any[] ?? []).filter(
     (c: any) => (c.membership?.role === "CREATOR" || c.membership?.role === "ADMIN")
       && !c.isConsultationCircle && !c.isReferralCircle
   );
+
+  const isCircleAdmin = paramCircleId
+    ? adminCircles.some((c: any) => c._id === paramCircleId)
+    : false;
 
   // ── Misc ──────────────────────────────────────────────────────────────────
   const [submitting,       setSubmitting]       = useState(false);
@@ -319,6 +327,36 @@ function WriteArticleContent() {
 
   const tags        = tagsRaw.split(",").map((t) => t.trim()).filter((t) => t.length > 0);
   const contentHtml = Platform.OS === "web" ? webHtml : richHtml;
+
+  if (!isApprovedProvider && (!paramCircleId || !isCircleAdmin)) {
+    return (
+      <AppBackground>
+        <SafeAreaView style={{ flex: 1 }}>
+          <MobileCard style={{ flex: 1, justifyContent: "center", alignItems: "center", padding: 24 }}>
+            <Ionicons name="lock-closed-outline" size={64} color={Colors.primary} />
+            <Text style={{ fontSize: 20, fontWeight: "700", color: Colors.textPrimary, marginTop: 16, textAlign: "center" }}>
+              Approved Provider Required
+            </Text>
+            <Text style={{ fontSize: 14, color: Colors.textMuted, marginTop: 8, textAlign: "center", lineHeight: 20 }}>
+              To publish global articles on Ambrosia, you must be an approved provider. Become a provider to get started.
+            </Text>
+            <TouchableOpacity
+              style={{ backgroundColor: Colors.primary, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 8, marginTop: 24 }}
+              onPress={() => router.push("/(tabs)/booking/provider-signup" as any)}
+            >
+              <Text style={{ color: "#fff", fontWeight: "600", fontSize: 15 }}>Become a Provider</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={{ marginTop: 16 }}
+              onPress={() => history.goBack(router, "/(tabs)/for-you")}
+            >
+              <Text style={{ color: Colors.textMuted, fontSize: 14 }}>Go Back</Text>
+            </TouchableOpacity>
+          </MobileCard>
+        </SafeAreaView>
+      </AppBackground>
+    );
+  }
 
   // ── Handlers ─────────────────────────────────────────────────────────────
   const handleInsertImageRequest = useCallback(async (dataUrl: string, mime: string) => {

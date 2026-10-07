@@ -32,6 +32,11 @@ import { radius } from "@/tokens/radius";
 import { AppBackground } from "@/components/AppBackground";
 import { MobileCard } from "@/components/MobileCard";
 import { EmptyStateCard } from "@/components/ui/Card";
+import { NotificationContextModal } from "@/components/NotificationContextModal";
+import {
+  navigateToNotificationTarget,
+  NotificationContextModalData,
+} from "@/utils/notificationNavigation";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type CategoryFilter = "all" | "engagement" | "social" | "content" | "system";
@@ -147,6 +152,7 @@ export function NotificationsScreen({
   const C = useColors();
   const [activeCategory, setActiveCategory] = useState<CategoryFilter>("all");
   const [refreshing, setRefreshing] = useState(false);
+  const [contextModal, setContextModal] = useState<NotificationContextModalData | null>(null);
 
   // Header always uses dark navy for contrast (same as TopNav)
   const headerBg = '#0F0F1E';
@@ -212,97 +218,9 @@ export function NotificationsScreen({
   // ── Deep-link routing based on notification type + metadata ──────────────
   const handleNotificationPress = useCallback(
     (notif: any) => {
-      // Mark as read first (non-blocking)
-      if (!notif.isRead) {
-        handleMarkRead(notif._id).catch(() => {});
-      }
-
-      const meta = notif.metadata ?? {};
-      const type: string = notif.type ?? "";
-
-      // Referral notifications → referral detail
-      if (
-        type === "referral_new_received" ||
-        type === "referral_expert_selected" ||
-        type === "referral_selected_expert" ||
-        type === "referral_declined" ||
-        type === "referral_completed"
-      ) {
-        if (meta.referralId) {
-          router.push({
-            pathname: "/(tabs)/booking/referral-detail",
-            params: { referralId: meta.referralId },
-          } as any);
-          return;
-        }
-      }
-
-      // Circle-created notification → go to circle chat directly
-      if (type === "referral_circle_created") {
-        if (meta.circleId) {
-          router.push({
-            pathname: "/(tabs)/circle-chat",
-            params: { circleId: meta.circleId },
-          } as any);
-          return;
-        }
-        // Fallback: open the referral if no circleId yet
-        if (meta.referralId) {
-          router.push({
-            pathname: "/(tabs)/booking/referral-detail",
-            params: { referralId: meta.referralId },
-          } as any);
-          return;
-        }
-      }
-
-      // Booking notifications → booking detail
-      if (
-        type === "booking_confirmed" ||
-        type === "booking_new" ||
-        type === "booking_cancelled" ||
-        type === "booking_reminder" ||
-        type === "session_started" ||
-        type === "session_ended"
-      ) {
-        const bookingId = meta.bookingId ?? notif.relatedContentId;
-        if (bookingId) {
-          router.push({
-            pathname: "/(tabs)/booking/booking-detail",
-            params: { bookingId },
-          } as any);
-          return;
-        }
-        // Fallback: open booking hub
-        router.push("/(tabs)/booking" as any);
-        return;
-      }
-
-      // Wallet notifications → wallet tab
-      if (
-        type === "WALLET_DEPOSIT" ||
-        type === "WALLET_WITHDRAWAL" ||
-        type === "WALLET_TRANSFER_SENT" ||
-        type === "WALLET_TRANSFER_RECEIVED"
-      ) {
-        router.push("/(tabs)/wallet" as any);
-        return;
-      }
-
-      // Content notifications → article or reel viewer
-      const contentId = meta.articleId ?? meta.reelId ?? notif.relatedContentId;
-      if (contentId && (type === "CONTENT_LIKED" || type === "CONTENT_CLAPPED" || type === "CONTENT_COMMENTED" || type === "COMMENT_REPLY")) {
-        if (meta.articleId) {
-          router.push({ pathname: "/(tabs)/article-viewer", params: { articleId: meta.articleId } } as any);
-          return;
-        }
-        if (meta.reelId) {
-          router.push({ pathname: "/(tabs)/reel-viewer", params: { reelId: meta.reelId } } as any);
-          return;
-        }
-      }
-
-      // Default: no-op (notification already marked read above)
+      navigateToNotificationTarget(router, notif, setContextModal, (id) => {
+        handleMarkRead(id as Id<"notifications">).catch(() => {});
+      });
     },
     [handleMarkRead, router]
   );
@@ -507,6 +425,7 @@ export function NotificationsScreen({
             }}
           />
         )}
+        <NotificationContextModal data={contextModal} onClose={() => setContextModal(null)} />
       </MobileCard>
     </AppBackground>
   );

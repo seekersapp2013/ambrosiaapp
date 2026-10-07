@@ -317,7 +317,7 @@ export function EventCreationForm({ existingEvent, circleId, onSuccess, onCancel
     setSubmitting(true);
     setSubmitErr("");
 
-    const tags = tagsInput.split(",").map(t => t.trim()).filter(Boolean);
+    const tags = tagsInput.split(",").map((t: string) => t.trim()).filter(Boolean);
     const mp   = parseInt(maxParticipants, 10);
     const pr   = parseFloat(price);
 

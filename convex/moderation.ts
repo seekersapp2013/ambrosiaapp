@@ -488,7 +488,41 @@ export const getMyRoles = query({
       return [];
     }
 
-    return await getUserActiveRoles(ctx, userId);
+    const roles = await getUserActiveRoles(ctx, userId);
+    const isPrimary = await isPrimaryAdmin(ctx, userId);
+
+    if (isPrimary) {
+      const allApprove = ["articles", "reels", "circles", "expertRequests", "bookingSubscribers"];
+      if (roles.length === 0) {
+        return [{
+          _id: "synthetic_primary_admin" as Id<"moderationRoles">,
+          name: "Primary Admin",
+          description: "The first user with full administrative privileges.",
+          permissions: [
+            "approve_articles",
+            "approve_reels",
+            "approve_circles",
+            "approve_experts",
+            "approve_booking_subscribers",
+            "delete_content",
+            "ban_users",
+            "manage_roles",
+            "view_reports",
+            "assign_admins",
+            "manage_moderation_settings",
+          ],
+          canApprove: allApprove,
+          isSystemRole: true,
+          isPrimaryAdmin: true,
+        }];
+      }
+      return roles.map((role) => ({
+        ...role,
+        canApprove: Array.from(new Set([...(role.canApprove || []), ...allApprove])),
+      }));
+    }
+
+    return roles;
   },
 });
 
@@ -559,6 +593,10 @@ export const amIModerator = query({
     const userId = await getAuthUserId(ctx);
     if (!userId) {
       return false;
+    }
+
+    if (await isAdmin(ctx, userId)) {
+      return true;
     }
 
     const assignments = await ctx.db

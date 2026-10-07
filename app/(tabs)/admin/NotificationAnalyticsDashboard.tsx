@@ -126,7 +126,7 @@ function OverviewTab({
         <MetricCard label="Delivery" value={formatPct(delivery.performanceMetrics.deliverySuccessRate)}
           icon="checkmark-circle-outline" iconBg={Colors.statusSuccessBg} iconColor={Colors.statusSuccess} />
         <MetricCard label="CTR" value={formatPct(delivery.engagementMetrics.clickThroughRate)}
-          icon="cursor-outline" iconBg={Colors.purpleSurface} iconColor={Colors.palette.purple} />
+          icon="navigate-outline" iconBg={Colors.purpleSurface} iconColor={Colors.palette.purple} />
         <MetricCard label="Avg Time" value={formatDuration(delivery.performanceMetrics.averageDeliveryTime)}
           icon="time-outline" iconBg={Colors.amberSurface} iconColor={Colors.statusWarning} />
       </View>

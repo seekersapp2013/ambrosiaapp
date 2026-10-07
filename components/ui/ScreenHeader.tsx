@@ -107,15 +107,22 @@ interface ProgressBarProps {
   step: number;
   total: number;
   style?: StyleProp<ViewStyle>;
+  /** Override the fill color (default: actionPrimary). */
+  fillColor?: string;
+  /** Override the track color (default: theme-aware subtle). */
+  trackColor?: string;
 }
 
-export function WizardProgressBar({ step, total, style }: ProgressBarProps) {
+export function WizardProgressBar({ step, total, style, fillColor, trackColor }: ProgressBarProps) {
   const C = useColors();
   const pct = Math.min(step / total, 1);
 
+  const track = trackColor ?? (C.isDark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.08)');
+  const fill = fillColor ?? C.actionPrimary;
+
   return (
-    <View style={[styles.progressTrack, { backgroundColor: C.isDark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.08)' }, style]}>
-      <View style={[styles.progressFill, { width: `${pct * 100}%`, backgroundColor: C.actionPrimary }]} />
+    <View style={[styles.progressTrack, { backgroundColor: track }, style]}>
+      <View style={[styles.progressFill, { width: `${pct * 100}%`, backgroundColor: fill }]} />
     </View>
   );
 }

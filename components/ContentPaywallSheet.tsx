@@ -376,7 +376,7 @@ export function ContentPaywallSheet({
             label={`Unlock · ${currency} ${price.toFixed(2)}`}
             onPress={handleConfirmAndPay}
             disabled={!canAfford || isLoadingAffordability}
-            loading={step === "processing"}
+            loading={(step as any) === "processing"}
             style={styles.footerPay}
             icon={<Ionicons name="lock-open-outline" size={18} color="#fff" />}
             accessibilityLabel={`Unlock for ${currency} ${price.toFixed(2)}`}

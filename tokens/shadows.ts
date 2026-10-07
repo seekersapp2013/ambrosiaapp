@@ -97,14 +97,14 @@ export const elevation = {
 export const coloredShadow = {
   shadowPrimary: Platform.select({
     ios: {
-      shadowColor: '#C62229',
+      shadowColor: '#D60A1D',
       shadowOffset: { width: 0, height: 4 },
       shadowOpacity: 0.35,
       shadowRadius: 16,
     },
     android: { elevation: 4 },
     default: {
-      shadowColor: '#C62229',
+      shadowColor: '#D60A1D',
       shadowOffset: { width: 0, height: 4 },
       shadowOpacity: 0.35,
       shadowRadius: 16,
@@ -113,17 +113,33 @@ export const coloredShadow = {
 
   shadowPrimaryStrong: Platform.select({
     ios: {
-      shadowColor: '#C62229',
+      shadowColor: '#D60A1D',
       shadowOffset: { width: 0, height: 8 },
       shadowOpacity: 0.30,
       shadowRadius: 32,
     },
     android: { elevation: 6 },
     default: {
-      shadowColor: '#C62229',
+      shadowColor: '#D60A1D',
       shadowOffset: { width: 0, height: 8 },
       shadowOpacity: 0.30,
       shadowRadius: 32,
+    },
+  }),
+
+  shadowSuccess: Platform.select({
+    ios: {
+      shadowColor: '#00E600',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.30,
+      shadowRadius: 16,
+    },
+    android: { elevation: 4 },
+    default: {
+      shadowColor: '#00E600',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.30,
+      shadowRadius: 16,
     },
   }),
 

@@ -177,7 +177,7 @@ function RemoteTile({ participant, focused, onPress }: {
     <View style={[styles.remoteTile, focused && styles.remoteTileFocused]}>
       {hasVideo && (
         <VideoView
-          style={StyleSheet.absoluteFill}
+          style={StyleSheet.absoluteFill as any}
           videoTrack={videoTrack}
           objectFit="cover"
         />
@@ -217,7 +217,7 @@ function RemoteTile({ participant, focused, onPress }: {
       >
         {hasVideo && (
           <VideoView
-            style={StyleSheet.absoluteFill}
+            style={StyleSheet.absoluteFill as any}
             videoTrack={videoTrack}
             objectFit="cover"
           />
@@ -543,7 +543,7 @@ function RoomContent({ bookingId, isProvider, onEnd, onLeave }: RoomContentProps
         <View style={styles.localPip} pointerEvents="none">
           {isCameraOn && localParticipant ? (
             <VideoView
-              style={StyleSheet.absoluteFill}
+              style={StyleSheet.absoluteFill as any}
               videoTrack={
                 localParticipant.getTrackPublication(Track.Source.Camera)?.videoTrack ?? undefined
               }

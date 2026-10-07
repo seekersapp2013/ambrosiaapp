@@ -4,21 +4,24 @@
     "slug": "ambrosia",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/logo.png",
+    "icon": "./assets/images/icon.png",
     "scheme": "ambrosia",
     "userInterfaceStyle": "automatic",
     "splash": {
       "image": "./assets/images/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#0A0A0A"
+      "backgroundColor": "#001233"
     },
     "ios": {
       "supportsTablet": true,
-      "associatedDomains": ["applinks:app.ambrosia.africa"]
+      "associatedDomains": ["applinks:app.ambrosia.africa"],
+      "infoPlist": {
+        "UIBackgroundModes": ["remote-notification"]
+      }
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/logo.png",
+        "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
       "package": "com.graderng.ambrosia",
@@ -31,6 +34,31 @@
               "scheme": "https",
               "host": "app.ambrosia.africa",
               "pathPrefix": "/circle-detail"
+            },
+            {
+              "scheme": "https",
+              "host": "app.ambrosia.africa",
+              "pathPrefix": "/article-viewer"
+            },
+            {
+              "scheme": "https",
+              "host": "app.ambrosia.africa",
+              "pathPrefix": "/pulse-viewer"
+            },
+            {
+              "scheme": "https",
+              "host": "app.ambrosia.africa",
+              "pathPrefix": "/reel-viewer"
+            },
+            {
+              "scheme": "https",
+              "host": "app.ambrosia.africa",
+              "pathPrefix": "/article"
+            },
+            {
+              "scheme": "https",
+              "host": "app.ambrosia.africa",
+              "pathPrefix": "/pulse"
             }
           ],
           "category": ["BROWSABLE", "DEFAULT"]
@@ -48,7 +76,10 @@
         "android.permission.BLUETOOTH",
         "android.permission.BLUETOOTH_CONNECT",
         "android.permission.FOREGROUND_SERVICE",
-        "android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION"
+        "android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.VIBRATE",
+        "android.permission.RECEIVE_BOOT_COMPLETED"
       ]
     },
     "web": {
@@ -62,13 +93,19 @@
       "expo-font",
       "expo-web-browser",
       [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/icon.png",
+          "color": "#D60A1D"
+        }
+      ],
+      [
         "expo-image-picker",
         {
           "photosPermission": "The app accesses your photos to let you upload a profile picture."
         }
       ],
       "expo-video",
-      "@livekit/react-native",
       [
         "expo-build-properties",
         {

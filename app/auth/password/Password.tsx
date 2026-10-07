@@ -1,70 +1,90 @@
-import { H2, View, Text } from "tamagui";
+/**
+ * Password — Sign-in entry point (v2 "Navy Health").
+ *
+ * Sign-in mode uses loginbg1.png as a full-bleed background image
+ * (logo + doctor photo baked in) with Email + Password + "Sign in" CTA
+ * floating on top. The form sits in the lower portion over navy.
+ *
+ * Sign-up mode (role selector → wizard) provides its own full-screen
+ * chrome, so render it directly.
+ */
+
+import React, { useState } from "react";
+import {
+  View,
+  ImageBackground,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform,
+  StyleSheet,
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { SignInWithPassword } from "./SignInWithPassword";
-import { useState } from "react";
-import { AppLogo } from "@/components/AppLogo";
-import { MOBILE_CARD_ENABLED } from "@/components/MobileCard";
-import { useColors } from "@/hooks/useColors";
+import { spacing } from "@/tokens/spacing";
+
+const LOGIN_BG = require("@/assets/images/loginbg1.png");
 
 export function Password() {
   const [flow, setFlow] = useState<"signIn" | "signUp">("signIn");
-  const C = useColors();
+  const insets = useSafeAreaInsets();
 
-  // Card background: frosted on light, deep-dark on dark
-  const cardBg = MOBILE_CARD_ENABLED ? C.surface : "transparent";
-  const cardBorder = MOBILE_CARD_ENABLED ? C.redBorder : "transparent";
+  // Sign-up (role selector + wizard) provides its own full-screen chrome.
+  if (flow === "signUp") {
+    return <SignInWithPassword flow={flow} onFlowChange={setFlow} />;
+  }
 
   return (
-    <View
-      padding={flow === "signUp" ? "$4" : "$6"}
-      width="90%"
-      maxWidth={440}
-      minHeight={flow === "signUp" ? 600 : undefined}
-      backgroundColor={cardBg}
-      borderRadius={MOBILE_CARD_ENABLED ? 24 : 0}
-      borderWidth={MOBILE_CARD_ENABLED ? 1 : 0}
-      borderColor={cardBorder}
-      shadowColor={MOBILE_CARD_ENABLED ? "#C62229" : "transparent"}
-      shadowOffset={{ width: 0, height: MOBILE_CARD_ENABLED ? 20 : 0 }}
-      shadowOpacity={MOBILE_CARD_ENABLED ? 0.15 : 0}
-      shadowRadius={MOBILE_CARD_ENABLED ? 40 : 0}
+    <ImageBackground
+      source={LOGIN_BG}
+      style={styles.bg}
+      resizeMode="cover"
     >
-      {flow === "signIn" && (
-        <View alignItems="center" marginBottom="$4">
-          <AppLogo size={72} showGlow />
-          <H2
-            color={C.blue}
-            fontSize={26}
-            fontWeight="700"
-            marginBottom="$1"
-            marginTop="$2"
-            letterSpacing={-0.5}
-          >
-            Ambrosia
-          </H2>
-          <Text color={C.textMuted} fontSize={12} textAlign="center" lineHeight={18}>
-            A Safe Haven For Health Information
-          </Text>
-        </View>
-      )}
-      {flow === "signUp" && (
-        <View alignItems="center" marginBottom="$4">
-          <AppLogo size={48} showGlow />
-          <H2
-            color={C.blue}
-            fontSize={22}
-            fontWeight="700"
-            marginBottom="$1"
-            marginTop="$2"
-            letterSpacing={-0.5}
-          >
-            Ambrosia
-          </H2>
-          <Text color={C.textMuted} fontSize={12}>
-            A Safe Haven For Health Information
-          </Text>
-        </View>
-      )}
-      <SignInWithPassword flow={flow} onFlowChange={setFlow} />
-    </View>
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
+        <ScrollView
+          style={styles.flex}
+          contentContainerStyle={[
+            styles.scrollContent,
+            { paddingBottom: insets.bottom + spacing.space12 },
+          ]}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Spacer — push the form below the baked-in header image area.
+              ~45% of screen height gives room for the logo + doctor photo. */}
+          <View style={styles.headerSpacer} />
+
+          {/* Form area */}
+          <View style={styles.formArea}>
+            <SignInWithPassword flow={flow} onFlowChange={setFlow} />
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </ImageBackground>
   );
 }
+
+const styles = StyleSheet.create({
+  bg: {
+    flex: 1,
+    width: "100%",
+    height: "100%",
+    backgroundColor: "#001233",
+  },
+  flex: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+  },
+  headerSpacer: {
+    // Push form below the baked-in logo + doctor photo (~45% of screen)
+    height: "42%",
+  },
+  formArea: {
+    paddingHorizontal: spacing.space4,
+    paddingTop: spacing.space4,
+  },
+});

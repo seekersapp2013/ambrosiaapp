@@ -94,7 +94,32 @@ export default defineSchema({
     .index("by_created", ["createdAt"])
     .index("by_currency", ["currency"])
     .index("by_external_id", ["externalTransactionId"])
-    .index("by_payment_gateway", ["paymentGateway"]),
+    .index("by_payment_gateway", ["paymentGateway"])
+    .index("by_tx_id", ["id"]),
+
+  // ✅ Paystack Dedicated Virtual Accounts (NGN bank transfer deposits)
+  // NOTE: BVN is NEVER stored here. It is passed directly to Paystack during
+  // provisioning and discarded. This table only holds the resulting account.
+  dedicated_accounts: defineTable({
+    userId: v.id("users"),
+    email: v.optional(v.string()), // Customer email sent to Paystack (webhook mapping key)
+    paystackCustomerCode: v.string(), // Paystack customer_code
+    paystackCustomerId: v.optional(v.number()), // Paystack numeric customer id
+    dvaId: v.optional(v.number()), // Paystack dedicated_account id
+    accountName: v.string(),
+    accountNumber: v.string(),
+    bankName: v.string(),
+    bankSlug: v.optional(v.string()),
+    currency: v.string(), // Always "NGN"
+    status: v.string(), // "pending" | "active" | "failed"
+    kycCompletedAt: v.optional(v.number()),
+    lastManualCheckAt: v.optional(v.number()), // Cooldown gate for manual reconcile
+    createdAt: v.number(),
+    updatedAt: v.optional(v.number()),
+  }).index("by_user", ["userId"])
+    .index("by_account_number", ["accountNumber"])
+    .index("by_customer_code", ["paystackCustomerCode"])
+    .index("by_email", ["email"]),
 
   // ✅ Enhanced user profiles with phone detection and PIN security
   profiles: defineTable({
@@ -110,11 +135,13 @@ export default defineSchema({
     interests: v.optional(v.array(v.string())), // Health-related interests
     tags: v.optional(v.array(v.string())), // User tags for recommendations
     feedMode: v.optional(v.string()), // "for_you" | "ai" — persisted feed toggle preference
+    pushToken: v.optional(v.string()), // Device push token for expo-notifications
     // TEMPORARY: Old wallet fields - remove after migration
     walletAddress: v.optional(v.string()),
     privateKey: v.optional(v.string()),
     seedPhrase: v.optional(v.string()),
     walletSeedEnc: v.optional(v.string()),
+    kycExtras: v.optional(v.any()), // Dynamic KYC fields not in named columns
     createdAt: v.number(),
     updatedAt: v.optional(v.number())
   }).index("by_username", ["username"])
@@ -153,6 +180,7 @@ export default defineSchema({
     approvedByRole: v.optional(v.id("moderationRoles")),
     approvedAt: v.optional(v.number()),
     rejectionReason: v.optional(v.string()),
+    engagementScore: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.optional(v.number())
   }).index("by_slug", ["slug"])
@@ -513,6 +541,7 @@ export default defineSchema({
     approvedByRole: v.optional(v.id("moderationRoles")),
     approvedAt: v.optional(v.number()),
     rejectionReason: v.optional(v.string()),
+    kycExtras: v.optional(v.any()), // Dynamic KYC fields not in named columns
     createdAt: v.number(),
     updatedAt: v.optional(v.number())
   }).index("by_user", ["userId"])
@@ -552,6 +581,7 @@ export default defineSchema({
     // Circle-scoped booking fields (Step 2)
     circleId: v.optional(v.id("circles")), // Links booking to a circle
     isCircleOnly: v.optional(v.boolean()), // If true, only circle members can book
+    referralId: v.optional(v.id("referrals")), // Reference to originating referral
     createdAt: v.number(),
     updatedAt: v.optional(v.number())
   }).index("by_provider", ["providerId"])
@@ -565,7 +595,8 @@ export default defineSchema({
     .index("by_room_name", ["liveStreamRoomName"])
     .index("by_currency", ["currency"])
     .index("by_hand_raised", ["handRaised"])
-    .index("by_circle", ["circleId"]),
+    .index("by_circle", ["circleId"])
+    .index("by_referral", ["referralId"]),
 
   // ✅ Events table for 1-to-many bookings
   events: defineTable({
@@ -969,6 +1000,11 @@ export default defineSchema({
     commissionPaid: v.boolean(),
     commissionTxId: v.optional(v.string()),
 
+    respondedAt: v.optional(v.number()),
+    responseTimeMinutes: v.optional(v.number()),
+    turnaroundTimeHours: v.optional(v.number()),
+    successRating: v.optional(v.number()), // 1-5, rated by referring expert
+
     createdAt: v.number(),
     updatedAt: v.optional(v.number()),
     completedAt: v.optional(v.number())
@@ -1021,6 +1057,8 @@ export default defineSchema({
     circlesRequireApproval: v.boolean(),
     expertRequestsRequireApproval: v.boolean(),
     bookingSubscribersRequireApproval: v.boolean(),
+    circleContentRequiresApproval: v.optional(v.boolean()),
+    allowNonProviderCircleCreation: v.optional(v.boolean()),
     primaryAdminUserId: v.id("users"), // The first user
     updatedBy: v.id("users"),
     updatedAt: v.number(),
@@ -1260,13 +1298,15 @@ export default defineSchema({
   // ✅ Signup Pending - Temporary store for wizard data until afterUserCreatedOrUpdated fires
   signupPending: defineTable({
     email: v.string(),
-    username: v.string(),
-    phoneNumber: v.string(),
-    phoneCountryCode: v.string(),
-    detectedCountry: v.string(),
-    primaryCurrency: v.string(),
-    interests: v.array(v.string()),
-    transactionPin: v.string(), // already hashed
+    username: v.optional(v.string()),
+    phoneNumber: v.optional(v.string()),
+    phoneCountryCode: v.optional(v.string()),
+    detectedCountry: v.optional(v.string()),
+    primaryCurrency: v.optional(v.string()),
+    interests: v.optional(v.array(v.string())),
+    transactionPin: v.optional(v.string()), // already hashed
+    signupRole: v.optional(v.string()), // "user" | "provider"
+    providerKycData: v.optional(v.any()), // Provider form data for provider signups
     createdAt: v.number(),
   }).index("by_email", ["email"]),
 
@@ -1282,4 +1322,334 @@ export default defineSchema({
   }).index("by_circle", ["circleId"])
     .index("by_practitioner", ["practitionerId"])
     .index("by_circle_practitioner", ["circleId", "practitionerId"]),
+
+  // ✅ PROVIDER TIER SYSTEM TABLES
+
+  // Provider Tier Data (Central tier data per provider)
+  providerTierData: defineTable({
+    userId: v.id("users"),
+    tier: v.union(
+      v.literal("sapphire"),
+      v.literal("silver"),
+      v.literal("gold"),
+      v.literal("platinum"),
+      v.literal("diamond")
+    ),
+    prsScore: v.number(), // 0-100
+    qualificationScore: v.number(),
+    experienceScore: v.number(),
+    verificationScore: v.number(),
+    referralPerformanceScore: v.number(),
+    patientExperienceScore: v.number(),
+    knowledgeContributionScore: v.number(),
+    communityImpactScore: v.number(),
+    yearsOfExperience: v.optional(v.number()),
+    licenseNumber: v.optional(v.string()),
+    registrationCouncil: v.optional(v.string()),
+    geographicRecognition: v.optional(
+      v.union(
+        v.literal("community"),
+        v.literal("regional"),
+        v.literal("state"),
+        v.literal("national")
+      )
+    ),
+    selfDeclaredRegions: v.optional(v.array(v.string())),
+    autoDetectedRegions: v.optional(v.array(v.string())),
+    lastActivityAt: v.number(),
+    isUnderReview: v.optional(v.boolean()),
+    demotionReason: v.optional(v.string()),
+    totalExp: v.optional(v.number()),
+    monthlyExp: v.optional(v.number()),
+    customRevenueShare: v.optional(v.number()),
+    customRevenueShareReason: v.optional(v.string()),
+    customRevenueShareSetBy: v.optional(v.id("users")),
+    customRevenueShareSetAt: v.optional(v.number()),
+    platformJoinDate: v.optional(v.number()),
+    lastSigninExpAwardedAt: v.optional(v.number()),
+    tierLastCalculated: v.number(),
+    createdAt: v.number(),
+    updatedAt: v.optional(v.number()),
+  })
+    .index("by_userId", ["userId"])
+    .index("by_tier", ["tier"])
+    .index("by_prsScore", ["prsScore"])
+    .index("by_lastActivity", ["lastActivityAt"])
+    .index("by_totalExp", ["totalExp"])
+    .index("by_monthlyExp", ["monthlyExp"]),
+
+  // Provider EXP Ledger (Immutable transaction history of EXP awards)
+  providerExpLedger: defineTable({
+    userId: v.id("users"),
+    eventType: v.union(
+      v.literal("create_article"),
+      v.literal("create_pulse"),
+      v.literal("create_general_circle"),
+      v.literal("create_consultation_circle"),
+      v.literal("create_referral_circle"),
+      v.literal("engagement_clap"),
+      v.literal("engagement_like"),
+      v.literal("engagement_comment"),
+      v.literal("engagement_share"),
+      v.literal("daily_signin"),
+      v.literal("completed_session"),
+      v.literal("session_rating_5_star"),
+      v.literal("session_rating_4_star"),
+      v.literal("session_rating_3_star"),
+      v.literal("session_rating_2_star"),
+      v.literal("session_rating_1_star"),
+      v.literal("tenure_anniversary"),
+      v.literal("create_course"),
+      v.literal("course_enrollment"),
+      v.literal("course_completion"),
+      v.literal("manual_admin_award")
+    ),
+    expAmount: v.number(),
+    sourceId: v.optional(v.string()),
+    sourceCategory: v.union(
+      v.literal("content"),
+      v.literal("engagement"),
+      v.literal("activity"),
+      v.literal("session"),
+      v.literal("tenure"),
+      v.literal("learn"),
+      v.literal("admin")
+    ),
+    metadata: v.optional(v.any()),
+    timestamp: v.number(),
+  })
+    .index("by_userId", ["userId"])
+    .index("by_userId_category", ["userId", "sourceCategory"])
+    .index("by_eventType", ["eventType"])
+    .index("by_timestamp", ["timestamp"]),
+
+  // Provider Qualifications
+  providerQualifications: defineTable({
+    userId: v.id("users"),
+    category: v.union(
+      v.literal("basic_degree"),
+      v.literal("additional_certification"),
+      v.literal("fellowship"),
+      v.literal("residency"),
+      v.literal("consultant_status"),
+      v.literal("masters"),
+      v.literal("doctorate")
+    ),
+    name: v.string(),
+    institution: v.optional(v.string()),
+    yearObtained: v.optional(v.number()),
+    documentUrl: v.optional(v.string()),
+    isVerified: v.boolean(),
+    verifiedAt: v.optional(v.number()),
+    verifiedBy: v.optional(v.id("users")),
+    points: v.number(),
+    createdAt: v.number(),
+  })
+    .index("by_userId", ["userId"])
+    .index("by_userId_category", ["userId", "category"])
+    .index("by_verified", ["isVerified"]),
+
+  // Verification Documents
+  verificationDocuments: defineTable({
+    userId: v.id("users"),
+    documentType: v.union(
+      v.literal("professional_license"),
+      v.literal("registration_council"),
+      v.literal("employer_verification"),
+      v.literal("hospital_verification"),
+      v.literal("association_membership"),
+      v.literal("identity")
+    ),
+    documentUrl: v.string(),
+    documentName: v.string(),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("approved"),
+      v.literal("rejected")
+    ),
+    notes: v.optional(v.string()),
+    submittedAt: v.number(),
+    reviewedAt: v.optional(v.number()),
+    reviewedBy: v.optional(v.id("users")),
+    rejectionReason: v.optional(v.string()),
+    expiryDate: v.optional(v.number()),
+    isExpired: v.optional(v.boolean()),
+  })
+    .index("by_userId", ["userId"])
+    .index("by_status", ["status"])
+    .index("by_userId_type", ["userId", "documentType"]),
+
+  // Provider Reviews (Patient feedback with overall + 3 highlights)
+  providerReviews: defineTable({
+    providerId: v.id("users"),
+    patientId: v.id("users"),
+    bookingId: v.id("bookings"),
+    overallRating: v.number(), // 1-5
+    comment: v.optional(v.string()),
+    isAnonymous: v.boolean(),
+    highlightedStrengths: v.optional(
+      v.array(
+        v.union(
+          v.literal("professionalism"),
+          v.literal("communication"),
+          v.literal("punctuality"),
+          v.literal("compassion"),
+          v.literal("clarity"),
+          v.literal("followUp"),
+          v.literal("respect"),
+          v.literal("confidentiality")
+        )
+      )
+    ),
+    isFlaggedFraudulent: v.optional(v.boolean()),
+    fraudReason: v.optional(v.string()),
+    fraudDetectionMethod: v.optional(
+      v.union(v.literal("rule"), v.literal("ai"))
+    ),
+    createdAt: v.number(),
+    updatedAt: v.optional(v.number()),
+  })
+    .index("by_providerId", ["providerId"])
+    .index("by_patientId", ["patientId"])
+    .index("by_bookingId", ["bookingId"])
+    .index("by_providerId_created", ["providerId", "createdAt"])
+    .index("by_flagged", ["isFlaggedFraudulent"]),
+
+  // Community Activities
+  communityActivities: defineTable({
+    userId: v.id("users"),
+    activityType: v.union(
+      v.literal("medical_outreach"),
+      v.literal("volunteer_programme"),
+      v.literal("ngo_collaboration"),
+      v.literal("public_health_campaign"),
+      v.literal("maternal_health"),
+      v.literal("mental_health_awareness"),
+      v.literal("vaccination_campaign"),
+      v.literal("community_education"),
+      v.literal("other")
+    ),
+    title: v.string(),
+    description: v.optional(v.string()),
+    date: v.number(),
+    evidenceUrls: v.optional(v.array(v.string())),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("approved"),
+      v.literal("rejected")
+    ),
+    points: v.number(),
+    reviewedBy: v.optional(v.id("users")),
+    reviewedAt: v.optional(v.number()),
+    createdAt: v.number(),
+  })
+    .index("by_userId", ["userId"])
+    .index("by_status", ["status"])
+    .index("by_userId_status", ["userId", "status"]),
+
+  // Badges (Admin-managed badge definitions)
+  badges: defineTable({
+    name: v.string(),
+    displayName: v.string(),
+    description: v.string(),
+    iconStorageId: v.string(),
+    color: v.string(),
+    backgroundColor: v.optional(v.string()),
+    badgeType: v.union(
+      v.literal("admin_awarded"),
+      v.literal("peer_awarded"),
+      v.literal("automated"),
+      v.literal("hybrid")
+    ),
+    awardableBy: v.union(
+      v.literal("platform_admin"),
+      v.literal("circle_admin"),
+      v.literal("peers"),
+      v.literal("system")
+    ),
+    automationCriteria: v.optional(
+      v.object({
+        criteriaType: v.string(),
+        threshold: v.optional(v.number()),
+        timeframeDays: v.optional(v.number()),
+        additionalRules: v.optional(v.any()),
+      })
+    ),
+    benefits: v.optional(
+      v.object({
+        searchBoost: v.optional(v.number()),
+        featuredInCategory: v.optional(v.string()),
+        contentPriorityBoost: v.optional(v.boolean()),
+        canCreateGatedContent: v.optional(v.boolean()),
+        bookingHighlight: v.optional(v.boolean()),
+        priorityInReferrals: v.optional(v.boolean()),
+        canCreateCircles: v.optional(v.boolean()),
+        maxCirclesBoost: v.optional(v.number()),
+        profileBadgeDisplay: v.boolean(),
+        profileHighlight: v.optional(v.boolean()),
+        prsBonus: v.optional(v.number()),
+        customPerks: v.optional(v.any()),
+      })
+    ),
+    maxAwardsPerProvider: v.optional(v.number()),
+    maxTotalAwards: v.optional(v.number()),
+    currentTotalAwards: v.number(),
+    isActive: v.boolean(),
+    createdBy: v.id("users"),
+    createdAt: v.number(),
+    updatedAt: v.optional(v.number()),
+  })
+    .index("by_name", ["name"])
+    .index("by_badgeType", ["badgeType"])
+    .index("by_awardableBy", ["awardableBy"])
+    .index("by_active", ["isActive"]),
+
+  // Provider Badges (Badges awarded to providers)
+  providerBadges: defineTable({
+    userId: v.id("users"),
+    badgeId: v.id("badges"),
+    awardedBy: v.union(v.literal("system"), v.id("users")),
+    awardedByRole: v.optional(v.string()),
+    circleId: v.optional(v.id("circles")),
+    reason: v.optional(v.string()),
+    evidence: v.optional(v.string()),
+    isActive: v.boolean(),
+    revokedAt: v.optional(v.number()),
+    revokedBy: v.optional(v.id("users")),
+    revokedReason: v.optional(v.string()),
+    earnedAt: v.number(),
+  })
+    .index("by_userId", ["userId"])
+    .index("by_badgeId", ["badgeId"])
+    .index("by_userId_badgeId", ["userId", "badgeId"])
+    .index("by_active", ["isActive"])
+    .index("by_circleId", ["circleId"]),
+
+  // Tier Audit Log
+  tierAuditLog: defineTable({
+    userId: v.id("users"),
+    previousTier: v.optional(v.string()),
+    newTier: v.string(),
+    previousPrs: v.optional(v.number()),
+    newPrs: v.number(),
+    reason: v.string(),
+    triggeredBy: v.union(
+      v.literal("system"),
+      v.literal("admin"),
+      v.literal("ai"),
+      v.literal("manual_review")
+    ),
+    adminId: v.optional(v.id("users")),
+    details: v.optional(v.string()),
+    aiConfidenceScore: v.optional(v.number()),
+    aiExplanation: v.optional(v.string()),
+    pendingDowngrade: v.optional(v.boolean()),
+    adminComment: v.optional(v.string()),
+    resolvedAt: v.optional(v.number()),
+    resolvedBy: v.optional(v.id("users")),
+    timestamp: v.number(),
+  })
+    .index("by_userId", ["userId"])
+    .index("by_timestamp", ["timestamp"])
+    .index("by_pendingDowngrade", ["pendingDowngrade"]),
 });

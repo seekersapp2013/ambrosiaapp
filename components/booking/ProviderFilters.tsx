@@ -29,6 +29,8 @@ export interface FilterState {
   jobTitle: string | undefined;
   minPrice: number | undefined;
   maxPrice: number | undefined;
+  tiers?: string[];
+  verifiedOnly?: boolean;
 }
 
 export const DEFAULT_FILTERS: FilterState = {
@@ -36,6 +38,8 @@ export const DEFAULT_FILTERS: FilterState = {
   jobTitle:       undefined,
   minPrice:       undefined,
   maxPrice:       undefined,
+  tiers:          undefined,
+  verifiedOnly:   false,
 };
 
 interface ProviderFiltersProps {

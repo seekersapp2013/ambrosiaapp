@@ -27,9 +27,9 @@ export default function LinkBank() {
   const listBanks = useAction(api.paystack.listNigerianBanks);
   const resolveAccount = useAction(api.paystack.resolveAccountNumber);
   const createRecipient = useAction(api.paystack.createTransferRecipient);
-  const addAccount = useMutation(api["wallets/bankAccounts"].addWithdrawalBankAccount);
-  const removeAccount = useMutation(api["wallets/bankAccounts"].removeWithdrawalBankAccount);
-  const linkedAccounts = useQuery(api["wallets/bankAccounts"].getWithdrawalBankAccounts);
+  const addAccount = useMutation((api as any)["wallets/bankAccounts"].addWithdrawalBankAccount);
+  const removeAccount = useMutation((api as any)["wallets/bankAccounts"].removeWithdrawalBankAccount);
+  const linkedAccounts = useQuery((api as any)["wallets/bankAccounts"].getWithdrawalBankAccounts);
 
   const [banks, setBanks] = useState<BankOption[]>([]);
   const [banksLoading, setBanksLoading] = useState(false);

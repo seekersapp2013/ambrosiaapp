@@ -18,4 +18,9 @@ web-build/
 
 expo-env.d.ts
 # @end expo-cli
+# Native directories for Expo Prebuild / CNG workflow
+/android/
+/ios/
+
 .env.local
+.vercel

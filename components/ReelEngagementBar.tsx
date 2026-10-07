@@ -20,7 +20,7 @@ import {
   Image,
   ActivityIndicator,
 } from "react-native";
-import { useMutation, useQuery } from "convex/react";
+import { useMutation, useQuery, useConvexAuth } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { Ionicons } from "@expo/vector-icons";
@@ -29,6 +29,7 @@ import { Colors } from "@/tokens/colors";
 import { typeScale } from "@/tokens/typography";
 import { ReelCommentsSheet } from "@/components/ReelCommentsSheet";
 import { ConsultationPaymentSheet } from "@/components/ConsultationPaymentSheet";
+import { GuestAuthModal } from "@/components/GuestAuthModal";
 
 interface ReelAuthor {
   id?: Id<"users">;
@@ -57,11 +58,14 @@ export function ReelEngagementBar({
   disabled = false,
   resolvedAvatarUrl,
 }: ReelEngagementBarProps) {
+  const { isAuthenticated } = useConvexAuth();
   const router = useRouter();
   const [shareLoading, setShareLoading] = useState(false);
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [askLoading, setAskLoading] = useState(false);
   const [showPayment, setShowPayment] = useState(false);
+  const [guestModalOpen, setGuestModalOpen] = useState(false);
+  const [guestActionName, setGuestActionName] = useState("engage");
   const [consultationData, setConsultationData] = useState<{
     circleId: string;
     fee: number;
@@ -72,6 +76,11 @@ export function ReelEngagementBar({
 
   // Lock = gated AND no access. disabled prop also locks everything.
   const locked = disabled || (reel.isGated === true && !hasAccess);
+
+  const promptGuestAuth = (action: string) => {
+    setGuestActionName(action);
+    setGuestModalOpen(true);
+  };
 
   // ── Queries ───────────────────────────────────────────────────────────────
   const isLiked = useQuery(api.engagement.isLiked, {
@@ -100,22 +109,46 @@ export function ReelEngagementBar({
 
   // ── Handlers (only reachable when not locked) ─────────────────────────────
   const handleLike = useCallback(async () => {
+    if (!isAuthenticated) {
+      promptGuestAuth("like pulses");
+      return;
+    }
     try { await likeReel({ reelId: reel._id }); }
     catch (e: any) { Alert.alert("Error", e.message ?? "Failed to like"); }
-  }, [reel._id, likeReel]);
+  }, [isAuthenticated, reel._id, likeReel]);
 
   const handleBookmark = useCallback(async () => {
+    if (!isAuthenticated) {
+      promptGuestAuth("save pulses");
+      return;
+    }
     try { await bookmarkReel({ reelId: reel._id }); }
     catch (e: any) { Alert.alert("Error", e.message ?? "Failed to bookmark"); }
-  }, [reel._id, bookmarkReel]);
+  }, [isAuthenticated, reel._id, bookmarkReel]);
 
   const handleFollow = useCallback(async () => {
+    if (!isAuthenticated) {
+      promptGuestAuth("follow creators");
+      return;
+    }
     if (!reel.author.id) return;
     try { await followUser({ followingId: reel.author.id }); }
     catch (e: any) { Alert.alert("Error", e.message ?? "Failed to follow"); }
-  }, [reel.author.id, followUser]);
+  }, [isAuthenticated, reel.author.id, followUser]);
+
+  const handleCommentOpen = useCallback(() => {
+    if (!isAuthenticated) {
+      promptGuestAuth("comment");
+      return;
+    }
+    setCommentsOpen(true);
+  }, [isAuthenticated]);
 
   const handleMessage = useCallback(async () => {
+    if (!isAuthenticated) {
+      promptGuestAuth("ask questions");
+      return;
+    }
     if (!reel.author.id || askLoading) return;
     setAskLoading(true);
     try {
@@ -146,14 +179,16 @@ export function ReelEngagementBar({
     } finally {
       setAskLoading(false);
     }
-  }, [reel, askLoading, startConsultation, router]);
+  }, [isAuthenticated, reel, askLoading, startConsultation, router]);
 
   const handleShare = useCallback(async () => {
     if (shareLoading) return;
     setShareLoading(true);
     try {
+      const shareUrl = `https://app.ambrosia.africa/pulse-viewer?reelId=${reel._id}`;
       await Share.share({
-        message: `Check out this pulse by @${reel.author.username ?? reel.author.name ?? "creator"} on Ambrosia`,
+        message: `Check out this pulse by @${reel.author.username ?? reel.author.name ?? "creator"} on Ambrosia:\n${shareUrl}`,
+        url: shareUrl,
         title: reel.caption ?? "Ambrosia Pulse",
       });
     } catch { /* user cancelled */ }
@@ -227,7 +262,7 @@ export function ReelEngagementBar({
         </Btn>
 
         {/* Comment */}
-        <Btn onPress={() => setCommentsOpen(true)} label="Comments">
+        <Btn onPress={handleCommentOpen} label="Comments">
           <Ionicons name="chatbubble-ellipses-outline" size={26} color="#fff" />
           <Text style={styles.btnLabel} allowFontScaling={false}>Comment</Text>
         </Btn>
@@ -267,6 +302,13 @@ export function ReelEngagementBar({
         </TouchableOpacity>
 
       </View>
+
+      {/* Guest Auth Prompt Modal */}
+      <GuestAuthModal
+        visible={guestModalOpen}
+        onClose={() => setGuestModalOpen(false)}
+        actionName={guestActionName}
+      />
 
       {/* Comments sheet — only mounts when unlocked */}
       {!locked && (

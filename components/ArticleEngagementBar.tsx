@@ -21,7 +21,7 @@ import {
   ActivityIndicator,
   Alert,
 } from "react-native";
-import { useMutation, useQuery } from "convex/react";
+import { useMutation, useQuery, useConvexAuth } from "convex/react";
 import { useRouter } from "expo-router";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
@@ -31,6 +31,7 @@ import { typeScale } from "@/tokens/typography";
 import { spacing } from "@/tokens/spacing";
 import { ArticleCommentsSheet } from "@/components/ArticleCommentsSheet";
 import { ConsultationPaymentSheet } from "@/components/ConsultationPaymentSheet";
+import { GuestAuthModal } from "@/components/GuestAuthModal";
 
 interface ArticleEngagementBarProps {
   articleId: Id<"articles">;
@@ -50,11 +51,14 @@ export function ArticleEngagementBar({
   isGated = false,
   hasAccess = false,
 }: ArticleEngagementBarProps) {
+  const { isAuthenticated } = useConvexAuth();
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [clapLoading, setClapLoading]   = useState(false);
   const [shareLoading, setShareLoading] = useState(false);
   const [askLoading, setAskLoading]     = useState(false);
   const [showPayment, setShowPayment]   = useState(false);
+  const [guestModalOpen, setGuestModalOpen] = useState(false);
+  const [guestActionName, setGuestActionName] = useState("engage");
   const [consultationData, setConsultationData] = useState<{
     circleId: string;
     fee: number;
@@ -65,16 +69,15 @@ export function ArticleEngagementBar({
   const C = useColors();
   const router = useRouter();
 
-  // For free articles: require a read record before engagement is unlocked
-  const hasReadResult = useQuery(
-    api.engagement.hasReadArticle,
-    !isGated ? { articleId } : "skip"
-  );
-
   // Lock determination:
-  //   Gated  → must have access (paid / author)
-  //   Free   → must have read (hasReadResult === true); loading = locked
-  const locked = isGated ? !hasAccess : hasReadResult !== true;
+  //   Gated  → locked if user does not have access (must purchase / unlock)
+  //   Free   → unlocked (viewing the article in viewer implies reading it)
+  const locked = isGated ? !hasAccess : false;
+
+  const promptGuestAuth = (action: string) => {
+    setGuestActionName(action);
+    setGuestModalOpen(true);
+  };
 
   // ── Queries ───────────────────────────────────────────────────────────────
   const myClaps      = useQuery(api.engagement.myClapsForArticle, { articleId });
@@ -91,23 +94,47 @@ export function ArticleEngagementBar({
 
   // ── Handlers (only reachable when unlocked) ───────────────────────────────
   const handleClap = useCallback(async () => {
+    if (!isAuthenticated) {
+      promptGuestAuth("clap");
+      return;
+    }
     if (clapLoading) return;
     setClapLoading(true);
     try {
       await clapArticle({ articleId, delta: 1 });
     } catch { /* server will reject if read record missing */ }
     finally { setClapLoading(false); }
-  }, [clapLoading, articleId, clapArticle]);
+  }, [isAuthenticated, clapLoading, articleId, clapArticle]);
 
   const handleLike = useCallback(async () => {
+    if (!isAuthenticated) {
+      promptGuestAuth("like articles");
+      return;
+    }
     try { await likeArticle({ articleId }); } catch { /* silent */ }
-  }, [articleId, likeArticle]);
+  }, [isAuthenticated, articleId, likeArticle]);
 
   const handleBookmark = useCallback(async () => {
+    if (!isAuthenticated) {
+      promptGuestAuth("save articles");
+      return;
+    }
     try { await bookmarkArticle({ articleId }); } catch { /* silent */ }
-  }, [articleId, bookmarkArticle]);
+  }, [isAuthenticated, articleId, bookmarkArticle]);
+
+  const handleCommentOpen = useCallback(() => {
+    if (!isAuthenticated) {
+      promptGuestAuth("comment");
+      return;
+    }
+    setCommentsOpen(true);
+  }, [isAuthenticated]);
 
   const handleAskQuestion = useCallback(async () => {
+    if (!isAuthenticated) {
+      promptGuestAuth("ask questions");
+      return;
+    }
     if (!authorId || askLoading) return;
     setAskLoading(true);
     try {
@@ -139,19 +166,21 @@ export function ArticleEngagementBar({
     } finally {
       setAskLoading(false);
     }
-  }, [authorId, articleId, askLoading, startConsultation, authorUsername, router]);
+  }, [isAuthenticated, authorId, articleId, askLoading, startConsultation, authorUsername, router]);
 
   const handleShare = useCallback(async () => {
     if (shareLoading) return;
     setShareLoading(true);
     try {
+      const shareUrl = `https://app.ambrosia.africa/article-viewer?articleId=${articleId}`;
       await Share.share({
-        message: `Check out "${title ?? "this article"}" by @${authorUsername ?? "creator"} on Ambrosia`,
+        message: `Check out "${title ?? "this article"}" by @${authorUsername ?? "creator"} on Ambrosia:\n${shareUrl}`,
+        url: shareUrl,
         title: title ?? "Ambrosia Article",
       });
     } catch { /* user cancelled */ }
     finally { setShareLoading(false); }
-  }, [shareLoading, title, authorUsername]);
+  }, [shareLoading, articleId, title, authorUsername]);
 
   // ── Btn helper — TouchableOpacity when unlocked, plain View when locked ───
   const Btn = locked
@@ -168,11 +197,7 @@ export function ArticleEngagementBar({
         </TouchableOpacity>
       );
 
-  const lockReason = isGated
-    ? "Purchase to engage"
-    : hasReadResult === undefined
-    ? "Checking access…"
-    : "Read the article to engage";
+  const lockReason = isGated ? "Purchase to engage" : "Read the article to engage";
 
   // Engagement bar is always on dark surface — use light icons/text
   const engIcon = C.isDark ? C.iconSecondary : '#9CA3AF';
@@ -224,7 +249,7 @@ export function ArticleEngagementBar({
         </Btn>
 
         {/* Comment */}
-        <Btn onPress={() => setCommentsOpen(true)} label="Comments">
+        <Btn onPress={handleCommentOpen} label="Comments">
           <Ionicons name="chatbubble-ellipses-outline" size={22} color={engIcon} />
           <Text style={[styles.btnLabel, { color: engText }]} allowFontScaling={false}>
             {commentCount !== undefined ? commentCount.length : "–"}
@@ -275,6 +300,13 @@ export function ArticleEngagementBar({
         </TouchableOpacity>
 
       </View>
+
+      {/* Guest Auth Prompt Modal */}
+      <GuestAuthModal
+        visible={guestModalOpen}
+        onClose={() => setGuestModalOpen(false)}
+        actionName={guestActionName}
+      />
 
       {/* Comments sheet — only mounts when unlocked */}
       {!locked && (

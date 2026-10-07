@@ -7,6 +7,7 @@ import {
   canApproveContentType,
   hasPermission,
   getUserActiveRoles,
+  isPrimaryAdmin,
   logModerationAction,
   notifyContentCreator,
 } from "./moderationHelpers";
@@ -427,11 +428,16 @@ export const getModerationQueue = query({
     }
 
     const limit = args.limit || 50;
+    const isPrimary = await isPrimaryAdmin(ctx, userId);
     const userRoles = await getUserActiveRoles(ctx, userId);
     const canApproveTypes = new Set<string>();
     
-    for (const role of userRoles) {
-      role.canApprove.forEach((type) => canApproveTypes.add(type));
+    if (isPrimary) {
+      ["articles", "reels", "circles", "expertRequests", "bookingSubscribers"].forEach((t) => canApproveTypes.add(t));
+    } else {
+      for (const role of userRoles) {
+        (role.canApprove ?? []).forEach((type) => canApproveTypes.add(type));
+      }
     }
 
     let approvals = await ctx.db
@@ -454,8 +460,26 @@ export const getModerationQueue = query({
           .withIndex("by_userId", (q) => q.eq("userId", approval.submittedBy))
           .first();
 
+        let details: any = null;
+        try {
+          if (approval.contentType === "bookingSubscribers") {
+            details = await ctx.db.get(approval.contentId as Id<"bookingSubscribers">);
+          } else if (approval.contentType === "articles") {
+            details = await ctx.db.get(approval.contentId as Id<"articles">);
+          } else if (approval.contentType === "reels") {
+            details = await ctx.db.get(approval.contentId as Id<"reels">);
+          } else if (approval.contentType === "circles") {
+            details = await ctx.db.get(approval.contentId as Id<"circles">);
+          } else if (approval.contentType === "expertRequests") {
+            details = await ctx.db.get(approval.contentId as Id<"expertRequests">);
+          }
+        } catch {
+          details = null;
+        }
+
         return {
           ...approval,
+          details,
           submitter: {
             id: approval.submittedBy,
             name: submitter?.name || submitterProfile?.name,
@@ -479,11 +503,16 @@ export const getModerationQueueCount = query({
       return 0;
     }
 
+    const isPrimary = await isPrimaryAdmin(ctx, userId);
     const userRoles = await getUserActiveRoles(ctx, userId);
     const canApproveTypes = new Set<string>();
     
-    for (const role of userRoles) {
-      role.canApprove.forEach((type) => canApproveTypes.add(type));
+    if (isPrimary) {
+      ["articles", "reels", "circles", "expertRequests", "bookingSubscribers"].forEach((t) => canApproveTypes.add(t));
+    } else {
+      for (const role of userRoles) {
+        (role.canApprove ?? []).forEach((type) => canApproveTypes.add(type));
+      }
     }
 
     let approvals = await ctx.db

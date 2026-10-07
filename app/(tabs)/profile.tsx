@@ -31,6 +31,7 @@ import { SettingsRow, EmptyStateCard } from "@/components/ui/Card";
 import { BottomSheet } from "@/components/ui/BottomSheet";
 import { SectionDivider } from "@/components/ui/Badge";
 import { MobileCard } from "@/components/MobileCard";
+import { KYCProgressCard } from "@/components/ui/KYCProgressCard";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -369,9 +370,16 @@ export default function ProfileTab() {
   const myFollowing = useQuery(api.profiles.getMyFollowing);
   const myRoles = useQuery(api.moderation.getMyRoles);
   const isModerator = useQuery(api.moderation.amIModerator);
+  const isAdmin = useQuery(api.moderation.amIAdmin);
   const needsSetup = useQuery(api.moderationQueries.needsModerationSetup);
+  const setupModeration = useMutation(api.setupModeration.setupModerationSystem);
   const deleteArticle = useMutation(api.articles.deleteArticle);
   const deleteProfilePicture = useMutation(api.profiles.deleteProfilePicture);
+
+  React.useEffect(() => {
+    // Auto-ensure first user admin role is set up when profile mounts
+    setupModeration().catch(() => {});
+  }, []);
 
   const [activeTab, setActiveTab] = useState<ProfileTab>("posts");
   const [isEditing, setIsEditing] = useState(false);
@@ -467,8 +475,10 @@ export default function ProfileTab() {
 
   const handleShareProfile = async () => {
     try {
+      const shareUrl = profile?.username ? `https://app.ambrosia.africa/${profile.username}` : "https://app.ambrosia.africa";
       await Share.share({
-        message: `Check out ${profile?.name || profile?.username || "my"} profile on Ambrosia: @${profile?.username || ""}`,
+        message: `Check out ${profile?.name || profile?.username || "my"} profile on Ambrosia (@${profile?.username || ""}):\n${shareUrl}`,
+        url: shareUrl,
       });
     } catch {}
   };
@@ -695,11 +705,11 @@ export default function ProfileTab() {
 
   // ── Derived role info ─────────────────────────────────────────────────────
   const isPrimaryAdmin = myRoles?.some((r: any) => r.isPrimaryAdmin);
-  const isAdmin = myRoles?.some((r: any) => r.name === "Admin");
+  const hasAdminRole = myRoles?.some((r: any) => r.name === "Admin");
   const roleName = myRoles?.find((r: any) => r.isPrimaryAdmin)?.name ?? myRoles?.[0]?.name;
   const roleColor = isPrimaryAdmin
     ? Colors.palette.purple
-    : isAdmin
+    : (isAdmin || hasAdminRole)
     ? C.statusInfo
     : C.statusSuccess;
 
@@ -800,29 +810,17 @@ export default function ProfileTab() {
           </View>
         </View>
 
+        {/* KYC PROGRESS & TIER STATUS (Providers only) */}
+        {!!mySubscription && <KYCProgressCard profileData={profile} isProvider={true} />}
+
         {/* BIO */}
-        {(profile.bio || (profile.interests && profile.interests.length > 0))
-          ? <View style={styles.bioSection}>
-              {profile.bio
-                ? <Text style={[styles.bioText, { color: C.textSecondary }]} allowFontScaling={true}>{profile.bio}</Text>
-                : null}
-              {profile.interests && profile.interests.length > 0
-                ? <View style={styles.chipsRow}>
-                    {(showInterestsExpanded ? profile.interests : profile.interests.slice(0, 4)).map((interest) => (
-                      <View key={interest} style={[styles.chip, { backgroundColor: C.bgPrimarySubtle, borderColor: C.borderFilled }]}>
-                        <Text style={[styles.chipText, { color: C.actionPrimary }]} allowFontScaling={false}>{interest}</Text>
-                      </View>
-                    ))}
-                    {profile.interests.length > 4 && (
-                      <GhostButton
-                        label={showInterestsExpanded ? "less" : `+${profile.interests.length - 4} more`}
-                        onPress={() => setShowInterestsExpanded((v) => !v)}
-                      />
-                    )}
-                  </View>
-                : null}
-            </View>
-          : null}
+        {profile.bio ? (
+          <View style={styles.bioSection}>
+            <Text style={[styles.bioText, { color: C.textSecondary }]} allowFontScaling={true}>
+              {profile.bio}
+            </Text>
+          </View>
+        ) : null}
 
         <SectionDivider />
 
@@ -919,28 +917,39 @@ export default function ProfileTab() {
                 <SettingsRow icon="share-social-outline" label="Share Profile" iconColor={C.statusInfo}   onPress={handleShareProfile} isLast />
               </View>
 
-              {(needsSetup || isModerator) && (
+              {(needsSetup || isModerator || isAdmin) && (
                 <>
-                  <Text style={[styles.sectionLabel, { marginTop: 16, color: C.textMuted }]} allowFontScaling={false}>Moderation</Text>
+                  <Text style={[styles.sectionLabel, { marginTop: 16, color: C.textMuted }]} allowFontScaling={false}>Administration</Text>
                   <View style={[styles.menuGroup, { backgroundColor: C.bgElevated, borderColor: C.borderSubtle }]}>
-                    {needsSetup
-                      ? <SettingsRow
-                          icon="construct-outline"
-                          label="Setup Moderation"
-                          iconColor={C.statusWarning}
-                          onPress={() => Alert.alert("Moderation Setup", "Navigate to the moderation setup screen to initialize the system.")}
-                          isLast={!isModerator}
-                        />
-                      : null}
-                    {isModerator
-                      ? <SettingsRow
-                          icon="shield-checkmark-outline"
-                          label="Admin Dashboard"
-                          iconColor={Colors.palette.purple}
-                          onPress={() => router.push("/(tabs)/admin/AdminDashboard")}
-                          isLast
-                        />
-                      : null}
+                    {needsSetup && !isModerator && !isAdmin ? (
+                      <SettingsRow
+                        icon="construct-outline"
+                        label="Initialize Admin & Moderation"
+                        iconColor={C.statusWarning}
+                        onPress={async () => {
+                          try {
+                            const res = await setupModeration();
+                            if (res.success) {
+                              Alert.alert("Success", "Moderation system initialized.");
+                              router.push("/(tabs)/admin/AdminDashboard");
+                            } else {
+                              Alert.alert("Notice", res.message || "Failed to set up moderation.");
+                            }
+                          } catch (e: any) {
+                            Alert.alert("Error", e.message || "Setup failed.");
+                          }
+                        }}
+                        isLast
+                      />
+                    ) : (
+                      <SettingsRow
+                        icon="shield-checkmark-outline"
+                        label="Admin Dashboard"
+                        iconColor={Colors.palette.purple}
+                        onPress={() => router.push("/(tabs)/admin/AdminDashboard")}
+                        isLast
+                      />
+                    )}
                   </View>
                 </>
               )}

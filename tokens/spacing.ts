@@ -17,6 +17,13 @@ export const spacing = {
   space10: 40,
   space12: 48,
 
+  // Standard alias tokens
+  xs: 4,
+  sm: 8,
+  md: 16,
+  lg: 24,
+  xl: 32,
+
   // Screen-level layout constants
   screenPaddingH:      20,   // standard horizontal screen padding
   scrollBottomPadding: 100,  // clears tab bar + safe area on standard devices

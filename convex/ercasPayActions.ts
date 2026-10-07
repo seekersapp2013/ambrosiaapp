@@ -78,6 +78,17 @@ export const initializeDepositPayment = action({
       throw new Error('ErcasPay secret key not configured on server');
     }
 
+    // Normalize phone to the local Nigerian format ErcasPay expects
+    // (e.g. "+2348121303854" or "2348121303854" → "08121303854").
+    const normalizePhone = (raw?: string): string => {
+      if (!raw) return "";
+      let digits = raw.replace(/\D/g, "");
+      if (digits.startsWith("234")) digits = "0" + digits.slice(3);
+      if (digits.length === 10 && !digits.startsWith("0")) digits = "0" + digits;
+      return digits;
+    };
+    const customerPhoneNumber = normalizePhone(args.customerPhone);
+
     try {
       const paymentReference = `DEPOSIT_${Date.now()}_${identity.subject}`;
       
@@ -94,7 +105,7 @@ export const initializeDepositPayment = action({
           paymentMethods: args.paymentMethods || "card,bank-transfer,ussd,qrcode",
           customerName: args.customerName,
           customerEmail: args.customerEmail,
-          customerPhoneNumber: args.customerPhone || "",
+          customerPhoneNumber: customerPhoneNumber,
           currency: args.currency,
           feeBearer: args.feeBearer || "customer",
           redirectUrl: args.redirectUrl || "http://localhost:5173/callback",

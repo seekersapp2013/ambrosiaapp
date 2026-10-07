@@ -228,7 +228,7 @@ export function MediaTestView({ audioOnly = false, onJoin, onBack }: MediaTestVi
                 <WebVideoPreview track={videoTrack} mirror={isFrontCamera} />
               ) : (
                 <VideoView
-                  style={StyleSheet.absoluteFill}
+                  style={StyleSheet.absoluteFill as any}
                   videoTrack={videoTrack}
                   objectFit="cover"
                   mirror={isFrontCamera}

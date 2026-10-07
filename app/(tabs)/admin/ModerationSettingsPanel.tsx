@@ -119,6 +119,22 @@ export function ModerationSettingsPanel() {
           onChange={val => handleToggle('bookingSubscribersRequireApproval', val)}
           C={C}
         />
+        <View style={[styles.divider, { backgroundColor: C.borderSubtle }]} />
+        <SettingRow
+          label="Circle Content Requires Approval"
+          description="Content created within circles requires admin approval before going live"
+          value={settings.circleContentRequiresApproval ?? false}
+          onChange={val => handleToggle('circleContentRequiresApproval', val)}
+          C={C}
+        />
+        <View style={[styles.divider, { backgroundColor: C.borderSubtle }]} />
+        <SettingRow
+          label="Allow Non-Provider Circle Content Creation"
+          description="Allow non-provider Circle Admins to create circle-scoped articles, pulses, and events"
+          value={settings.allowNonProviderCircleCreation ?? true}
+          onChange={val => handleToggle('allowNonProviderCircleCreation', val)}
+          C={C}
+        />
       </View>
 
       {/* Info note */}

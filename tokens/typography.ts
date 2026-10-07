@@ -14,12 +14,33 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // Font family
 // ─────────────────────────────────────────────────────────────────────────────
+// Roboto (v2 "Navy Health" rebrand). Roboto has no 600 weight, so `semiBold`
+// maps to the 500 Medium face. Loaded via @expo-google-fonts/roboto in _layout.
 export const fontFamily = {
-  regular:  'Inter_400Regular',
-  medium:   'Inter_500Medium',
-  semiBold: 'Inter_600SemiBold',
-  bold:     'Inter_700Bold',
+  regular:  'Roboto_400Regular',
+  medium:   'Roboto_500Medium',
+  semiBold: 'Roboto_500Medium',
+  bold:     'Roboto_700Bold',
 } as const;
+
+// Maps a numeric/string fontWeight to the matching Roboto family name.
+// Use when you need the correct Roboto face for a given weight.
+export function robotoFamilyForWeight(
+  weight?: string | number
+): string {
+  const w = typeof weight === 'number' ? String(weight) : weight;
+  switch (w) {
+    case '700':
+    case 'bold':
+      return fontFamily.bold;
+    case '600':
+    case '500':
+    case 'medium':
+      return fontFamily.medium;
+    default:
+      return fontFamily.regular;
+  }
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Type scale
@@ -110,6 +131,62 @@ export const typeScale = {
     lineHeight:    14,
     letterSpacing: 1.0,
   },
+
+  // Aliases for compatibility
+  titleSmall: {
+    fontSize:      16,
+    fontWeight:    '600' as const,
+    lineHeight:    24,
+    letterSpacing: 0,
+  },
+  titleMedium: {
+    fontSize:      18,
+    fontWeight:    '600' as const,
+    lineHeight:    26,
+    letterSpacing: 0,
+  },
+  titleLarge: {
+    fontSize:      20,
+    fontWeight:    '700' as const,
+    lineHeight:    28,
+    letterSpacing: -0.1,
+  },
+  bodySmall: {
+    fontSize:      13,
+    fontWeight:    '400' as const,
+    lineHeight:    20,
+    letterSpacing: 0,
+  },
+  bodyMedium: {
+    fontSize:      14,
+    fontWeight:    '400' as const,
+    lineHeight:    22,
+    letterSpacing: 0,
+  },
+  bodyLarge: {
+    fontSize:      16,
+    fontWeight:    '400' as const,
+    lineHeight:    24,
+    letterSpacing: 0,
+  },
+  labelSmall: {
+    fontSize:      12,
+    fontWeight:    '500' as const,
+    lineHeight:    16,
+    letterSpacing: 0.2,
+  },
+  labelMedium: {
+    fontSize:      14,
+    fontWeight:    '600' as const,
+    lineHeight:    18,
+    letterSpacing: 0.1,
+  },
+  labelLarge: {
+    fontSize:      16,
+    fontWeight:    '600' as const,
+    lineHeight:    20,
+    letterSpacing: 0.1,
+  },
 } as const;
 
 export type TypeScaleToken = keyof typeof typeScale;
@@ -134,4 +211,14 @@ export const allowFontScaling: Record<TypeScaleToken, boolean> = {
   labelSM:       false,
   caption:       true,
   overline:      true,
+
+  titleSmall:    true,
+  titleMedium:   true,
+  titleLarge:    false,
+  bodySmall:     true,
+  bodyMedium:    true,
+  bodyLarge:     true,
+  labelSmall:    false,
+  labelMedium:   false,
+  labelLarge:    false,
 };
